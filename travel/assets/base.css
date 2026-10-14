@@ -544,8 +544,8 @@ button, input, textarea, select { font: inherit; color: inherit; }
 @media (min-width: 900px) {
   .footer__grid { grid-template-columns: 5fr 3fr 4fr; }
 }
-.footer h4 {
-  margin: 0 0 18px; font-size: 11px; font-weight: 500; letter-spacing: 0.3em; text-transform: uppercase; opacity: 0.6;
+.footer .footer__h {
+  margin: 0 0 18px; font-size: 11px; font-weight: 500; letter-spacing: 0.3em; text-transform: uppercase; opacity: 0.75;
 }
 .footer ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .footer a { opacity: 0.85; transition: opacity 400ms var(--ease); }
@@ -565,7 +565,7 @@ button, input, textarea, select { font: inherit; color: inherit; }
   display: flex; flex-wrap: wrap; gap: 16px; justify-content: space-between;
   margin-top: clamp(64px, 8vw, 112px); padding-top: 28px;
   border-top: 1px solid color-mix(in srgb, currentColor 22%, transparent);
-  font-size: 12px; letter-spacing: 0.12em; opacity: 0.7;
+  font-size: 12px; letter-spacing: 0.12em; opacity: 0.85;
 }
 
 /* ---------- 滚动进入动效 ---------- */
@@ -576,6 +576,10 @@ button, input, textarea, select { font: inherit; color: inherit; }
   transition-delay: var(--delay, 0ms);
 }
 .js [data-reveal].is-in { opacity: 1; transform: none; }
+
+/* 首屏文字只做位移不做透明度变化，避免推迟 LCP，也不依赖 JS */
+.hero-rise { animation: hero-rise 1100ms var(--ease-slow) both; animation-delay: var(--delay, 0ms); }
+@keyframes hero-rise { from { transform: translateY(24px); } to { transform: none; } }
 
 /* 图片揭幕：遮罩从下往上收起。clip-path 只加在子元素上，
    否则 Chrome 的 IntersectionObserver 会把被裁掉的容器视为不可见 */

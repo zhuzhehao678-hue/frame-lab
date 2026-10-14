@@ -10,8 +10,12 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="preconnect" href="https://images.unsplash.com" />
-  <link rel="preload" as="image" href="https://images.unsplash.com/photo-1530841377377-3ff06c0ca713?auto=format&fit=crop&w=1920&q=70" />
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;1,9..144,300;1,9..144,400&family=Inter:wght@400;500&family=Noto+Serif+SC:wght@400;500&display=swap" />
+  <link rel="preload" as="image" href="https://images.unsplash.com/photo-1530841377377-3ff06c0ca713?auto=format&fit=crop&w=1920&q=70"
+        imagesrcset="https://images.unsplash.com/photo-1530841377377-3ff06c0ca713?auto=format&fit=crop&w=900&q=70 900w, https://images.unsplash.com/photo-1530841377377-3ff06c0ca713?auto=format&fit=crop&w=1920&q=70 1920w, https://images.unsplash.com/photo-1530841377377-3ff06c0ca713?auto=format&fit=crop&w=2560&q=70 2560w"
+        imagesizes="(min-width:960px) 40vw, 100vw" fetchpriority="high" />
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;1,9..144,300;1,9..144,400&family=Inter:wght@400;500&family=Noto+Serif+SC:wght@400;500&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;1,9..144,300;1,9..144,400&family=Inter:wght@400;500&family=Noto+Serif+SC:wght@400;500&display=swap" media="print" onload="this.media='all'" />
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;1,9..144,300;1,9..144,400&family=Inter:wght@400;500&family=Noto+Serif+SC:wght@400;500&display=swap" /></noscript>
 
   <link rel="stylesheet" href="assets/base.css" />
   <link rel="stylesheet" href="assets/theme-sun.css" />
@@ -55,13 +59,13 @@
           srcset="https://images.unsplash.com/photo-1530841377377-3ff06c0ca713?auto=format&fit=crop&w=900&q=70 900w,
                   https://images.unsplash.com/photo-1530841377377-3ff06c0ca713?auto=format&fit=crop&w=1920&q=70 1920w,
                   https://images.unsplash.com/photo-1530841377377-3ff06c0ca713?auto=format&fit=crop&w=2560&q=70 2560w"
-          sizes="100vw" alt="圣托里尼白色房屋与蓝色圆顶，面向爱琴海" fetchpriority="high" decoding="async" />
+          sizes="(min-width:960px) 40vw, 100vw" alt="圣托里尼白色房屋与蓝色圆顶，面向爱琴海" fetchpriority="high" decoding="async" />
       </div>
       <div class="container hero__content">
-        <span class="eyebrow" data-reveal>Summer Edition · Mediterranean</span>
-        <h1 id="hero-title" class="display hero__title" data-reveal style="--delay:120ms">把日子过成<br /><em>一个长长的夏天</em></h1>
-        <p class="hero__slogan" data-reveal style="--delay:240ms">慢下来，去一个值得停留的地方。阳光晒在白墙上，海风吹着亚麻窗帘，午睡醒来，太阳还没落。</p>
-        <div class="hero__meta" data-reveal style="--delay:360ms">
+        <span class="eyebrow hero-rise">Summer Edition · Mediterranean</span>
+        <h1 id="hero-title" class="display hero__title hero-rise" style="--delay:120ms">把日子过成<br /><em>一个长长的夏天</em></h1>
+        <p class="hero__slogan hero-rise" style="--delay:240ms">慢下来，去一个值得停留的地方。阳光晒在白墙上，海风吹着亚麻窗帘，午睡醒来，太阳还没落。</p>
+        <div class="hero__meta hero-rise" style="--delay:360ms">
           <a class="btn btn--sun" href="#destinations">开始漫游 <span class="arrow" aria-hidden="true">→</span></a>
           <span class="scroll-hint" aria-hidden="true"><i></i>Scroll</span>
         </div>
@@ -294,11 +298,11 @@
       <p class="footer__big">Stay a little<br /><em>longer.</em></p>
       <div class="footer__grid">
         <div>
-          <h4>About</h4>
+          <h2 class="footer__h">About</h2>
           <p style="margin:0;max-width:26em;opacity:.85">Wander &amp; Linger｜漫游，为热爱阳光与海的人安排不必赶路的假期。慢下来，去一个值得停留的地方。</p>
         </div>
         <div>
-          <h4>Follow</h4>
+          <h2 class="footer__h">Follow</h2>
           <ul>
             <li><a href="#" rel="noopener">Instagram</a></li>
             <li><a href="#" rel="noopener">小红书</a></li>
@@ -306,7 +310,7 @@
           </ul>
         </div>
         <div>
-          <h4>Newsletter</h4>
+          <h2 class="footer__h">Newsletter</h2>
           <p style="margin:0 0 12px;opacity:.85">每月一封夏日来信，附上海岸线的新发现。</p>
           <form class="subscribe" data-subscribe>
             <label class="sr-only" for="s-sub">邮箱地址</label>

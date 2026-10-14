@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Wander &amp; Linger｜漫游 · 三个设计方向</title>
+  <meta name="description" content="Wander & Linger 旅行网站的三个设计方向：侘寂·静、地中海·暖、暗夜·奢。" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;1,400&family=Inter:wght@400;500&family=Noto+Serif+SC:wght@400&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;1,400&family=Inter:wght@400;500&family=Noto+Serif+SC:wght@400&display=swap" media="print" onload="this.media='all'" />
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;1,400&family=Inter:wght@400;500&family=Noto+Serif+SC:wght@400&display=swap" /></noscript>
+  <link rel="stylesheet" href="assets/base.css" />
+  <style>
+    .hub { padding-block: clamp(72px, 10vw, 140px); }
+    .hub__title { font-size: clamp(44px, 7vw, 108px); margin: 24px 0 20px; }
+    .hub__lead { max-width: 36em; color: var(--ink-soft); margin: 0 0 clamp(56px, 8vw, 104px); }
+
+    .dirs { display: grid; gap: clamp(20px, 2.4vw, 36px); }
+    @media (min-width: 960px) { .dirs { grid-template-columns: repeat(3, 1fr); } }
+    .dir { display: grid; gap: 20px; align-content: start; }
+    .dir__media { position: relative; overflow: hidden; aspect-ratio: 4 / 5; background: var(--surface); }
+    .dir__media img { width: 100%; height: 100%; object-fit: cover; transition: transform 1600ms var(--ease-slow); }
+    .dir:hover .dir__media img { transform: scale(1.05); }
+    .dir__swatches { position: absolute; left: 20px; bottom: 20px; display: flex; gap: 6px; }
+    .dir__swatches i { width: 22px; height: 22px; border-radius: 50%; box-shadow: 0 0 0 1px rgba(255,255,255,.6); }
+    .dir__name { font-family: var(--font-display); font-size: 34px; margin: 0; line-height: 1.2; }
+    .dir__name small { display: block; font-family: var(--font-body); font-size: 11px; letter-spacing: .3em; color: var(--ink-soft); margin-bottom: 8px; }
+    .dir p { margin: 0; color: var(--ink-soft); font-size: 15px; }
+
+    .compare { margin-top: clamp(96px, 12vw, 180px); }
+    .compare h2 { font-size: clamp(34px, 4.6vw, 64px); margin: 20px 0 48px; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; min-width: 760px; border-collapse: collapse; font-size: 15px; }
+    th, td { text-align: left; vertical-align: top; padding: 20px 24px 20px 0; border-top: 1px solid var(--line); }
+    thead th { font-family: var(--font-display); font-weight: 400; font-size: 24px; border-top: 0; }
+    tbody th { width: 14%; font-weight: 500; font-size: 12px; letter-spacing: .2em; color: var(--ink-soft); }
+    td { color: var(--ink); }
+
+    .pick {
+      margin-top: clamp(80px, 10vw, 140px);
+      background: var(--primary); color: var(--on-image);
+      padding: clamp(36px, 6vw, 96px);
+      display: grid; gap: 28px;
+    }
+    @media (min-width: 960px) { .pick { grid-template-columns: 5fr 7fr; column-gap: 64px; } }
+    .pick .eyebrow { color: inherit; opacity: .75; }
+    .pick h2 { font-size: clamp(36px, 4.8vw, 68px); margin: 16px 0 0; }
+    .pick ol { margin: 0; padding-left: 1.2em; display: grid; gap: 14px; opacity: .9; }
+    .pick .btn { color: var(--on-image); margin-top: 12px; justify-self: start; }
+    .pick .btn:hover { background: var(--on-image); color: var(--primary); }
+  </style>
+</head>
+<body>
+  <div class="grain" aria-hidden="true"></div>
+  <main class="hub container">
+    <span class="eyebrow" data-reveal>Wander &amp; Linger · Design Directions</span>
+    <h1 class="display hub__title" data-reveal>同一个品牌，<br />三种停留的方式</h1>
+    <p class="hub__lead" data-reveal>三个方向共用同一套页面结构：首屏、精选目的地、旅行故事、旅行方式、用户评价、写信式定制表单和页脚。差别在色彩、字体、形状和语气。点开任意一个即可浏览完整页面。</p>
+
+    <div class="dirs">
+      <a class="dir" href="zen.html" data-reveal>
+        <div class="dir__media">
+          <img src="https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&w=900&q=70" alt="方向 A 预览：京都老街" loading="lazy" decoding="async" style="filter:saturate(.72) sepia(.08)" />
+          <div class="dir__swatches" aria-hidden="true"><i style="background:#f5f1ea"></i><i style="background:#1f3a33"></i><i style="background:#c67b5c"></i><i style="background:#1a1a1a"></i></div>
+        </div>
+        <h2 class="dir__name"><small>DIRECTION A</small>侘寂·静</h2>
+        <p>米白与墨绿，直角与细线，宋体与大留白。像一本日式旅行杂志，以克制换取质感：照片降饱和、文字竖排边注、信纸上盖一枚邮戳。</p>
+        <span class="link-line">浏览方向 A →</span>
+      </a>
+      <a class="dir" href="sun.html" data-reveal style="--delay:120ms">
+        <div class="dir__media">
+          <img src="https://images.unsplash.com/photo-1533105079780-92b9be482077?auto=format&fit=crop&w=900&q=70" alt="方向 B 预览：圣托里尼" loading="lazy" decoding="async" />
+          <div class="dir__swatches" aria-hidden="true"><i style="background:#fbf5ec"></i><i style="background:#d2693c"></i><i style="background:#1d4e7a"></i><i style="background:#f2c14e"></i></div>
+        </div>
+        <h2 class="dir__name"><small>DIRECTION B</small>地中海·暖</h2>
+        <p>奶油白、陶土橙和海蓝，大圆角与胶囊按钮。首屏照片装进白墙拱门形画框，旁边一枚慢慢旋转的太阳；表单是一张贴了邮票的明信片。</p>
+        <span class="link-line">浏览方向 B →</span>
+      </a>
+      <a class="dir" href="noir.html" data-reveal style="--delay:240ms">
+        <div class="dir__media">
+          <img src="https://images.unsplash.com/photo-1531366936337-7c912a4589a7?auto=format&fit=crop&w=900&q=70" alt="方向 C 预览：极光" loading="lazy" decoding="async" />
+          <div class="dir__swatches" aria-hidden="true"><i style="background:#0d0d0c"></i><i style="background:#161513"></i><i style="background:#c9a96e"></i><i style="background:#ece6da"></i></div>
+        </div>
+        <h2 class="dir__name"><small>DIRECTION C</small>暗夜·奢</h2>
+        <p>深炭黑配香槟金细线，Bodoni 高反差衬线，居中对称构图。首屏带宽银幕黑边与取景框坐标，卡片悬停时浮现金色内框，表单是一封私人邀约函。</p>
+        <span class="link-line">浏览方向 C →</span>
+      </a>
+    </div>
+
+    <section class="compare" aria-labelledby="cmp">
+      <span class="eyebrow" data-reveal>Comparison</span>
+      <h2 id="cmp" class="display" data-reveal>三个方向的取舍</h2>
+      <div class="table-wrap" data-reveal>
+        <table>
+          <thead>
+            <tr><th scope="col"><span class="sr-only">维度</span></th><th scope="col">A 侘寂·静</th><th scope="col">B 地中海·暖</th><th scope="col">C 暗夜·奢</th></tr>
+          </thead>
+          <tbody>
+            <tr><th scope="row">气质</th><td>安静、书卷气、有呼吸感</td><td>明亮、松弛、度假感</td><td>神秘、电影感、仪式感</td></tr>
+            <tr><th scope="row">优点</th><td>与"慢下来"的品牌主张最一致；照片风格容易统一；长期看最耐看</td><td>亲和力强，转化门槛低；适合家庭与情侣；夏季营销天然契合</td><td>溢价感最强，一眼高端；夜景、极光、城市灯火的照片表现力最好</td></tr>
+            <tr><th scope="row">缺点</th><td>过于克制时容易显得冷；对照片调色和文案质量要求高</td><td>海岛度假站很多，差异化相对弱；冬季内容不好放</td><td>深色长页面阅读疲劳；白天户外照片放进来会显得突兀；受众窄</td></tr>
+            <tr><th scope="row">适合定位</th><td>精品慢旅行工作室、独立旅行杂志、小众目的地</td><td>海岛 / 地中海度假品牌、蜜月与亲子定制</td><td>高净值私人定制、会员制旅行俱乐部</td></tr>
+            <tr><th scope="row">目标客单</th><td>中高</td><td>中</td><td>高</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="pick" aria-labelledby="pick" data-reveal>
+      <div>
+        <span class="eyebrow">Recommendation</span>
+        <h2 id="pick" class="display">推荐方向 A<br />「侘寂·静」</h2>
+      </div>
+      <div style="display:grid;gap:20px">
+        <ol>
+          <li><strong>和品牌主张完全同频。</strong>"慢下来，去一个值得停留的地方"本身就是一种克制的态度，留白和慢节奏动效是在用设计复述这句话。</li>
+          <li><strong>差异化最明显。</strong>市面上的旅行网站要么促销堆砌，要么海岛蓝天，杂志式的安静版面反而最容易被记住。</li>
+          <li><strong>内容扩展性最好。</strong>海岛、雪山、城市、森林放进米白墨绿的体系里都不违和；方向 B 偏夏天，方向 C 偏夜景，都会限制选题。</li>
+          <li><strong>贴合目标用户。</strong>25–40 岁、重视审美的城市旅行者，正是 Kinfolk 式生活方式内容的核心读者。</li>
+        </ol>
+        <p style="margin:0;opacity:.8">如果后续要推出高端会员线，可以把方向 C 作为子品牌页面；夏季海岛专题则可以借用方向 B 的配色做活动页。</p>
+        <a class="btn" href="zen.html">进入方向 A <span class="arrow" aria-hidden="true">→</span></a>
+      </div>
+    </section>
+  </main>
+  <script src="assets/main.js" defer></script>
+</body>
+</html>

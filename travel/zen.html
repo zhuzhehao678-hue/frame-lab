@@ -10,8 +10,12 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="preconnect" href="https://images.unsplash.com" />
-  <link rel="preload" as="image" href="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=1920&q=70" />
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=Inter:wght@400;500&family=Noto+Serif+SC:wght@400;500&display=swap" />
+  <link rel="preload" as="image" href="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=1920&q=70"
+        imagesrcset="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=900&q=70 900w, https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=1920&q=70 1920w, https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=2560&q=70 2560w"
+        imagesizes="100vw" fetchpriority="high" />
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=Inter:wght@400;500&family=Noto+Serif+SC:wght@400;500&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=Inter:wght@400;500&family=Noto+Serif+SC:wght@400;500&display=swap" media="print" onload="this.media='all'" />
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=Inter:wght@400;500&family=Noto+Serif+SC:wght@400;500&display=swap" /></noscript>
 
   <link rel="stylesheet" href="assets/base.css" />
   <link rel="stylesheet" href="assets/theme-zen.css" />
@@ -58,10 +62,10 @@
           sizes="100vw" alt="云海之上的雪山，黄昏时分" fetchpriority="high" decoding="async" />
       </div>
       <div class="container hero__content">
-        <span class="eyebrow" data-reveal>Slow Travel Journal · Vol. 07</span>
-        <h1 id="hero-title" class="display hero__title" data-reveal style="--delay:120ms">慢下来，<br />去一个<em>值得停留</em>的地方</h1>
-        <p class="hero__slogan" data-reveal style="--delay:240ms">有些地方，不是为了打卡，而是为了让时间慢下来。我们只推荐那些愿意让你多住几晚的地方。</p>
-        <div class="hero__meta" data-reveal style="--delay:360ms">
+        <span class="eyebrow hero-rise">Slow Travel Journal · Vol. 07</span>
+        <h1 id="hero-title" class="display hero__title hero-rise" style="--delay:120ms">慢下来，<br />去一个<em>值得停留</em>的地方</h1>
+        <p class="hero__slogan hero-rise" style="--delay:240ms">有些地方，不是为了打卡，而是为了让时间慢下来。我们只推荐那些愿意让你多住几晚的地方。</p>
+        <div class="hero__meta hero-rise" style="--delay:360ms">
           <a class="btn btn--light" href="#destinations">开始漫游 <span class="arrow" aria-hidden="true">→</span></a>
           <span class="scroll-hint" aria-hidden="true"><i></i>Scroll</span>
         </div>
@@ -294,11 +298,11 @@
       <p class="footer__big">Wander,<br />then Linger.</p>
       <div class="footer__grid">
         <div>
-          <h4>About</h4>
+          <h2 class="footer__h">About</h2>
           <p style="margin:0;max-width:26em;opacity:.85">Wander &amp; Linger｜漫游，一间专注慢旅行的小型旅行工作室。慢下来，去一个值得停留的地方。</p>
         </div>
         <div>
-          <h4>Follow</h4>
+          <h2 class="footer__h">Follow</h2>
           <ul>
             <li><a href="#" rel="noopener">Instagram</a></li>
             <li><a href="#" rel="noopener">小红书</a></li>
@@ -306,7 +310,7 @@
           </ul>
         </div>
         <div>
-          <h4>Newsletter</h4>
+          <h2 class="footer__h">Newsletter</h2>
           <p style="margin:0 0 12px;opacity:.85">每季一封信，寄给你几个值得停留的地方。</p>
           <form class="subscribe" data-subscribe>
             <label class="sr-only" for="z-sub">邮箱地址</label>
