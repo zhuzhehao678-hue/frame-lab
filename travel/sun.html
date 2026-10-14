@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Wander &amp; Linger｜漫游 · 地中海·暖</title>
+  <meta name="description" content="慢下来，去一个值得停留的地方。阳光、海风和不必赶路的假期。" />
+  <meta name="theme-color" content="#fbf5ec" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://images.unsplash.com" />
+  <link rel="preload" as="image" href="https://images.unsplash.com/photo-1530841377377-3ff06c0ca713?auto=format&fit=crop&w=1920&q=70" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;1,9..144,300;1,9..144,400&family=Inter:wght@400;500&family=Noto+Serif+SC:wght@400;500&display=swap" />
+
+  <link rel="stylesheet" href="assets/base.css" />
+  <link rel="stylesheet" href="assets/theme-sun.css" />
+</head>
+<body class="theme-sun">
+  <div class="grain" aria-hidden="true"></div>
+
+  <!-- 导航 -->
+  <header class="nav">
+    <div class="container nav__inner">
+      <a class="brand" href="#top" aria-label="Wander & Linger 首页"><span class="sun-dot" aria-hidden="true"></span>Wander &amp; Linger <small>漫游</small></a>
+      <nav aria-label="主导航">
+        <ul class="nav__links">
+          <li><a href="#destinations">目的地</a></li>
+          <li><a href="#stories">旅行故事</a></li>
+          <li><a href="#ways">旅行方式</a></li>
+          <li><a href="#contact">定制行程</a></li>
+        </ul>
+      </nav>
+      <a class="btn nav__cta" href="#contact">规划假期</a>
+      <button class="nav__toggle" type="button" aria-label="打开菜单" aria-expanded="false" aria-controls="drawer"><span></span></button>
+    </div>
+  </header>
+
+  <div class="drawer" id="drawer">
+    <button class="drawer__close" type="button" aria-label="关闭菜单">×</button>
+    <ul>
+      <li><a href="#destinations">目的地</a></li>
+      <li><a href="#stories">旅行故事</a></li>
+      <li><a href="#ways">旅行方式</a></li>
+      <li><a href="#contact">定制行程</a></li>
+    </ul>
+  </div>
+
+  <main id="top">
+    <!-- Hero：圆角画框式首屏 -->
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero__media">
+        <img
+          src="https://images.unsplash.com/photo-1530841377377-3ff06c0ca713?auto=format&fit=crop&w=1920&q=70"
+          srcset="https://images.unsplash.com/photo-1530841377377-3ff06c0ca713?auto=format&fit=crop&w=900&q=70 900w,
+                  https://images.unsplash.com/photo-1530841377377-3ff06c0ca713?auto=format&fit=crop&w=1920&q=70 1920w,
+                  https://images.unsplash.com/photo-1530841377377-3ff06c0ca713?auto=format&fit=crop&w=2560&q=70 2560w"
+          sizes="100vw" alt="圣托里尼白色房屋与蓝色圆顶，面向爱琴海" fetchpriority="high" decoding="async" />
+      </div>
+      <div class="container hero__content">
+        <span class="eyebrow" data-reveal>Summer Edition · Mediterranean</span>
+        <h1 id="hero-title" class="display hero__title" data-reveal style="--delay:120ms">把日子过成<br /><em>一个长长的夏天</em></h1>
+        <p class="hero__slogan" data-reveal style="--delay:240ms">慢下来，去一个值得停留的地方。阳光晒在白墙上，海风吹着亚麻窗帘，午睡醒来，太阳还没落。</p>
+        <div class="hero__meta" data-reveal style="--delay:360ms">
+          <a class="btn btn--sun" href="#destinations">开始漫游 <span class="arrow" aria-hidden="true">→</span></a>
+          <span class="scroll-hint" aria-hidden="true"><i></i>Scroll</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 序言 -->
+    <section class="section intro">
+      <div class="container grid-12">
+        <p class="intro__lead display" data-reveal>一个好的假期，应该有<span class="accent">柠檬</span>、<span class="accent sea">海水</span>，和一张永远不用早起的床。</p>
+        <dl class="intro__stats" data-reveal style="--delay:160ms">
+          <div><dt>海岸线目的地</dt><dd>36</dd></div>
+          <div><dt>每年晴天</dt><dd>300<small>天+</small></dd></div>
+          <div><dt>平均停留</dt><dd>8<small>晚</small></dd></div>
+        </dl>
+      </div>
+    </section>
+
+    <!-- 精选目的地 -->
+    <section class="section dest" id="destinations" aria-labelledby="dest-title">
+      <div class="container">
+        <div class="section-head">
+          <span class="eyebrow" data-reveal>Destinations</span>
+          <h2 id="dest-title" class="display" data-reveal>阳光最好的<br /><em>五个角落</em></h2>
+          <p data-reveal style="--delay:120ms">从爱琴海到印度洋，我们挑的不是最热闹的海滩，而是最适合发呆的那一个。</p>
+        </div>
+
+        <div class="dest-grid">
+          <a class="card" href="#contact" data-reveal="mask">
+            <img loading="lazy" decoding="async" src="https://images.unsplash.com/photo-1533105079780-92b9be482077?auto=format&fit=crop&w=1400&q=70" srcset="https://images.unsplash.com/photo-1533105079780-92b9be482077?auto=format&fit=crop&w=800&q=70 800w, https://images.unsplash.com/photo-1533105079780-92b9be482077?auto=format&fit=crop&w=1400&q=70 1400w" sizes="(min-width:1024px) 58vw, 100vw" alt="圣托里尼伊亚小镇的白色台阶与海景" />
+            <div class="card__body">
+              <span class="card__index">01 — GREECE</span>
+              <span class="card__title">圣托里尼 · 伊亚</span>
+              <p class="card__desc">住在悬崖上的洞穴屋里，每天傍晚，整座岛都安静下来等日落。</p>
+            </div>
+          </a>
+          <a class="card" href="#contact" data-reveal="mask" style="--delay:120ms">
+            <img loading="lazy" decoding="async" src="https://images.unsplash.com/photo-1516483638261-f4dbaf036963?auto=format&fit=crop&w=1000&q=70" srcset="https://images.unsplash.com/photo-1516483638261-f4dbaf036963?auto=format&fit=crop&w=700&q=70 700w, https://images.unsplash.com/photo-1516483638261-f4dbaf036963?auto=format&fit=crop&w=1000&q=70 1000w" sizes="(min-width:1024px) 33vw, 100vw" alt="五渔村色彩斑斓的海边房屋" />
+            <div class="card__body">
+              <span class="card__index">02 — ITALY</span>
+              <span class="card__title">五渔村</span>
+              <p class="card__desc">彩色的房子，晾在窗外的床单，和一杯冰镇的白葡萄酒。</p>
+            </div>
+          </a>
+          <a class="card" href="#contact" data-reveal="mask">
+            <img loading="lazy" decoding="async" src="https://images.unsplash.com/photo-1523906834658-6e24ef2386f9?auto=format&fit=crop&w=1000&q=70" srcset="https://images.unsplash.com/photo-1523906834658-6e24ef2386f9?auto=format&fit=crop&w=700&q=70 700w, https://images.unsplash.com/photo-1523906834658-6e24ef2386f9?auto=format&fit=crop&w=1000&q=70 1000w" sizes="(min-width:1024px) 33vw, 100vw" alt="威尼斯里亚尔托桥与大运河" />
+            <div class="card__body">
+              <span class="card__index">03 — VENICE</span>
+              <span class="card__title">威尼斯</span>
+              <p class="card__desc">迷路是这座城市唯一的正确玩法。</p>
+            </div>
+          </a>
+          <a class="card" href="#contact" data-reveal="mask" style="--delay:120ms">
+            <img loading="lazy" decoding="async" src="https://images.unsplash.com/photo-1537996194471-e657df975ab4?auto=format&fit=crop&w=1400&q=70" srcset="https://images.unsplash.com/photo-1537996194471-e657df975ab4?auto=format&fit=crop&w=800&q=70 800w, https://images.unsplash.com/photo-1537996194471-e657df975ab4?auto=format&fit=crop&w=1400&q=70 1400w" sizes="(min-width:1024px) 58vw, 100vw" alt="巴厘岛水上神庙" />
+            <div class="card__body">
+              <span class="card__index">04 — BALI</span>
+              <span class="card__title">巴厘岛 · 乌布</span>
+              <p class="card__desc">稻田、瑜伽和清晨的鸡蛋花，适合把心放空一周。</p>
+            </div>
+          </a>
+          <a class="card" href="#contact" data-reveal="mask">
+            <img loading="lazy" decoding="async" src="https://images.unsplash.com/photo-1514282401047-d79a71a590e8?auto=format&fit=crop&w=1200&q=70" srcset="https://images.unsplash.com/photo-1514282401047-d79a71a590e8?auto=format&fit=crop&w=800&q=70 800w, https://images.unsplash.com/photo-1514282401047-d79a71a590e8?auto=format&fit=crop&w=1200&q=70 1200w" sizes="(min-width:1024px) 50vw, 100vw" alt="马尔代夫碧蓝海面上的水上屋" />
+            <div class="card__body">
+              <span class="card__index">05 — MALDIVES</span>
+              <span class="card__title">马尔代夫</span>
+              <p class="card__desc">从房间的台阶走下去，就是整片印度洋。</p>
+            </div>
+          </a>
+          <div class="dest-note" data-reveal>
+            <p class="display">下一站，<br />由你来决定。</p>
+            <a class="link-line" href="#contact">查看全部海岸 →</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 旅行故事 -->
+    <section class="section stories" id="stories" aria-labelledby="stories-title">
+      <div class="container">
+        <div class="section-head">
+          <span class="eyebrow" data-reveal>Stories</span>
+          <h2 id="stories-title" class="display" data-reveal>晒过太阳的<br /><em>旅行手记</em></h2>
+          <p data-reveal style="--delay:120ms">那些被海风吹乱头发的下午，那些吃到一半就忘了时间的晚餐。</p>
+        </div>
+
+        <article class="story">
+          <figure class="story__figure" style="margin:0">
+            <div class="story__media" data-reveal="mask">
+              <img loading="lazy" decoding="async" src="https://images.unsplash.com/photo-1540541338287-41700207dee6?auto=format&fit=crop&w=1200&q=70" srcset="https://images.unsplash.com/photo-1540541338287-41700207dee6?auto=format&fit=crop&w=800&q=70 800w, https://images.unsplash.com/photo-1540541338287-41700207dee6?auto=format&fit=crop&w=1200&q=70 1200w" sizes="(min-width:960px) 50vw, 100vw" alt="悬崖边面朝大海的泳池与白色遮阳伞" />
+            </div>
+            <figcaption class="story__cap">Amalfi Coast, Italy — 下午三点的泳池</figcaption>
+          </figure>
+          <div class="story__text">
+            <span class="eyebrow" data-reveal>Story 01 · 阿马尔菲</span>
+            <h3 class="display" data-reveal>每天只做一件事：<br />游泳，然后吃柠檬冰</h3>
+            <p data-reveal>民宿的老板娘每天早上会在门口放一篮柠檬，说是自家院子里长的。我们带着它去海边，泡在水里看悬崖上的房子一点点被晒成金色。</p>
+            <blockquote class="pull-quote" data-reveal>那个夏天，连时间都被晒得软软的。</blockquote>
+            <a class="link-line" href="#contact" data-reveal>阅读全文 →</a>
+          </div>
+        </article>
+
+        <article class="story story--flip">
+          <figure class="story__figure" style="margin:0">
+            <div class="story__media" data-reveal="mask">
+              <img loading="lazy" decoding="async" src="https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?auto=format&fit=crop&w=1200&q=70" srcset="https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?auto=format&fit=crop&w=800&q=70 800w, https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?auto=format&fit=crop&w=1200&q=70 1200w" sizes="(min-width:960px) 50vw, 100vw" alt="棕榈树环绕的热带泳池与茅草伞" />
+            </div>
+            <figcaption class="story__cap">Ubud, Bali — 雨季前的最后一周</figcaption>
+          </figure>
+          <div class="story__text">
+            <span class="eyebrow" data-reveal>Story 02 · 巴厘岛</span>
+            <h3 class="display" data-reveal>在泳池边，<br />读完了一整本书</h3>
+            <p data-reveal>出发前买的那本小说，在家放了两年没翻开。到了乌布的第三天，躺在棕榈树下，一口气读完了。</p>
+            <blockquote class="pull-quote" data-reveal>原来我缺的不是时间，是一个可以慢下来的地方。</blockquote>
+            <a class="link-line" href="#contact" data-reveal>阅读全文 →</a>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- 旅行方式 -->
+    <section class="section ways" id="ways" aria-labelledby="ways-title">
+      <div class="container">
+        <div class="ways__bar">
+          <div>
+            <span class="eyebrow" data-reveal>Ways to Linger</span>
+            <h2 id="ways-title" class="display" data-reveal style="font-size:clamp(36px,5.2vw,72px);margin-top:20px">今年夏天，<em>怎么过</em></h2>
+          </div>
+          <div class="ways__ctrl">
+            <button type="button" data-prev aria-label="上一个">←</button>
+            <button type="button" data-next aria-label="下一个">→</button>
+          </div>
+        </div>
+      </div>
+      <div class="track" data-track>
+        <article class="way">
+          <div class="way__media"><img loading="lazy" decoding="async" src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=70" alt="金色阳光下的海滩" draggable="false" /></div>
+          <div class="way__meta"><h3 class="way__title">海岛静居</h3><span class="way__en">Island</span></div>
+          <p>白沙、躺椅，和一本永远读不完的书。</p>
+        </article>
+        <article class="way">
+          <div class="way__media"><img loading="lazy" decoding="async" src="https://images.unsplash.com/photo-1504214208698-ea1916a2195a?auto=format&fit=crop&w=800&q=70" alt="被绿色山崖环抱的泻湖与长尾船" draggable="false" /></div>
+          <div class="way__meta"><h3 class="way__title">跳岛航行</h3><span class="way__en">Sailing</span></div>
+          <p>租一条船，每天停靠一座新的小岛。</p>
+        </article>
+        <article class="way">
+          <div class="way__media"><img loading="lazy" decoding="async" src="https://images.unsplash.com/photo-1505228395891-9a51e7e86bf6?auto=format&fit=crop&w=800&q=70" alt="俯瞰的蓝色海浪" draggable="false" /></div>
+          <div class="way__meta"><h3 class="way__title">清晨冲浪</h3><span class="way__en">Surf</span></div>
+          <p>六点下水，八点回来吃一盘热带水果。</p>
+        </article>
+        <article class="way">
+          <div class="way__media"><img loading="lazy" decoding="async" src="https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=70" alt="山间木屋与泳池" draggable="false" /></div>
+          <div class="way__meta"><h3 class="way__title">庄园小住</h3><span class="way__en">Villa</span></div>
+          <p>住进一座带果园的老房子，学做一道当地菜。</p>
+        </article>
+        <article class="way">
+          <div class="way__media"><img loading="lazy" decoding="async" src="https://images.unsplash.com/photo-1518548419970-58e3b4079ab2?auto=format&fit=crop&w=800&q=70" alt="海边岩石上的神庙与日落" draggable="false" /></div>
+          <div class="way__meta"><h3 class="way__title">追逐日落</h3><span class="way__en">Sunset</span></div>
+          <p>每天的行程只有一项：找到今天最好看的日落。</p>
+        </article>
+      </div>
+      <div class="container"><div class="progress" aria-hidden="true"><span></span></div></div>
+    </section>
+
+    <!-- 用户评价 -->
+    <section class="section voices" aria-labelledby="voices-title" data-voices>
+      <div class="container">
+        <h2 id="voices-title" class="sr-only">旅人评价</h2>
+        <span class="eyebrow" data-reveal>Postcards from Guests</span>
+        <div class="voices__stage" aria-live="polite">
+          <figure class="voice">
+            <blockquote>“回来一个月了，皮肤上好像还有阳光的味道。”</blockquote>
+            <figcaption>周小姐 · 圣托里尼 · 8 晚</figcaption>
+          </figure>
+          <figure class="voice">
+            <blockquote>“他们帮我们订的那间小民宿，是整趟旅行里最好的决定。”</blockquote>
+            <figcaption>Leo &amp; Mia · 五渔村 · 6 晚</figcaption>
+          </figure>
+          <figure class="voice">
+            <blockquote>“孩子说，这是他第一次觉得假期太短了。”</blockquote>
+            <figcaption>何先生一家 · 马尔代夫 · 7 晚</figcaption>
+          </figure>
+        </div>
+        <div class="voices__dots"></div>
+      </div>
+    </section>
+
+    <!-- 定制咨询 -->
+    <section class="section contact" id="contact" aria-labelledby="contact-title">
+      <div class="container">
+        <div class="letter" data-reveal>
+          <div class="letter__head">
+            <span class="eyebrow">Send a Postcard</span>
+            <h2 id="contact-title" class="display">寄一张明信片给我们</h2>
+            <p>写下几句话就好。我们的旅行顾问会在两天内回信，附上一份为你量身安排的夏日提案。</p>
+          </div>
+
+          <form class="letter__form" data-letter novalidate>
+            <p style="margin:0">
+              嗨，我是
+              <label class="sr-only" for="s-name">姓名</label>
+              <input class="field" id="s-name" name="name" type="text" placeholder="你的名字" required autocomplete="name" />，
+              打算在
+              <label class="sr-only" for="s-time">出行时间</label>
+              <input class="field" id="s-time" name="time" type="text" placeholder="七月中旬" required />
+              去
+              <label class="sr-only" for="s-dest">目的地</label>
+              <input class="field" id="s-dest" name="destination" type="text" placeholder="有海的地方" required />
+              晒晒太阳。
+            </p>
+            <label class="sr-only" for="s-idea">你的想法</label>
+            <textarea class="field" id="s-idea" name="idea" rows="3" placeholder="我想要的假期，大概是这样的……"></textarea>
+            <div class="letter__foot">
+              <span>回信邮箱
+                <label class="sr-only" for="s-mail">邮箱</label>
+                <input class="field" id="s-mail" name="email" type="email" placeholder="you@mail.com" required autocomplete="email" style="font-family:var(--font-body);font-size:15px;min-width:14em" />
+              </span>
+              <button class="btn btn--solid" type="submit">寄出明信片 <span class="arrow" aria-hidden="true">→</span></button>
+            </div>
+          </form>
+
+          <p class="letter__thanks" role="status">收到啦，<span data-name>旅人</span>！<br />明信片正在路上，两天内回信。</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- 页脚 -->
+  <footer class="footer">
+    <div class="container">
+      <p class="footer__big">Stay a little<br /><em>longer.</em></p>
+      <div class="footer__grid">
+        <div>
+          <h4>About</h4>
+          <p style="margin:0;max-width:26em;opacity:.85">Wander &amp; Linger｜漫游，为热爱阳光与海的人安排不必赶路的假期。慢下来，去一个值得停留的地方。</p>
+        </div>
+        <div>
+          <h4>Follow</h4>
+          <ul>
+            <li><a href="#" rel="noopener">Instagram</a></li>
+            <li><a href="#" rel="noopener">小红书</a></li>
+            <li><a href="#" rel="noopener">微信公众号</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Newsletter</h4>
+          <p style="margin:0 0 12px;opacity:.85">每月一封夏日来信，附上海岸线的新发现。</p>
+          <form class="subscribe" data-subscribe>
+            <label class="sr-only" for="s-sub">邮箱地址</label>
+            <input id="s-sub" type="email" placeholder="你的邮箱" required autocomplete="email" />
+            <button type="submit">订阅</button>
+          </form>
+          <p class="subscribe-msg" role="status">已订阅，夏天见。</p>
+        </div>
+      </div>
+      <div class="footer__base">
+        <span>© <span data-year>2026</span> Wander &amp; Linger</span>
+        <a href="index.html">← 查看其他设计方向</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="assets/main.js" defer></script>
+</body>
+</html>
