@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Wander &amp; Linger｜漫游 · 侘寂·静</title>
+  <meta name="description" content="慢下来，去一个值得停留的地方。Wander & Linger 精选目的地、旅行故事与定制行程。" />
+  <meta name="theme-color" content="#f5f1ea" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://images.unsplash.com" />
+  <link rel="preload" as="image" href="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=1920&q=70" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=Inter:wght@400;500&family=Noto+Serif+SC:wght@400;500&display=swap" />
+
+  <link rel="stylesheet" href="assets/base.css" />
+  <link rel="stylesheet" href="assets/theme-zen.css" />
+</head>
+<body class="theme-zen">
+  <div class="grain" aria-hidden="true"></div>
+
+  <!-- 导航 -->
+  <header class="nav">
+    <div class="container nav__inner">
+      <a class="brand" href="#top" aria-label="Wander & Linger 首页">Wander &amp; Linger <small>漫游</small></a>
+      <nav aria-label="主导航">
+        <ul class="nav__links">
+          <li><a href="#destinations">目的地</a></li>
+          <li><a href="#stories">旅行故事</a></li>
+          <li><a href="#ways">旅行方式</a></li>
+          <li><a href="#contact">定制行程</a></li>
+        </ul>
+      </nav>
+      <a class="btn nav__cta" href="#contact">写信给我们</a>
+      <button class="nav__toggle" type="button" aria-label="打开菜单" aria-expanded="false" aria-controls="drawer"><span></span></button>
+    </div>
+  </header>
+
+  <div class="drawer" id="drawer">
+    <button class="drawer__close" type="button" aria-label="关闭菜单">×</button>
+    <ul>
+      <li><a href="#destinations">目的地</a></li>
+      <li><a href="#stories">旅行故事</a></li>
+      <li><a href="#ways">旅行方式</a></li>
+      <li><a href="#contact">定制行程</a></li>
+    </ul>
+  </div>
+
+  <main id="top">
+    <!-- Hero -->
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero__media">
+        <img
+          src="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=1920&q=70"
+          srcset="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=900&q=70 900w,
+                  https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=1920&q=70 1920w,
+                  https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=2560&q=70 2560w"
+          sizes="100vw" alt="云海之上的雪山，黄昏时分" fetchpriority="high" decoding="async" />
+      </div>
+      <div class="container hero__content">
+        <span class="eyebrow" data-reveal>Slow Travel Journal · Vol. 07</span>
+        <h1 id="hero-title" class="display hero__title" data-reveal style="--delay:120ms">慢下来，<br />去一个<em>值得停留</em>的地方</h1>
+        <p class="hero__slogan" data-reveal style="--delay:240ms">有些地方，不是为了打卡，而是为了让时间慢下来。我们只推荐那些愿意让你多住几晚的地方。</p>
+        <div class="hero__meta" data-reveal style="--delay:360ms">
+          <a class="btn btn--light" href="#destinations">开始漫游 <span class="arrow" aria-hidden="true">→</span></a>
+          <span class="scroll-hint" aria-hidden="true"><i></i>Scroll</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 序言 -->
+    <section class="section intro">
+      <div class="container grid-12">
+        <p class="intro__lead display" data-reveal>我们相信，旅行最好的部分，往往发生在<span class="accent">什么都不做</span>的那个下午——一壶茶、一扇窗、一片慢慢移动的云。</p>
+        <dl class="intro__stats" data-reveal style="--delay:160ms">
+          <div><dt>精选目的地</dt><dd>48</dd></div>
+          <div><dt>平均停留</dt><dd>6.5<small>晚</small></dd></div>
+          <div><dt>每季只接</dt><dd>30<small>位旅人</small></dd></div>
+        </dl>
+      </div>
+    </section>
+
+    <!-- 精选目的地 -->
+    <section class="section dest" id="destinations" aria-labelledby="dest-title">
+      <div class="container">
+        <div class="section-head">
+          <span class="eyebrow" data-reveal>Destinations</span>
+          <h2 id="dest-title" class="display" data-reveal>五个地方，<br />适合安静地待着</h2>
+          <p data-reveal style="--delay:120ms">不追热门，不赶行程。每一处都由我们亲自住过、走过、在清晨发过呆。</p>
+        </div>
+
+        <div class="dest-grid">
+          <a class="card" href="#contact" data-reveal="mask">
+            <img loading="lazy" decoding="async" src="https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&w=1400&q=70" srcset="https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&w=800&q=70 800w, https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&w=1400&q=70 1400w" sizes="(min-width:1024px) 58vw, 100vw" alt="京都东山，石板路尽头的八坂塔" />
+            <div class="card__body">
+              <span class="card__index">01 — JAPAN</span>
+              <span class="card__title">京都 · 东山</span>
+              <p class="card__desc">清晨六点的石板路上只有扫地的声音。住在町屋，听雨落在庭院的青苔上。</p>
+            </div>
+          </a>
+          <a class="card" href="#contact" data-reveal="mask" style="--delay:120ms">
+            <img loading="lazy" decoding="async" src="https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&w=1000&q=70" srcset="https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&w=700&q=70 700w, https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&w=1000&q=70 1000w" sizes="(min-width:1024px) 33vw, 100vw" alt="多洛米蒂布拉耶斯湖上的木船" />
+            <div class="card__body">
+              <span class="card__index">02 — ITALY</span>
+              <span class="card__title">多洛米蒂</span>
+              <p class="card__desc">划一条木船到湖心，然后把桨放下。</p>
+            </div>
+          </a>
+          <a class="card" href="#contact" data-reveal="mask">
+            <img loading="lazy" decoding="async" src="https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=1000&q=70" srcset="https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=700&q=70 700w, https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=1000&q=70 1000w" sizes="(min-width:1024px) 33vw, 100vw" alt="雾气笼罩的绿色山谷" />
+            <div class="card__body">
+              <span class="card__index">03 — FAROE</span>
+              <span class="card__title">法罗群岛</span>
+              <p class="card__desc">一天里有四种天气，和一万只羊。</p>
+            </div>
+          </a>
+          <a class="card" href="#contact" data-reveal="mask" style="--delay:120ms">
+            <img loading="lazy" decoding="async" src="https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1400&q=70" srcset="https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=800&q=70 800w, https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1400&q=70 1400w" sizes="(min-width:1024px) 58vw, 100vw" alt="阳光穿过原始森林" />
+            <div class="card__body">
+              <span class="card__index">04 — YAKUSHIMA</span>
+              <span class="card__title">屋久岛</span>
+              <p class="card__desc">走进七千年的森林，连呼吸都会变得很轻。</p>
+            </div>
+          </a>
+          <a class="card" href="#contact" data-reveal="mask">
+            <img loading="lazy" decoding="async" src="https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=1200&q=70" srcset="https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=800&q=70 800w, https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=1200&q=70 1200w" sizes="(min-width:1024px) 50vw, 100vw" alt="星空下的雪山" />
+            <div class="card__body">
+              <span class="card__index">05 — HOKKAIDO</span>
+              <span class="card__title">北海道 · 美瑛</span>
+              <p class="card__desc">泡完温泉出门，雪停了，满天都是星星。</p>
+            </div>
+          </a>
+          <div class="dest-note" data-reveal>
+            <p class="display">还有 43 个地方，<br />等你写信来问。</p>
+            <a class="link-line" href="#contact">查看全部目的地 →</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 旅行故事 -->
+    <section class="section stories" id="stories" aria-labelledby="stories-title">
+      <div class="container">
+        <div class="section-head">
+          <span class="eyebrow" data-reveal>Stories</span>
+          <h2 id="stories-title" class="display" data-reveal>旅途中，<br />那些很慢的瞬间</h2>
+          <p data-reveal style="--delay:120ms">来自旅人的手记。没有攻略，只有当时的光线、温度和心情。</p>
+        </div>
+
+        <article class="story">
+          <figure class="story__figure" style="margin:0">
+            <div class="story__media" data-reveal="mask">
+              <img loading="lazy" decoding="async" src="https://images.unsplash.com/photo-1482192505345-5655af888cc4?auto=format&fit=crop&w=1200&q=70" srcset="https://images.unsplash.com/photo-1482192505345-5655af888cc4?auto=format&fit=crop&w=800&q=70 800w, https://images.unsplash.com/photo-1482192505345-5655af888cc4?auto=format&fit=crop&w=1200&q=70 1200w" sizes="(min-width:960px) 50vw, 100vw" alt="雪山脚下湖边的木屋" />
+            </div>
+            <figcaption class="story__cap">Lago di Braies, Italy — 摄于第四个清晨</figcaption>
+          </figure>
+          <div class="story__text">
+            <span class="eyebrow" data-reveal>Story 01 · 布拉耶斯湖</span>
+            <h3 class="display" data-reveal>在湖边的木屋，<br />住了整整一周</h3>
+            <p data-reveal>原本只打算住两晚。第二天清早推开门，湖面平得像一张纸，山的倒影一动不动。我们取消了后面所有的预订。</p>
+            <blockquote class="pull-quote" data-reveal>后来才明白，我们不是在旅行，是在学习怎么什么都不做。</blockquote>
+            <a class="link-line" href="#contact" data-reveal>阅读全文 →</a>
+          </div>
+        </article>
+
+        <article class="story story--flip">
+          <figure class="story__figure" style="margin:0">
+            <div class="story__media" data-reveal="mask">
+              <img loading="lazy" decoding="async" src="https://images.unsplash.com/photo-1545569341-9eb8b30979d9?auto=format&fit=crop&w=1200&q=70" srcset="https://images.unsplash.com/photo-1545569341-9eb8b30979d9?auto=format&fit=crop&w=800&q=70 800w, https://images.unsplash.com/photo-1545569341-9eb8b30979d9?auto=format&fit=crop&w=1200&q=70 1200w" sizes="(min-width:960px) 50vw, 100vw" alt="秋日红叶中的日式五重塔" />
+            </div>
+            <figcaption class="story__cap">Kyoto, Japan — 十一月的最后一周</figcaption>
+          </figure>
+          <div class="story__text">
+            <span class="eyebrow" data-reveal>Story 02 · 京都</span>
+            <h3 class="display" data-reveal>等一片红叶，<br />落进茶碗里</h3>
+            <p data-reveal>寺庙的老师傅说，红叶最好看的不是满山都红的那天，而是开始掉落的那几天。于是我们每天下午都去同一个廊下坐着。</p>
+            <blockquote class="pull-quote" data-reveal>美的东西，总是在快要消失的时候。</blockquote>
+            <a class="link-line" href="#contact" data-reveal>阅读全文 →</a>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- 旅行方式 -->
+    <section class="section ways" id="ways" aria-labelledby="ways-title">
+      <div class="container">
+        <div class="ways__bar">
+          <div>
+            <span class="eyebrow" data-reveal>Ways to Linger</span>
+            <h2 id="ways-title" class="display" data-reveal style="font-size:clamp(36px,5.2vw,72px);margin-top:20px">选一种节奏</h2>
+          </div>
+          <div class="ways__ctrl">
+            <button type="button" data-prev aria-label="上一个">←</button>
+            <button type="button" data-next aria-label="下一个">→</button>
+          </div>
+        </div>
+      </div>
+      <div class="track" data-track>
+        <article class="way">
+          <div class="way__media"><img loading="lazy" decoding="async" src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=70" alt="平静的海岸线" draggable="false" /></div>
+          <div class="way__meta"><h3 class="way__title">海岛静居</h3><span class="way__en">Island</span></div>
+          <p>一座岛，一间面海的房间，不设闹钟。</p>
+        </article>
+        <article class="way">
+          <div class="way__media"><img loading="lazy" decoding="async" src="https://images.unsplash.com/photo-1551632811-561732d1e306?auto=format&fit=crop&w=800&q=70" alt="山间徒步的旅人" draggable="false" /></div>
+          <div class="way__meta"><h3 class="way__title">山野徒步</h3><span class="way__en">Trail</span></div>
+          <p>每天只走十公里，剩下的时间留给山。</p>
+        </article>
+        <article class="way">
+          <div class="way__media"><img loading="lazy" decoding="async" src="https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&w=800&q=70" alt="京都的老街" draggable="false" /></div>
+          <div class="way__meta"><h3 class="way__title">城市漫步</h3><span class="way__en">City</span></div>
+          <p>没有景点清单，只有一张手绘的街巷地图。</p>
+        </article>
+        <article class="way">
+          <div class="way__media"><img loading="lazy" decoding="async" src="https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=800&q=70" alt="雪夜星空" draggable="false" /></div>
+          <div class="way__meta"><h3 class="way__title">雪国温泉</h3><span class="way__en">Onsen</span></div>
+          <p>白天看雪，夜里泡汤，听雪落下的声音。</p>
+        </article>
+        <article class="way">
+          <div class="way__media"><img loading="lazy" decoding="async" src="https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=800&q=70" alt="下龙湾水上的船只" draggable="false" /></div>
+          <div class="way__meta"><h3 class="way__title">水上慢行</h3><span class="way__en">Water</span></div>
+          <p>在一条船上睡三晚，醒来就是新的海湾。</p>
+        </article>
+      </div>
+      <div class="container"><div class="progress" aria-hidden="true"><span></span></div></div>
+    </section>
+
+    <!-- 用户评价 -->
+    <section class="section voices" aria-labelledby="voices-title" data-voices>
+      <div class="container">
+        <h2 id="voices-title" class="sr-only">旅人评价</h2>
+        <span class="eyebrow" data-reveal>Voices</span>
+        <div class="voices__stage" aria-live="polite">
+          <figure class="voice">
+            <blockquote>“这是我第一次在旅行中，没有看手机。”</blockquote>
+            <figcaption>林小姐 · 屋久岛 · 7 晚</figcaption>
+          </figure>
+          <figure class="voice">
+            <blockquote>“他们推荐的不是最有名的地方，却是我最想再回去的地方。”</blockquote>
+            <figcaption>陈先生与太太 · 多洛米蒂 · 9 晚</figcaption>
+          </figure>
+          <figure class="voice">
+            <blockquote>“行程表上留了很多空白。后来发现，那些空白才是旅行本身。”</blockquote>
+            <figcaption>Yuki · 京都 · 6 晚</figcaption>
+          </figure>
+        </div>
+        <div class="voices__dots"></div>
+      </div>
+    </section>
+
+    <!-- 定制咨询 -->
+    <section class="section contact" id="contact" aria-labelledby="contact-title">
+      <div class="container">
+        <div class="letter" data-reveal>
+          <div class="letter__head">
+            <span class="eyebrow">Write to Us</span>
+            <h2 id="contact-title" class="display">给我们写一封信</h2>
+            <p>不必填写复杂的表格。告诉我们你是谁、想去哪里、想要怎样的时光，旅行顾问会在两天内亲笔回信。</p>
+          </div>
+
+          <form class="letter__form" data-letter novalidate>
+            <p style="margin:0">
+              你好，我是
+              <label class="sr-only" for="z-name">姓名</label>
+              <input class="field" id="z-name" name="name" type="text" placeholder="你的名字" required autocomplete="name" />，
+              想在
+              <label class="sr-only" for="z-time">出行时间</label>
+              <input class="field" id="z-time" name="time" type="text" placeholder="明年春天" required />
+              去
+              <label class="sr-only" for="z-dest">目的地</label>
+              <input class="field" id="z-dest" name="destination" type="text" placeholder="一个安静的地方" required />
+              待一阵子。
+            </p>
+            <label class="sr-only" for="z-idea">你的想法</label>
+            <textarea class="field" id="z-idea" name="idea" rows="3" placeholder="我想象中的那段日子是这样的……"></textarea>
+            <div class="letter__foot">
+              <span>回信邮箱
+                <label class="sr-only" for="z-mail">邮箱</label>
+                <input class="field" id="z-mail" name="email" type="email" placeholder="you@mail.com" required autocomplete="email" style="font-family:var(--font-body);font-size:15px;min-width:14em" />
+              </span>
+              <button class="btn btn--solid" type="submit">寄出这封信 <span class="arrow" aria-hidden="true">→</span></button>
+            </div>
+          </form>
+
+          <p class="letter__thanks" role="status">谢谢你，<span data-name>旅人</span>。<br />信已寄出，我们会在两天内回信。</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- 页脚 -->
+  <footer class="footer">
+    <div class="container">
+      <p class="footer__big">Wander,<br />then Linger.</p>
+      <div class="footer__grid">
+        <div>
+          <h4>About</h4>
+          <p style="margin:0;max-width:26em;opacity:.85">Wander &amp; Linger｜漫游，一间专注慢旅行的小型旅行工作室。慢下来，去一个值得停留的地方。</p>
+        </div>
+        <div>
+          <h4>Follow</h4>
+          <ul>
+            <li><a href="#" rel="noopener">Instagram</a></li>
+            <li><a href="#" rel="noopener">小红书</a></li>
+            <li><a href="#" rel="noopener">微信公众号</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Newsletter</h4>
+          <p style="margin:0 0 12px;opacity:.85">每季一封信，寄给你几个值得停留的地方。</p>
+          <form class="subscribe" data-subscribe>
+            <label class="sr-only" for="z-sub">邮箱地址</label>
+            <input id="z-sub" type="email" placeholder="你的邮箱" required autocomplete="email" />
+            <button type="submit">订阅</button>
+          </form>
+          <p class="subscribe-msg" role="status">已订阅，下一封信见。</p>
+        </div>
+      </div>
+      <div class="footer__base">
+        <span>© <span data-year>2026</span> Wander &amp; Linger</span>
+        <a href="index.html">← 查看其他设计方向</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="assets/main.js" defer></script>
+</body>
+</html>

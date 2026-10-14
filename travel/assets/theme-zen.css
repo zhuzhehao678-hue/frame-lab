@@ -1,0 +1,62 @@
+/*
+ * 方向 A「侘寂·静」
+ * 米白 + 墨绿 + 陶土点缀；直角、细线、宋体，日式杂志的留白节奏。
+ */
+.theme-zen {
+  --bg: #f5f1ea;
+  --surface: #ebe5d9;
+  --ink: #1a1a1a;
+  --ink-soft: #6a655c;
+  --primary: #1f3a33;
+  --accent: #c67b5c;
+  --line: rgba(31, 58, 51, 0.16);
+  --on-image: #f5f1ea;
+  --font-display: "Cormorant Garamond", "Noto Serif SC", "Songti SC", serif;
+  --font-body: "Inter", "Noto Sans SC", "PingFang SC", system-ui, sans-serif;
+  --radius: 0px;
+}
+
+/* 中文标题用宋体时字重稍轻、字距稍宽，更有书卷气 */
+.theme-zen .display { font-weight: 400; letter-spacing: 0.04em; }
+.theme-zen .hero__title { line-height: 1.18; }
+
+/* 照片统一压低饱和度，接近胶片 */
+.theme-zen .card img,
+.theme-zen .story__media img,
+.theme-zen .way__media img,
+.theme-zen .hero__media img { filter: saturate(0.72) contrast(0.96) sepia(0.08); }
+.theme-zen .card:hover img { filter: saturate(0.9) contrast(1) sepia(0.04); }
+
+/* 竖排小字：侘寂杂志常见的边注 */
+.theme-zen .dest .section-head { position: relative; }
+@media (min-width: 1200px) {
+  .theme-zen .dest .section-head::after {
+    content: "一期一会";
+    position: absolute; right: 0; top: 0;
+    writing-mode: vertical-rl;
+    font-family: "Noto Serif SC", serif;
+    font-size: 14px; letter-spacing: 0.8em;
+    color: var(--accent);
+  }
+}
+
+.theme-zen .stories { background: var(--surface); }
+.theme-zen .story__media { aspect-ratio: 4 / 5; }
+.theme-zen .story--flip .story__media { aspect-ratio: 1 / 1; }
+
+.theme-zen .letter {
+  background: #fbf8f2;
+  box-shadow: 0 1px 0 var(--line), 0 40px 80px -60px rgba(31, 58, 51, 0.35);
+}
+/* 信纸右上角的邮戳 */
+.theme-zen .letter::before {
+  content: "WANDER\A& LINGER";
+  white-space: pre;
+  position: absolute; top: clamp(24px, 4vw, 56px); right: clamp(24px, 4vw, 56px);
+  width: 96px; height: 96px; display: grid; place-items: center; text-align: center;
+  border: 1px solid var(--accent); border-radius: 50%;
+  color: var(--accent); font-size: 10px; letter-spacing: 0.24em; line-height: 1.6;
+  transform: rotate(-12deg);
+  opacity: 0.8;
+}
+@media (max-width: 640px) { .theme-zen .letter::before { display: none; } }
