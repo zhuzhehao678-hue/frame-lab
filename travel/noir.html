@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Wander &amp; Linger｜漫游 · 暗夜·奢</title>
+  <meta name="description" content="慢下来，去一个值得停留的地方。私人定制的高端旅行，为少数人而设。" />
+  <meta name="theme-color" content="#0d0d0c" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://images.unsplash.com" />
+  <link rel="preload" as="image" href="https://images.unsplash.com/photo-1531366936337-7c912a4589a7?auto=format&fit=crop&w=1920&q=70"
+        imagesrcset="https://images.unsplash.com/photo-1531366936337-7c912a4589a7?auto=format&fit=crop&w=900&q=70 900w, https://images.unsplash.com/photo-1531366936337-7c912a4589a7?auto=format&fit=crop&w=1920&q=70 1920w, https://images.unsplash.com/photo-1531366936337-7c912a4589a7?auto=format&fit=crop&w=2560&q=70 2560w"
+        imagesizes="100vw" fetchpriority="high" />
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;1,6..96,400&family=Inter:wght@300;400;500&family=Noto+Serif+SC:wght@300;400&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;1,6..96,400&family=Inter:wght@300;400;500&family=Noto+Serif+SC:wght@300;400&display=swap" media="print" onload="this.media='all'" />
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;1,6..96,400&family=Inter:wght@300;400;500&family=Noto+Serif+SC:wght@300;400&display=swap" /></noscript>
+
+  <link rel="stylesheet" href="assets/base.css" />
+  <link rel="stylesheet" href="assets/theme-noir.css" />
+</head>
+<body class="theme-noir">
+  <div class="grain" aria-hidden="true"></div>
+
+  <!-- 导航 -->
+  <header class="nav">
+    <div class="container nav__inner">
+      <a class="brand" href="#top" aria-label="Wander & Linger 首页">W&amp;L <small>Private Journeys</small></a>
+      <nav aria-label="主导航">
+        <ul class="nav__links">
+          <li><a href="#destinations">目的地</a></li>
+          <li><a href="#stories">旅行故事</a></li>
+          <li><a href="#ways">旅行方式</a></li>
+          <li><a href="#contact">私人定制</a></li>
+        </ul>
+      </nav>
+      <a class="btn nav__cta" href="#contact">预约顾问</a>
+      <button class="nav__toggle" type="button" aria-label="打开菜单" aria-expanded="false" aria-controls="drawer"><span></span></button>
+    </div>
+  </header>
+
+  <div class="drawer" id="drawer">
+    <button class="drawer__close" type="button" aria-label="关闭菜单">×</button>
+    <ul>
+      <li><a href="#destinations">目的地</a></li>
+      <li><a href="#stories">旅行故事</a></li>
+      <li><a href="#ways">旅行方式</a></li>
+      <li><a href="#contact">私人定制</a></li>
+    </ul>
+  </div>
+
+  <main id="top">
+    <!-- Hero：电影宽银幕式首屏 -->
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero__media">
+        <img
+          src="https://images.unsplash.com/photo-1531366936337-7c912a4589a7?auto=format&fit=crop&w=1920&q=70"
+          srcset="https://images.unsplash.com/photo-1531366936337-7c912a4589a7?auto=format&fit=crop&w=900&q=70 900w,
+                  https://images.unsplash.com/photo-1531366936337-7c912a4589a7?auto=format&fit=crop&w=1920&q=70 1920w,
+                  https://images.unsplash.com/photo-1531366936337-7c912a4589a7?auto=format&fit=crop&w=2560&q=70 2560w"
+          sizes="100vw" alt="冰岛夜空中的绿色极光" fetchpriority="high" decoding="async" />
+      </div>
+      <div class="hero__frame" aria-hidden="true">
+        <span>64°08′N 21°56′W</span>
+        <span>Reel 07 — Aurora</span>
+      </div>
+      <div class="container hero__content">
+        <span class="eyebrow hero-rise">Private Journeys · By Invitation</span>
+        <h1 id="hero-title" class="display hero__title hero-rise" style="--delay:120ms">有些风景，<br /><em>只为少数人而亮</em></h1>
+        <p class="hero__slogan hero-rise" style="--delay:240ms">慢下来，去一个值得停留的地方。每一段旅程都只为你一人设计，从私人包机到极光下的玻璃屋。</p>
+        <div class="hero__meta hero-rise" style="--delay:360ms">
+          <a class="btn btn--gold" href="#destinations">开始漫游 <span class="arrow" aria-hidden="true">→</span></a>
+        </div>
+      </div>
+      <span class="scroll-hint hero__scroll" aria-hidden="true"><i></i>Scroll</span>
+    </section>
+
+    <!-- 序言 -->
+    <section class="section intro">
+      <div class="container grid-12">
+        <p class="intro__lead display" data-reveal>真正的奢侈，不是更多，而是<span class="accent">刚刚好</span>：一个没有人的海湾，一位只为你等待的向导，一段不被打扰的时间。</p>
+        <dl class="intro__stats" data-reveal style="--delay:160ms">
+          <div><dt>私人目的地</dt><dd>24</dd></div>
+          <div><dt>一对一顾问</dt><dd>1<small>: 1</small></dd></div>
+          <div><dt>每年仅接待</dt><dd>120<small>组</small></dd></div>
+        </dl>
+      </div>
+    </section>
+
+    <!-- 精选目的地 -->
+    <section class="section dest" id="destinations" aria-labelledby="dest-title">
+      <div class="container">
+        <div class="section-head">
+          <span class="eyebrow" data-reveal>Destinations</span>
+          <h2 id="dest-title" class="display" data-reveal>夜幕降临时，<br /><em>最好看的五座城</em></h2>
+          <p data-reveal style="--delay:120ms">我们偏爱黄昏之后的世界。灯火、星空与沙漠的寂静，是另一种值得停留的理由。</p>
+        </div>
+
+        <div class="dest-grid">
+          <a class="card" href="#contact" data-reveal="mask">
+            <img loading="lazy" decoding="async" src="https://images.unsplash.com/photo-1503899036084-c55cdd92da26?auto=format&fit=crop&w=1400&q=70" srcset="https://images.unsplash.com/photo-1503899036084-c55cdd92da26?auto=format&fit=crop&w=800&q=70 800w, https://images.unsplash.com/photo-1503899036084-c55cdd92da26?auto=format&fit=crop&w=1400&q=70 1400w" sizes="(min-width:1024px) 58vw, 100vw" alt="东京夜晚霓虹灯闪烁的街道" />
+            <div class="card__body">
+              <span class="card__index">01 — TOKYO</span>
+              <span class="card__title">东京 · 银座之夜</span>
+              <p class="card__desc">八席的寿司吧台，主厨只为你一个人捏到深夜。</p>
+            </div>
+          </a>
+          <a class="card" href="#contact" data-reveal="mask" style="--delay:120ms">
+            <img loading="lazy" decoding="async" src="https://images.unsplash.com/photo-1509316785289-025f5b846b35?auto=format&fit=crop&w=1000&q=70" srcset="https://images.unsplash.com/photo-1509316785289-025f5b846b35?auto=format&fit=crop&w=700&q=70 700w, https://images.unsplash.com/photo-1509316785289-025f5b846b35?auto=format&fit=crop&w=1000&q=70 1000w" sizes="(min-width:1024px) 33vw, 100vw" alt="纪念碑谷的红色岩柱与荒漠" />
+            <div class="card__body">
+              <span class="card__index">02 — UTAH</span>
+              <span class="card__title">纪念碑谷</span>
+              <p class="card__desc">在荒漠中央的营地，看银河从岩柱后升起。</p>
+            </div>
+          </a>
+          <a class="card" href="#contact" data-reveal="mask">
+            <img loading="lazy" decoding="async" src="https://images.unsplash.com/photo-1499856871958-5b9627545d1a?auto=format&fit=crop&w=1000&q=70" srcset="https://images.unsplash.com/photo-1499856871958-5b9627545d1a?auto=format&fit=crop&w=700&q=70 700w, https://images.unsplash.com/photo-1499856871958-5b9627545d1a?auto=format&fit=crop&w=1000&q=70 1000w" sizes="(min-width:1024px) 33vw, 100vw" alt="黄昏时分的巴黎塞纳河桥" />
+            <div class="card__body">
+              <span class="card__index">03 — PARIS</span>
+              <span class="card__title">巴黎</span>
+              <p class="card__desc">博物馆闭馆后，为你单独打开的一扇门。</p>
+            </div>
+          </a>
+          <a class="card" href="#contact" data-reveal="mask" style="--delay:120ms">
+            <img loading="lazy" decoding="async" src="https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=1400&q=70" srcset="https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=800&q=70 800w, https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=1400&q=70 1400w" sizes="(min-width:1024px) 58vw, 100vw" alt="下龙湾喀斯特岩岛间的船只" />
+            <div class="card__body">
+              <span class="card__index">04 — HA LONG</span>
+              <span class="card__title">下龙湾</span>
+              <p class="card__desc">一艘只有四间舱房的木帆船，三天，两千座岛。</p>
+            </div>
+          </a>
+          <a class="card" href="#contact" data-reveal="mask">
+            <img loading="lazy" decoding="async" src="https://images.unsplash.com/photo-1518684079-3c830dcef090?auto=format&fit=crop&w=1200&q=70" srcset="https://images.unsplash.com/photo-1518684079-3c830dcef090?auto=format&fit=crop&w=800&q=70 800w, https://images.unsplash.com/photo-1518684079-3c830dcef090?auto=format&fit=crop&w=1200&q=70 1200w" sizes="(min-width:1024px) 50vw, 100vw" alt="迪拜海岸与帆船酒店" />
+            <div class="card__body">
+              <span class="card__index">05 — DUBAI</span>
+              <span class="card__title">迪拜</span>
+              <p class="card__desc">白天在沙漠里猎鹰，夜晚在海上看城市亮起来。</p>
+            </div>
+          </a>
+          <div class="dest-note" data-reveal>
+            <p class="display">完整目的地名录，<br />仅向会员开放。</p>
+            <a class="link-line" href="#contact">申请查看 →</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 旅行故事 -->
+    <section class="section stories" id="stories" aria-labelledby="stories-title">
+      <div class="container">
+        <div class="section-head">
+          <span class="eyebrow" data-reveal>Stories</span>
+          <h2 id="stories-title" class="display" data-reveal>像电影一样，<br /><em>被记住的夜晚</em></h2>
+          <p data-reveal style="--delay:120ms">每一段旅程都有它的主镜头。这里收录了几位旅人的私人片段。</p>
+        </div>
+
+        <article class="story">
+          <figure class="story__figure" style="margin:0">
+            <div class="story__media" data-reveal="mask">
+              <img loading="lazy" decoding="async" src="https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=70" srcset="https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=800&q=70 800w, https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=70 1200w" sizes="(min-width:960px) 50vw, 100vw" alt="穿过红色峡谷的空旷公路" />
+            </div>
+            <figcaption class="story__cap">Scene 01 — Utah, USA · 35mm</figcaption>
+          </figure>
+          <div class="story__text">
+            <span class="eyebrow" data-reveal>Story 01 · 美国西部</span>
+            <h3 class="display" data-reveal>一辆老爷车，<br />一条没有尽头的公路</h3>
+            <p data-reveal>顾问为我们找到了一辆 1967 年的福特野马，后备箱里放着一张手写的路书。三天里，我们只遇到过两辆车。</p>
+            <blockquote class="pull-quote" data-reveal>那一刻，整个世界只剩下引擎声和风。</blockquote>
+            <a class="link-line" href="#contact" data-reveal>阅读全文 →</a>
+          </div>
+        </article>
+
+        <article class="story story--flip">
+          <figure class="story__figure" style="margin:0">
+            <div class="story__media" data-reveal="mask">
+              <img loading="lazy" decoding="async" src="https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=1200&q=70" srcset="https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=800&q=70 800w, https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=1200&q=70 1200w" sizes="(min-width:960px) 50vw, 100vw" alt="银河横跨雪山之上" />
+            </div>
+            <figcaption class="story__cap">Scene 02 — Swiss Alps · 凌晨两点</figcaption>
+          </figure>
+          <div class="story__text">
+            <span class="eyebrow" data-reveal>Story 02 · 阿尔卑斯</span>
+            <h3 class="display" data-reveal>海拔三千米，<br />一间只属于我们的小屋</h3>
+            <p data-reveal>直升机在日落前把我们送上山。管家点好壁炉就离开了，留下一瓶 1990 年的勃艮第，和整片银河。</p>
+            <blockquote class="pull-quote" data-reveal>我们一夜没睡，因为不舍得闭上眼睛。</blockquote>
+            <a class="link-line" href="#contact" data-reveal>阅读全文 →</a>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- 旅行方式 -->
+    <section class="section ways" id="ways" aria-labelledby="ways-title">
+      <div class="container">
+        <div class="ways__bar">
+          <div>
+            <span class="eyebrow" data-reveal>The Collection</span>
+            <h2 id="ways-title" class="display" data-reveal style="font-size:clamp(36px,5.2vw,72px);margin-top:20px">五种<em>私享</em>方式</h2>
+          </div>
+          <div class="ways__ctrl">
+            <button type="button" data-prev aria-label="上一个">←</button>
+            <button type="button" data-next aria-label="下一个">→</button>
+          </div>
+        </div>
+      </div>
+      <div class="track" data-track>
+        <article class="way">
+          <div class="way__media"><img loading="lazy" decoding="async" src="https://images.unsplash.com/photo-1514282401047-d79a71a590e8?auto=format&fit=crop&w=800&q=70" alt="碧海上的私人岛屿水屋" draggable="false" /></div>
+          <div class="way__meta"><h3 class="way__title">私人岛屿</h3><span class="way__en">Island</span></div>
+          <p>整座岛只有你们，和一位会做饭的管家。</p>
+        </article>
+        <article class="way">
+          <div class="way__media"><img loading="lazy" decoding="async" src="https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=800&q=70" alt="潜水员在珊瑚礁间游弋" draggable="false" /></div>
+          <div class="way__meta"><h3 class="way__title">深海潜行</h3><span class="way__en">Dive</span></div>
+          <p>海洋生物学家陪同，去见一群鹦鹉鱼。</p>
+        </article>
+        <article class="way">
+          <div class="way__media"><img loading="lazy" decoding="async" src="https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=800&q=70" alt="荒野中的公路" draggable="false" /></div>
+          <div class="way__meta"><h3 class="way__title">公路长旅</h3><span class="way__en">Road</span></div>
+          <p>经典老车与手写路书，只在黄昏时出发。</p>
+        </article>
+        <article class="way">
+          <div class="way__media"><img loading="lazy" decoding="async" src="https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=70" alt="雪山下的木屋与泳池" draggable="false" /></div>
+          <div class="way__meta"><h3 class="way__title">雪山木屋</h3><span class="way__en">Chalet</span></div>
+          <p>直升机直达，壁炉、温泉池与私人厨师。</p>
+        </article>
+        <article class="way">
+          <div class="way__media"><img loading="lazy" decoding="async" src="https://images.unsplash.com/photo-1523906834658-6e24ef2386f9?auto=format&fit=crop&w=800&q=70" alt="威尼斯大运河" draggable="false" /></div>
+          <div class="way__meta"><h3 class="way__title">城市夜游</h3><span class="way__en">After Dark</span></div>
+          <p>闭馆后的美术馆，深夜的贡多拉，只有你们。</p>
+        </article>
+      </div>
+      <div class="container"><div class="progress" aria-hidden="true"><span></span></div></div>
+    </section>
+
+    <!-- 用户评价 -->
+    <section class="section voices" aria-labelledby="voices-title" data-voices>
+      <div class="container">
+        <h2 id="voices-title" class="sr-only">旅人评价</h2>
+        <span class="eyebrow" data-reveal>In Their Words</span>
+        <div class="voices__stage" aria-live="polite">
+          <figure class="voice">
+            <blockquote>“所有细节都被提前想好了，而我们只需要抬头看极光。”</blockquote>
+            <figcaption>S. Wang · 冰岛 · 私人玻璃屋 5 晚</figcaption>
+          </figure>
+          <figure class="voice">
+            <blockquote>“这是我们结婚十周年最好的礼物，没有之一。”</blockquote>
+            <figcaption>赵先生与夫人 · 阿尔卑斯 · 7 晚</figcaption>
+          </figure>
+          <figure class="voice">
+            <blockquote>“他们懂得什么时候出现，更懂得什么时候消失。”</blockquote>
+            <figcaption>Mr. K · 东京 · 4 晚</figcaption>
+          </figure>
+        </div>
+        <div class="voices__dots"></div>
+      </div>
+    </section>
+
+    <!-- 定制咨询 -->
+    <section class="section contact" id="contact" aria-labelledby="contact-title">
+      <div class="container">
+        <div class="letter" data-reveal>
+          <div class="letter__head">
+            <span class="eyebrow">Private Inquiry</span>
+            <h2 id="contact-title" class="display">一封私人邀约</h2>
+            <p>请留下几句话。您的专属旅行顾问会在 24 小时内亲自与您联系，所有信息严格保密。</p>
+          </div>
+
+          <form class="letter__form" data-letter novalidate>
+            <p style="margin:0">
+              您好，我是
+              <label class="sr-only" for="n-name">姓名</label>
+              <input class="field" id="n-name" name="name" type="text" placeholder="您的称呼" required autocomplete="name" />，
+              计划于
+              <label class="sr-only" for="n-time">出行时间</label>
+              <input class="field" id="n-time" name="time" type="text" placeholder="今年冬天" required />
+              前往
+              <label class="sr-only" for="n-dest">目的地</label>
+              <input class="field" id="n-dest" name="destination" type="text" placeholder="看极光的地方" required />
+              。
+            </p>
+            <label class="sr-only" for="n-idea">您的想法</label>
+            <textarea class="field" id="n-idea" name="idea" rows="3" placeholder="我希望这段旅程……"></textarea>
+            <div class="letter__foot">
+              <span>联系邮箱
+                <label class="sr-only" for="n-mail">邮箱</label>
+                <input class="field" id="n-mail" name="email" type="email" placeholder="you@mail.com" required autocomplete="email" style="font-family:var(--font-body);font-size:15px;min-width:14em" />
+              </span>
+              <button class="btn btn--gold" type="submit">递交邀约 <span class="arrow" aria-hidden="true">→</span></button>
+            </div>
+          </form>
+
+          <p class="letter__thanks" role="status">感谢您，<span data-name>贵宾</span>。<br />您的专属顾问将在 24 小时内与您联系。</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- 页脚 -->
+  <footer class="footer">
+    <div class="container">
+      <p class="footer__big">Wander <em>&amp;</em> Linger</p>
+      <div class="footer__grid">
+        <div>
+          <h2 class="footer__h">About</h2>
+          <p style="margin:0;max-width:26em;opacity:.85">Wander &amp; Linger｜漫游 Private Journeys，为少数人设计的私人旅程。慢下来，去一个值得停留的地方。</p>
+        </div>
+        <div>
+          <h2 class="footer__h">Follow</h2>
+          <ul>
+            <li><a href="#" rel="noopener">Instagram</a></li>
+            <li><a href="#" rel="noopener">小红书</a></li>
+            <li><a href="#" rel="noopener">微信公众号</a></li>
+          </ul>
+        </div>
+        <div>
+          <h2 class="footer__h">The Journal</h2>
+          <p style="margin:0 0 12px;opacity:.85">季度会员通讯，提前获知限量行程。</p>
+          <form class="subscribe" data-subscribe>
+            <label class="sr-only" for="n-sub">邮箱地址</label>
+            <input id="n-sub" type="email" placeholder="您的邮箱" required autocomplete="email" />
+            <button type="submit">订阅</button>
+          </form>
+          <p class="subscribe-msg" role="status">已订阅，感谢您的关注。</p>
+        </div>
+      </div>
+      <div class="footer__base">
+        <span>© <span data-year>2026</span> Wander &amp; Linger Private Journeys</span>
+        <a href="index.html">← 查看其他设计方向</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="assets/main.js" defer></script>
+</body>
+</html>

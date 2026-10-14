@@ -1,0 +1,143 @@
+/*
+ * 方向 B「地中海·暖」
+ * 奶油白 + 陶土橙 + 海蓝；大圆角、胶囊按钮、斜体衬线，阳光明亮的度假感。
+ */
+.theme-sun {
+  --bg: #fbf5ec;
+  --surface: #f3e6d3;
+  --ink: #2b2420;
+  --ink-soft: #6c5d51;
+  --primary: #1d4e7a;
+  --accent: #d2693c;
+  --lemon: #f2c14e;
+  --line: rgba(43, 36, 32, 0.14);
+  --on-image: #fffaf2;
+  --font-display: "Fraunces", "Noto Serif SC", "Songti SC", serif;
+  --font-body: "Inter", "Noto Sans SC", "PingFang SC", system-ui, sans-serif;
+  --radius: 28px;
+}
+
+.theme-sun .display { font-weight: 300; letter-spacing: -0.005em; font-variation-settings: "opsz" 120; }
+.theme-sun .display em { font-style: italic; color: var(--accent); }
+.theme-sun .hero .display em { color: var(--lemon); }
+.theme-sun .accent.sea { color: var(--primary); }
+
+.theme-sun .grain { opacity: 0.05; }
+
+/* 照片偏暖，像傍晚的光 */
+.theme-sun .card img,
+.theme-sun .story__media img,
+.theme-sun .way__media img,
+.theme-sun .hero__media img { filter: saturate(0.9) sepia(0.12) contrast(1.02); }
+
+/* 品牌前的小太阳 */
+.sun-dot {
+  display: inline-block; width: 12px; height: 12px; border-radius: 50%;
+  background: var(--accent); align-self: center; margin-right: -2px;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+/* 胶囊按钮 */
+.theme-sun .btn { border-radius: 999px; }
+.btn--sun { background: var(--lemon); border-color: var(--lemon); color: var(--ink); }
+.btn--sun:hover { background: var(--on-image); border-color: var(--on-image); }
+
+/* Hero：奶油底分栏，照片装进拱门形画框（白墙拱门的地中海意象） */
+.theme-sun .nav { color: var(--ink); }
+.theme-sun .nav.is-solid { box-shadow: none; border-bottom: 1px solid var(--line); }
+.theme-sun .nav:not(.is-solid) .nav__cta:hover { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+
+.theme-sun .hero {
+  color: var(--ink);
+  align-content: start;
+  padding-top: 92px;
+}
+.theme-sun .hero::after { display: none; }
+.theme-sun .hero__media {
+  position: relative; inset: auto; z-index: 0;
+  margin: 0 var(--gutter) 40px;
+  height: 52svh;
+  border-radius: 999px 999px var(--radius) var(--radius);
+  overflow: hidden;
+}
+.theme-sun .hero__media img { object-position: 70% center; }
+.theme-sun .hero .display em { color: var(--accent); }
+.theme-sun .hero__meta { border-top-color: var(--line); }
+.theme-sun .hero__slogan { color: var(--ink-soft); opacity: 1; }
+
+/* 拱门左侧缓慢旋转的太阳徽章 */
+.theme-sun .hero::before {
+  content: "";
+  position: absolute; z-index: 1;
+  right: calc(var(--gutter) + 24px); top: calc(92px + 52svh - 76px);
+  width: 112px; height: 112px; border-radius: 50%;
+  border: 1px dashed var(--accent);
+  background: radial-gradient(circle, var(--lemon) 0 38px, var(--bg) 39px);
+  animation: spin 40s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@media (min-width: 960px) {
+  .theme-sun .hero { align-content: center; padding-top: 76px; }
+  .theme-sun .hero__media {
+    position: absolute;
+    top: 96px; bottom: 32px; right: var(--gutter);
+    width: 40vw; height: auto; margin: 0;
+  }
+  .theme-sun .hero__content { padding-block: 40px; }
+  .theme-sun .hero__content > * { max-width: 50%; }
+  .theme-sun .hero__title { font-size: clamp(48px, 6vw, 104px); }
+  .theme-sun .hero::before {
+    top: auto; bottom: 18%;
+    right: calc(var(--gutter) + 40vw - 56px);
+  }
+}
+
+.theme-sun .intro__stats dd { color: var(--accent); }
+
+/* 目的地卡片：底部渐变带一点暖橙 */
+.theme-sun .card::after {
+  background: linear-gradient(180deg, transparent 40%, rgba(60, 28, 10, 0.6) 100%);
+}
+
+/* 故事区：沙色底 + 拱门形配图 */
+.theme-sun .stories { background: var(--surface); border-radius: 48px; margin-inline: 12px; }
+.theme-sun .story__media { border-radius: 999px 999px var(--radius) var(--radius); aspect-ratio: 3 / 4; }
+.theme-sun .story--flip .story__media { border-radius: var(--radius); aspect-ratio: 1 / 1; }
+.theme-sun .pull-quote { color: var(--accent); font-weight: 300; }
+.theme-sun .pull-quote::before { color: var(--primary); }
+
+.theme-sun .ways__ctrl button:hover { background: var(--accent); border-color: var(--accent); color: var(--on-image); }
+.theme-sun .progress span { background: var(--accent); }
+
+.theme-sun .voices { background: var(--primary); color: var(--on-image); margin-inline: 12px; border-radius: 48px; }
+.theme-sun .voices .eyebrow,
+.theme-sun .voice figcaption { color: color-mix(in srgb, var(--on-image) 70%, transparent); }
+.theme-sun .voice blockquote { font-style: italic; font-weight: 300; }
+.theme-sun .voices__dots button::after { background: var(--on-image); }
+
+/* 明信片：左侧邮票 + 右侧竖线分栏感 */
+.theme-sun .letter {
+  background: #fffaf2;
+  border: 1px solid var(--line);
+  box-shadow: 0 30px 60px -40px rgba(210, 105, 60, 0.45);
+}
+.theme-sun .letter::before {
+  content: "";
+  position: absolute; top: clamp(24px, 4vw, 48px); right: clamp(24px, 4vw, 48px);
+  width: 84px; height: 104px;
+  background:
+    linear-gradient(180deg, transparent 64%, var(--primary) 64% 100%),
+    radial-gradient(circle at 50% 42%, var(--lemon) 0 16px, transparent 17px),
+    linear-gradient(180deg, #fbe0c2, #f4bf98);
+  border: 6px solid #fffaf2;
+  outline: 1px dashed var(--accent);
+  box-shadow: 0 8px 18px -10px rgba(43, 36, 32, 0.4);
+  transform: rotate(6deg);
+}
+@media (max-width: 640px) { .theme-sun .letter::before { display: none; } }
+.theme-sun .letter__form .field { color: var(--accent); border-bottom-style: dashed; }
+.theme-sun .letter__form .field:focus { border-bottom-style: solid; border-bottom-color: var(--primary); }
+
+.theme-sun .footer { margin: 12px; border-radius: 48px 48px var(--radius) var(--radius); }
+.theme-sun .footer__big em { color: var(--lemon); font-style: italic; }

@@ -1,0 +1,128 @@
+/*
+ * 方向 C「暗夜·奢」
+ * 深炭黑 + 香槟金细线；Bodoni 高反差衬线，居中对称，电影宽银幕感。
+ */
+.theme-noir {
+  --bg: #0d0d0c;
+  --surface: #161513;
+  --ink: #ece6da;
+  --ink-soft: #9c9486;
+  --primary: #0d0d0c;
+  --accent: #c9a96e;
+  --line: rgba(201, 169, 110, 0.22);
+  --on-image: #f3ede2;
+  --font-display: "Bodoni Moda", "Noto Serif SC", "Songti SC", serif;
+  --font-body: "Inter", "Noto Sans SC", "PingFang SC", system-ui, sans-serif;
+  --radius: 0px;
+  color-scheme: dark;
+}
+
+.theme-noir body,
+body.theme-noir { font-weight: 300; }
+.theme-noir .display { font-weight: 400; letter-spacing: 0.01em; }
+.theme-noir .display em { font-style: italic; color: var(--accent); }
+.theme-noir .eyebrow { color: var(--accent); }
+.theme-noir .grain { opacity: 0.09; mix-blend-mode: screen; filter: invert(1); }
+.theme-noir ::selection { background: var(--accent); color: var(--bg); }
+
+/* 照片压暗、降饱和，接近电影调色 */
+.theme-noir .card img,
+.theme-noir .story__media img,
+.theme-noir .way__media img { filter: saturate(0.7) brightness(0.86) contrast(1.06); }
+.theme-noir .card:hover img { filter: saturate(0.95) brightness(0.95) contrast(1.06); }
+
+.theme-noir .brand { font-size: 26px; letter-spacing: 0.1em; }
+.theme-noir .nav.is-solid { background: color-mix(in srgb, var(--bg) 70%, transparent); box-shadow: 0 1px 0 var(--line); }
+.theme-noir .nav__cta { border-color: var(--accent); color: var(--accent); }
+.theme-noir .nav .nav__cta:hover { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+
+.btn--gold { color: var(--accent); border-color: var(--accent); }
+.btn--gold:hover { background: var(--accent); color: var(--bg); }
+
+/* Hero：居中构图 + 宽银幕黑边 + 金色取景框 */
+.theme-noir .hero { align-items: center; text-align: center; }
+.theme-noir .hero::after {
+  background:
+    linear-gradient(180deg, var(--bg) 0, var(--bg) 6svh, transparent 6svh, transparent 94svh, var(--bg) 94svh),
+    radial-gradient(ellipse at center, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.65) 100%);
+}
+.theme-noir .hero__media img { filter: saturate(0.85) brightness(0.8); }
+.hero__frame {
+  position: absolute; inset: calc(6svh + 20px) var(--gutter); z-index: 0;
+  border: 1px solid rgba(201, 169, 110, 0.35);
+  pointer-events: none;
+  display: none;
+}
+.hero__frame span {
+  position: absolute; bottom: 16px;
+  font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--accent);
+}
+.hero__frame span:first-child { left: 20px; }
+.hero__frame span:last-child { right: 20px; }
+@media (min-width: 900px) { .hero__frame { display: block; } }
+.theme-noir .hero__content { justify-items: center; padding-block: 0; }
+.theme-noir .hero .eyebrow { color: var(--accent); opacity: 1; }
+.theme-noir .hero .eyebrow::after { content: ""; width: 32px; height: 1px; background: currentColor; opacity: 0.6; }
+.theme-noir .hero__title { font-size: clamp(42px, 6.6vw, 112px); line-height: 1.15; }
+.theme-noir .hero__slogan { margin-inline: auto; opacity: 0.82; }
+.theme-noir .hero__meta { border-top: 0; padding-top: 8px; justify-content: center; }
+.hero__scroll {
+  position: absolute; left: 50%; bottom: calc(6svh + 36px); transform: translateX(-50%);
+  flex-direction: column; color: var(--accent);
+}
+
+/* 序言：居中、金色细线收边 */
+.theme-noir .intro { text-align: center; }
+.theme-noir .intro__lead { font-size: clamp(26px, 3.2vw, 46px); }
+.theme-noir .intro__stats dd { color: var(--accent); }
+.theme-noir .intro__stats { border-top-color: var(--line); }
+
+/* 卡片：悬停时出现金色内框 */
+.theme-noir .card::before {
+  content: ""; position: absolute; inset: 14px; z-index: 2;
+  border: 1px solid var(--accent);
+  opacity: 0; transform: scale(1.02);
+  transition: opacity 900ms var(--ease), transform 1200ms var(--ease-slow);
+  pointer-events: none;
+}
+.theme-noir .card:hover::before,
+.theme-noir .card:focus-visible::before { opacity: 0.7; transform: none; }
+.theme-noir .card__index { color: var(--accent); opacity: 1; }
+.theme-noir .dest-note .display { color: var(--ink); }
+
+/* 故事：宽画幅配图 */
+.theme-noir .stories { background: var(--surface); border-block: 1px solid var(--line); }
+.theme-noir .story__media { aspect-ratio: 4 / 5; }
+.theme-noir .story__cap { color: var(--accent); letter-spacing: 0.24em; text-transform: uppercase; font-size: 10px; }
+.theme-noir .pull-quote { color: var(--ink); }
+.theme-noir .pull-quote::before { color: var(--accent); }
+
+.theme-noir .ways__ctrl button { border-color: var(--line); color: var(--accent); }
+.theme-noir .ways__ctrl button:hover { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+.theme-noir .way__en { color: var(--accent); }
+.theme-noir .progress span { background: var(--accent); }
+
+.theme-noir .voice blockquote { font-style: italic; }
+.theme-noir .voices__dots button::after { background: var(--accent); }
+
+/* 邀约函：黑卡 + 金色双线边框 */
+.theme-noir .letter {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  outline: 1px solid var(--line); outline-offset: -12px;
+  text-align: center;
+}
+.theme-noir .letter__head { justify-items: center; }
+.theme-noir .letter__head p { margin-inline: auto; }
+.theme-noir .letter__form .field { color: var(--accent); border-bottom-color: var(--line); text-align: center; }
+.theme-noir .letter__form .field:focus { border-bottom-color: var(--accent); }
+.theme-noir .letter__form textarea.field { text-align: left; }
+.theme-noir .letter__foot { justify-content: center; flex-direction: column; }
+.theme-noir .letter__thanks { color: var(--accent); }
+
+.theme-noir .footer { border-top: 1px solid var(--line); }
+.theme-noir .footer__big { text-align: center; letter-spacing: 0.02em; }
+.theme-noir .footer__big em { color: var(--accent); font-style: italic; }
+.theme-noir .footer .footer__h { color: var(--accent); opacity: 1; }
+.theme-noir .drawer { background: var(--bg); }
+.theme-noir .drawer a:hover { color: var(--accent); }
