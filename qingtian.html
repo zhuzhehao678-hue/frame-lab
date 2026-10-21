@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>晴天 · 视觉短片</title>
+<meta name="description" content="一场雨之后的校园。原创画面短片。">
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #050607; color: #f4efe6; }
+  body {
+    font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", "WenQuanYi Micro Hei", sans-serif;
+    overflow: hidden;
+  }
+  button, a { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  a { text-decoration: none; }
+  #stage { position: fixed; inset: 0; background: #050607; }
+  .shot {
+    position: absolute; inset: 0;
+    opacity: 0;
+  }
+  body.live .shot { transition: opacity 1.5s ease; }
+  .shot.on { opacity: 1; }
+  body.still .shot, body.still .cap, body.still .mark { transition: none; }
+  .shot img {
+    position: absolute;
+    width: 118%; height: 118%;
+    left: -6%; top: -6%;
+    object-fit: cover;
+    transform: scale(1.04);
+  }
+  .shot.on img { animation: drift var(--dur, 8s) ease-out forwards; }
+  .shot.alt.on img { animation-name: drift-b; }
+  @keyframes drift {
+    from { transform: scale(1.08) translate3d(0, 0, 0); }
+    to { transform: scale(1) translate3d(-2.2%, -1%, 0); }
+  }
+  @keyframes drift-b {
+    from { transform: scale(1.02) translate3d(-2%, -1.6%, 0); }
+    to { transform: scale(1.1) translate3d(1.2%, 0.4%, 0); }
+  }
+  #rain, .grain, .vignette, .bars, .hud { position: absolute; inset: 0; pointer-events: none; }
+  #rain { z-index: 2; }
+  .grain {
+    z-index: 3; opacity: 0.16; mix-blend-mode: overlay;
+    width: 120%; height: 120%; left: -10%; top: -10%;
+    animation: grain 0.45s steps(2) infinite;
+  }
+  @keyframes grain { 50% { transform: translate(1.5%, -1%); } }
+  .vignette {
+    z-index: 3;
+    background: radial-gradient(ellipse at center, transparent 42%, rgba(0,0,0,.55) 100%);
+  }
+  .bars { z-index: 4; }
+  .bars i {
+    position: absolute; left: 0; right: 0; height: 8vh; background: #000;
+  }
+  .bars i.top { top: 0; }
+  .bars i.bot { bottom: 0; }
+  .hud { z-index: 5; }
+  .mark, .cap, #end, #gate {
+    position: absolute; left: 0; right: 0;
+  }
+  .mark {
+    top: 8vh; bottom: 8vh;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    opacity: 0; transition: opacity 1.1s ease;
+  }
+  .mark.on { opacity: 1; }
+  .mark p {
+    margin: 0 0 18px;
+    font-size: 11px;
+    letter-spacing: 0.42em;
+    text-indent: 0.42em;
+    opacity: 0.72;
+  }
+  .mark h1 {
+    margin: 0;
+    font-weight: 400;
+    font-size: clamp(46px, 7vw, 96px);
+    letter-spacing: 0.42em;
+    text-indent: 0.42em;
+    line-height: 1;
+    text-shadow: 0 2px 16px rgba(0,0,0,.55);
+  }
+  .cap {
+    bottom: calc(8vh + 22px);
+    margin: 0;
+    text-align: center;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.8s ease, transform 0.8s ease;
+  }
+  .cap span {
+    display: inline-block;
+    padding: 7px 16px 8px;
+    background: rgba(0,0,0,.46);
+    font-size: clamp(15px, 1.8vw, 20px);
+    letter-spacing: 0.22em;
+    text-indent: 0.22em;
+  }
+  .cap.on { opacity: 1; transform: none; }
+  #tc {
+    position: absolute; z-index: 6; top: 2.4vh; left: 28px;
+    font-family: Consolas, "SFMono-Regular", monospace;
+    font-size: 12px; letter-spacing: 0.16em; opacity: 0;
+  }
+  body.playing #tc { opacity: 0.72; }
+  .progress {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 2px;
+    background: rgba(244,239,230,.16); z-index: 6;
+  }
+  .progress b {
+    display: block; height: 100%; width: 100%;
+    background: #f4efe6; transform: scaleX(0); transform-origin: left center;
+  }
+  #gate {
+    inset: 0; z-index: 7;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    background: rgba(5,6,7,.34);
+  }
+  #gate .mark { position: static; opacity: 1; }
+  #gate[hidden], #end[hidden] { display: none; }
+  #start, #replay, #end a {
+    pointer-events: auto;
+    background: transparent;
+    border: 1px solid rgba(244,239,230,.55);
+    padding: 12px 28px;
+    letter-spacing: 0.32em;
+    text-indent: 0.32em;
+    margin-top: 28px;
+  }
+  #start:hover, #replay:hover, #end a:hover { background: #f4efe6; color: #111; }
+  #start:focus-visible, #replay:focus-visible, #end a:focus-visible {
+    outline: 2px solid #f4efe6; outline-offset: 4px;
+  }
+  #end {
+    z-index: 6;
+    bottom: calc(8vh + 22px);
+    display: flex; gap: 12px; justify-content: center;
+  }
+  #end a, #replay { margin-top: 0; font-size: 13px; }
+  @media (max-width: 700px) {
+    .bars i { height: 5vh; }
+    .mark { top: 5vh; bottom: 5vh; }
+    .cap { bottom: calc(5vh + 64px); letter-spacing: 0.16em; text-indent: 0.16em; }
+    #end { bottom: calc(5vh + 16px); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    body.live .shot { transition-duration: 0.2s; }
+    .shot.on img, .grain { animation: none; }
+    .cap { transition-duration: 0.2s; }
+  }
+</style>
+</head>
+<body>
+<div id="stage" aria-label="视觉短片">
+  <canvas id="rain"></canvas>
+  <svg class="grain" aria-hidden="true">
+    <filter id="noise">
+      <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch"/>
+    </filter>
+    <rect width="100%" height="100%" filter="url(#noise)"/>
+  </svg>
+  <div class="vignette" aria-hidden="true"></div>
+  <div class="bars" aria-hidden="true"><i class="top"></i><i class="bot"></i></div>
+  <div class="hud">
+    <div class="mark" id="mark"><p>视觉短片</p><h1>晴天</h1></div>
+    <p class="cap" id="cap" aria-live="polite"><span id="captext"></span></p>
+  </div>
+  <div id="tc" aria-hidden="true">00:00</div>
+  <div class="progress" aria-hidden="true"><b id="bar"></b></div>
+  <div id="end" hidden>
+    <button type="button" id="replay">再看一次</button>
+    <a href="index.html">回到形场</a>
+  </div>
+  <div id="gate">
+    <div class="mark on"><p>FRAME</p><h1>晴天</h1></div>
+    <button type="button" id="start">放映</button>
+  </div>
+</div>
+<script>
+const SCENES = [
+  { src: "assets/qingtian/qt-01-gate.jpg", line: "车还靠在门边", hold: 8200, rain: 1, alt: false, title: 4300 },
+  { src: "assets/qingtian/qt-02-classroom-rain.jpg", line: "位子都空着", hold: 8000, rain: 1, alt: true },
+  { src: "assets/qingtian/qt-03-corridor.jpg", line: "这条走廊没有人", hold: 8000, rain: 0.8, alt: false },
+  { src: "assets/qingtian/qt-04-court.jpg", line: "云层松了一道缝", hold: 8600, rain: 0.28, alt: true },
+  { src: "assets/qingtian/qt-05-sunbeam.jpg", line: "光停在灰尘上", hold: 8600, rain: 0.05, alt: false },
+  { src: "assets/qingtian/qt-06-courtyard.jpg", line: "石板还在冒热气", hold: 8600, rain: 0, alt: true },
+  { src: "assets/qingtian/qt-07-sky.jpg", line: "天已经晴了", hold: 9800, rain: 0, alt: false, close: 5600 }
+];
+const TOTAL = SCENES.reduce((sum, scene) => sum + scene.hold, 0);
+const stage = document.getElementById("stage");
+const cap = document.getElementById("cap");
+const capText = document.getElementById("captext");
+const mark = document.getElementById("mark");
+const bar = document.getElementById("bar");
+const gate = document.getElementById("gate");
+const end = document.getElementById("end");
+const rainCanvas = document.getElementById("rain");
+const rainCtx = rainCanvas.getContext("2d");
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+const shots = SCENES.map((scene) => {
+  const el = document.createElement("div");
+  el.className = "shot" + (scene.alt ? " alt" : "");
+  el.style.setProperty("--dur", scene.hold + "ms");
+  const img = document.createElement("img");
+  img.src = scene.src;
+  img.alt = "";
+  el.appendChild(img);
+  stage.insertBefore(el, stage.firstChild);
+  return el;
+});
+
+const drops = Array.from({ length: 220 }, () => ({
+  x: Math.random(),
+  y: Math.random(),
+  len: 10 + Math.random() * 26,
+  speed: 0.008 + Math.random() * 0.018,
+  width: 0.6 + Math.random() * 0.7,
+  sway: Math.random() * 0.4
+}));
+let rainTarget = 1;
+let rainNow = 1;
+let playing = false;
+let startWall = 0;
+let sceneIndex = -1;
+let caption = "";
+let finished = false;
+let audioNodes = [];
+let audioCtx = null;
+
+function resizeRain() {
+  rainCanvas.width = innerWidth;
+  rainCanvas.height = innerHeight;
+}
+function drawRain() {
+  rainNow += (rainTarget - rainNow) * 0.04;
+  const w = rainCanvas.width;
+  const h = rainCanvas.height;
+  rainCtx.clearRect(0, 0, w, h);
+  if (rainNow < 0.02) return;
+  rainCtx.strokeStyle = "rgba(226,232,236," + (0.28 * rainNow) + ")";
+  rainCtx.lineWidth = 1;
+  for (const drop of drops) {
+    if (Math.random() > rainNow) continue;
+    drop.y += drop.speed * (0.65 + rainNow);
+    if (drop.y > 1.05) {
+      drop.y = -0.05;
+      drop.x = Math.random();
+    }
+    const x = drop.x * w;
+    const y = drop.y * h;
+    rainCtx.beginPath();
+    rainCtx.moveTo(x, y);
+    rainCtx.lineTo(x + drop.sway * 8, y + drop.len * (0.7 + rainNow));
+    rainCtx.stroke();
+  }
+}
+function loopRain() {
+  drawRain();
+  requestAnimationFrame(loopRain);
+}
+
+function showScene(index) {
+  if (index === sceneIndex) return;
+  sceneIndex = index;
+  shots.forEach((shot, i) => {
+    const on = i === index;
+    shot.classList.toggle("on", on);
+    if (on && !reduce) {
+      const img = shot.querySelector("img");
+      img.style.animation = "none";
+      void img.offsetWidth;
+      img.style.animation = "";
+    }
+  });
+  rainTarget = SCENES[index].rain;
+}
+
+function setCaption(text, immediate) {
+  if (!immediate && caption === text) {
+    cap.classList.add("on");
+    return;
+  }
+  caption = text;
+  if (immediate || reduce) {
+    capText.textContent = text;
+    cap.classList.add("on");
+    return;
+  }
+  cap.classList.remove("on");
+  window.setTimeout(() => {
+    if (caption !== text) return;
+    capText.textContent = text;
+    cap.classList.add("on");
+  }, 280);
+}
+function hideCaption() {
+  caption = "";
+  cap.classList.remove("on");
+}
+
+function startBed() {
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  if (!Ctx) return;
+  audioCtx = new Ctx();
+  const now = audioCtx.currentTime;
+  const length = audioCtx.sampleRate * 2;
+  const buffer = audioCtx.createBuffer(1, length, audioCtx.sampleRate);
+  const data = buffer.getChannelData(0);
+  let last = 0;
+  for (let i = 0; i < length; i++) {
+    const white = Math.random() * 2 - 1;
+    last = (last + 0.02 * white) / 1.02;
+    data[i] = last * 3.2;
+  }
+  const rain = audioCtx.createBufferSource();
+  rain.buffer = buffer;
+  rain.loop = true;
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = "lowpass";
+  filter.frequency.value = 720;
+  const gain = audioCtx.createGain();
+  rain.connect(filter);
+  filter.connect(gain);
+  gain.connect(audioCtx.destination);
+  rain.start();
+  audioNodes.push(rain);
+  gain.gain.setValueAtTime(0.0001, now);
+  let cursor = 0;
+  for (const scene of SCENES) {
+    gain.gain.linearRampToValueAtTime(0.2 * scene.rain + 0.0001, now + cursor / 1000);
+    cursor += scene.hold;
+  }
+  gain.gain.linearRampToValueAtTime(0.0001, now + TOTAL / 1000);
+
+  [65.41, 98, 130.81].forEach((freq, index) => {
+    const osc = audioCtx.createOscillator();
+    osc.type = "sine";
+    osc.frequency.value = freq;
+    const g = audioCtx.createGain();
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.linearRampToValueAtTime(0.02, now + 2.5 + index * 0.4);
+    g.gain.linearRampToValueAtTime(0.012, now + 40);
+    g.gain.linearRampToValueAtTime(0.0001, now + TOTAL / 1000);
+    osc.connect(g);
+    g.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(now + TOTAL / 1000 + 0.2);
+    audioNodes.push(osc);
+  });
+}
+function stopBed() {
+  audioNodes.forEach((node) => { try { node.stop(); } catch (err) {} });
+  audioNodes = [];
+  if (audioCtx) audioCtx.close();
+  audioCtx = null;
+}
+
+function present(elapsed, immediate) {
+  if (elapsed >= TOTAL) {
+    finish();
+    return;
+  }
+  let cursor = 0;
+  let index = SCENES.length - 1;
+  for (let i = 0; i < SCENES.length; i++) {
+    if (elapsed < cursor + SCENES[i].hold) {
+      index = i;
+      break;
+    }
+    cursor += SCENES[i].hold;
+  }
+  showScene(index);
+  const local = elapsed - cursor;
+  const scene = SCENES[index];
+  const opening = scene.title && local < scene.title;
+  const closing = scene.close && local > scene.close;
+  if (opening || closing) {
+    hideCaption();
+    mark.classList.add("on");
+    if (closing) end.hidden = false;
+  } else {
+    mark.classList.remove("on");
+    end.hidden = true;
+    setCaption(scene.line, immediate);
+  }
+  bar.style.transform = "scaleX(" + Math.min(1, elapsed / TOTAL) + ")";
+  const shown = Math.min(TOTAL, Math.max(0, elapsed)) / 1000;
+  const mins = Math.floor(shown / 60);
+  const secs = Math.floor(shown % 60);
+  document.getElementById("tc").textContent =
+    String(mins).padStart(2, "0") + ":" + String(secs).padStart(2, "0");
+}
+function tick() {
+  if (!playing) return;
+  present(Date.now() - startWall, false);
+  if (playing) requestAnimationFrame(tick);
+}
+
+function finish() {
+  playing = false;
+  finished = true;
+  showScene(SCENES.length - 1);
+  hideCaption();
+  mark.classList.add("on");
+  bar.style.transform = "scaleX(1)";
+  end.hidden = false;
+  rainTarget = 0;
+}
+
+function play() {
+  stopBed();
+  finished = false;
+  end.hidden = true;
+  gate.hidden = true;
+  sceneIndex = -1;
+  caption = "";
+  cap.classList.remove("on");
+  mark.classList.remove("on");
+  playing = true;
+  document.body.classList.add("playing");
+  startWall = Date.now();
+  try { startBed(); } catch (err) {}
+  requestAnimationFrame(tick);
+}
+
+document.getElementById("start").addEventListener("click", play);
+document.getElementById("replay").addEventListener("click", play);
+addEventListener("keydown", (event) => {
+  if (event.key !== " " && event.key !== "Enter") return;
+  if (event.target === document.getElementById("replay") || event.target.closest("a")) return;
+  event.preventDefault();
+  if (!playing) play();
+});
+
+resizeRain();
+addEventListener("resize", resizeRain);
+shots[0].classList.add("on");
+requestAnimationFrame(() => document.body.classList.add("live"));
+
+const params = new URLSearchParams(location.search);
+if (params.has("at")) {
+  document.body.classList.add("still");
+  gate.hidden = true;
+  present(Number(params.get("at")) || 0, true);
+  rainNow = rainTarget;
+  for (let i = 0; i < 8; i++) drawRain();
+} else {
+  loopRain();
+  if (params.has("play")) {
+    Promise.all(shots.map((shot) => shot.querySelector("img").decode().catch(() => {}))).then(play);
+  }
+}
+</script>
+</body>
+</html>
