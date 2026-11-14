@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>残照 AFTERGLOW · 实时渲染 FPS</title>
+<meta name="description" content="一个运行在浏览器里的小关卡 FPS：程序化 PBR 材质、GTAO、体积光、高度雾与电影级后期。">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='5' fill='%23120f0d'/%3E%3Ccircle cx='16' cy='18' r='7' fill='%23e9763a'/%3E%3Crect x='4' y='19' width='24' height='9' fill='%23120f0d'/%3E%3C/svg%3E">
+<style>
+  :root { --hud: rgba(240, 236, 228, 0.92); --dim: rgba(240, 236, 228, 0.5); --accent: #f08a4b; --red: #ff4a36; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; color: var(--hud);
+    font-family: "Inter", "PingFang SC", "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif; user-select: none; }
+  canvas#view { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; cursor: none; }
+  .layer { position: fixed; inset: 0; pointer-events: none; }
+  .hidden { display: none !important; }
+
+  /* ---------- loading / menu ---------- */
+  #overlay { position: fixed; inset: 0; display: flex; flex-direction: column; justify-content: flex-end; padding: 7vh 7vw;
+    background: radial-gradient(120% 90% at 70% 30%, rgba(0,0,0,0) 0%, rgba(0,0,0,0.55) 55%, rgba(0,0,0,0.85) 100%); pointer-events: auto; cursor: default; transition: opacity .6s; }
+  #overlay.loading { background: #0b0a09; }
+  .brand { font-size: clamp(44px, 7vw, 96px); font-weight: 200; letter-spacing: 0.12em; line-height: 1; margin: 0; }
+  .brand b { font-weight: 700; color: var(--accent); letter-spacing: 0.04em; }
+  .sub { margin: 14px 0 0; font-size: 13px; letter-spacing: 0.42em; color: var(--dim); text-transform: uppercase; }
+  .tag { margin-top: 26px; max-width: 520px; font-size: 14px; line-height: 1.8; color: rgba(240,236,228,0.72); }
+  #bar { margin-top: 40px; width: min(520px, 80vw); height: 2px; background: rgba(255,255,255,0.1); position: relative; overflow: hidden; }
+  #bar i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--accent); transition: width .2s; }
+  #loadlabel { margin-top: 10px; font-size: 11px; letter-spacing: 0.2em; color: var(--dim); font-variant-numeric: tabular-nums; }
+  #menu { margin-top: 36px; display: flex; flex-direction: column; gap: 18px; }
+  #play { align-self: flex-start; pointer-events: auto; background: none; border: 1px solid rgba(240,236,228,0.5); color: var(--hud);
+    padding: 14px 44px; font-size: 15px; letter-spacing: 0.4em; cursor: pointer; transition: all .2s; font-family: inherit; }
+  #play:hover { background: var(--accent); border-color: var(--accent); color: #140c07; }
+  .opts { display: flex; gap: 28px; flex-wrap: wrap; font-size: 12px; letter-spacing: 0.12em; color: var(--dim); align-items: center; }
+  .opts label { display: flex; gap: 10px; align-items: center; }
+  .opts select, .opts input { pointer-events: auto; background: rgba(0,0,0,0.4); color: var(--hud); border: 1px solid rgba(255,255,255,0.2); padding: 4px 8px; font-family: inherit; }
+  .keys { display: grid; grid-template-columns: repeat(4, auto); gap: 6px 24px; font-size: 12px; color: var(--dim); max-width: 640px; }
+  .keys kbd { display: inline-block; min-width: 22px; padding: 1px 6px; margin-right: 8px; border: 1px solid rgba(255,255,255,0.25); border-radius: 3px; font: 11px/18px ui-monospace, monospace; color: var(--hud); text-align: center; }
+  #paused { font-size: 12px; letter-spacing: 0.4em; color: var(--accent); }
+
+  /* ---------- HUD ---------- */
+  #hud { opacity: 0; transition: opacity .5s; text-shadow: 0 1px 6px rgba(0,0,0,0.55); }
+  #hud.on { opacity: 1; }
+  #cross { position: absolute; left: 50%; top: 50%; width: 0; height: 0; transition: opacity .12s; }
+  #cross i { position: absolute; background: var(--hud); box-shadow: 0 0 2px rgba(0,0,0,0.7); }
+  #cross .t, #cross .b { width: 2px; height: 9px; left: -1px; }
+  #cross .l, #cross .r { height: 2px; width: 9px; top: -1px; }
+  #cross .d { width: 2px; height: 2px; left: -1px; top: -1px; }
+  #hit { position: absolute; left: 50%; top: 50%; width: 28px; height: 28px; margin: -14px; opacity: 0; stroke: #fff; }
+  #hit.kill { stroke: var(--red); }
+  #dmgdirs { position: absolute; left: 50%; top: 50%; }
+  .dd { position: absolute; left: -90px; top: -90px; width: 180px; height: 180px; border-radius: 50%;
+    background: conic-gradient(from -18deg, rgba(255,60,40,0.85) 0deg, rgba(255,60,40,0) 36deg, transparent 36deg);
+    -webkit-mask: radial-gradient(circle, transparent 78px, #000 80px, #000 88px, transparent 90px); mask: radial-gradient(circle, transparent 78px, #000 80px, #000 88px, transparent 90px); }
+  #ammo { position: absolute; right: 56px; bottom: 46px; text-align: right; }
+  #ammo .n { font-size: 54px; font-weight: 300; font-variant-numeric: tabular-nums; line-height: 1; }
+  #ammo .n small { font-size: 22px; color: var(--dim); margin-left: 6px; }
+  #ammo .w { margin-top: 8px; font-size: 11px; letter-spacing: 0.3em; color: var(--dim); }
+  #ammo .pips { margin-top: 10px; display: flex; gap: 2px; justify-content: flex-end; }
+  #ammo .pips i { width: 3px; height: 10px; background: var(--hud); opacity: 0.85; }
+  #ammo .pips i.e { opacity: 0.15; }
+  #ammo.low .n { color: var(--red); }
+  #health { position: absolute; left: 56px; bottom: 50px; width: 260px; }
+  #health .lbl { font-size: 11px; letter-spacing: 0.3em; color: var(--dim); display: flex; justify-content: space-between; }
+  #health .bar { margin-top: 8px; height: 4px; background: rgba(255,255,255,0.14); }
+  #health .bar i { display: block; height: 100%; width: 100%; background: var(--hud); transition: width .15s; }
+  #health.low .bar i { background: var(--red); }
+  #wave { position: absolute; left: 50%; top: 34px; transform: translateX(-50%); text-align: center; font-size: 11px; letter-spacing: 0.4em; color: var(--dim); }
+  #wave b { display: block; font-size: 16px; letter-spacing: 0.25em; color: var(--hud); font-weight: 500; margin-top: 6px; }
+  #banner { position: absolute; left: 0; right: 0; top: 30%; text-align: center; opacity: 0; transition: opacity .6s; }
+  #banner .k { font-size: 12px; letter-spacing: 0.6em; color: var(--accent); }
+  #banner .t { margin-top: 14px; font-size: 40px; font-weight: 200; letter-spacing: 0.3em; }
+  #banner .s { margin-top: 12px; font-size: 13px; letter-spacing: 0.2em; color: var(--dim); }
+  #feed { position: absolute; right: 56px; top: 40px; display: flex; flex-direction: column; gap: 6px; align-items: flex-end; font-size: 12px; letter-spacing: 0.15em; }
+  #feed div { padding: 5px 10px; background: rgba(0,0,0,0.25); border-right: 2px solid var(--accent); animation: feed 3.2s forwards; }
+  @keyframes feed { 0% { opacity: 0; transform: translateX(20px); } 8% { opacity: 1; transform: none; } 85% { opacity: 1; } 100% { opacity: 0; } }
+  #hint { position: absolute; left: 50%; bottom: 140px; transform: translateX(-50%); font-size: 12px; letter-spacing: 0.3em; color: var(--hud); opacity: 0; transition: opacity .3s; }
+  #fps { position: absolute; left: 12px; top: 10px; font: 11px ui-monospace, monospace; color: var(--dim); }
+  #end { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(5,3,2,0.55); pointer-events: auto; cursor: pointer; }
+  #end .t { font-size: 48px; font-weight: 200; letter-spacing: 0.35em; }
+  #end .s { margin-top: 20px; font-size: 13px; letter-spacing: 0.2em; color: var(--dim); line-height: 2; text-align: center; }
+  #end .c { margin-top: 36px; font-size: 12px; letter-spacing: 0.4em; color: var(--accent); }
+</style>
+</head>
+<body>
+<canvas id="view"></canvas>
+
+<div id="hud" class="layer">
+  <div id="cross"><i class="t"></i><i class="b"></i><i class="l"></i><i class="r"></i><i class="d"></i></div>
+  <svg id="hit" viewBox="0 0 28 28" fill="none" stroke-width="2" stroke-linecap="round"><path d="M3 3l6 6M25 3l-6 6M3 25l6-6M25 25l-6-6"/></svg>
+  <div id="dmgdirs"></div>
+  <div id="wave">第 <span id="wn">1</span> 波<b id="wleft">剩余 0</b></div>
+  <div id="feed"></div>
+  <div id="banner"><div class="k" id="bk"></div><div class="t" id="bt"></div><div class="s" id="bs"></div></div>
+  <div id="hint"></div>
+  <div id="health"><div class="lbl"><span>生命</span><span id="hpn">100</span></div><div class="bar"><i id="hpb"></i></div></div>
+  <div id="ammo"><div class="n"><span id="mag">30</span><small>/ <span id="res">180</span></small></div><div class="pips" id="pips"></div><div class="w">MK-18 CQBR · 5.56</div></div>
+  <div id="fps" class="hidden"></div>
+</div>
+
+<div id="overlay" class="loading">
+  <h1 class="brand"><b>残照</b> AFTERGLOW</h1>
+  <p class="sub">Pier 9 · 黄昏码头 · 实时渲染</p>
+  <p class="tag">日落前的最后二十分钟，九号码头被无人机巡逻队接管。清除四波哨兵无人机，夺回堆场。</p>
+  <div id="loadwrap"><div id="bar"><i></i></div><div id="loadlabel">初始化渲染器</div></div>
+  <div id="menu" class="hidden">
+    <div id="paused" class="hidden">已暂停</div>
+    <button id="play">开始作战</button>
+    <div class="opts">
+      <label>画质 <select id="quality"><option value="low">低</option><option value="medium">中</option><option value="high">高</option><option value="ultra">极致</option></select></label>
+      <label>灵敏度 <input id="sens" type="range" min="0.3" max="3" step="0.05" value="1"></label>
+      <label>视野 <input id="fov" type="range" min="60" max="95" step="1" value="74"></label>
+    </div>
+    <div class="keys">
+      <span><kbd>WASD</kbd>移动</span><span><kbd>鼠标</kbd>瞄准</span><span><kbd>左键</kbd>射击</span><span><kbd>右键</kbd>开镜</span>
+      <span><kbd>Shift</kbd>冲刺</span><span><kbd>C</kbd>蹲下</span><span><kbd>空格</kbd>跳跃</span><span><kbd>R</kbd>换弹</span>
+      <span><kbd>F</kbd>帧率</span><span><kbd>P</kbd>照片模式</span><span><kbd>Esc</kbd>暂停</span>
+    </div>
+  </div>
+</div>
+<div id="end" class="hidden"><div class="t" id="et"></div><div class="s" id="es"></div><div class="c">点击重新开始</div></div>
+
+<script type="module" src="./game.js"></script>
+</body>
+</html>

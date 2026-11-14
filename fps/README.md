@@ -1,6 +1,8 @@
 # 残照 AFTERGLOW
 
-浏览器里运行的小关卡 FPS，场景是黄昏时的集装箱码头。打开 `fps/index.html` 就能玩，需要通过静态服务器访问，比如 `npx serve .` 或 GitHub Pages。
+浏览器里运行的小关卡 FPS，场景是黄昏时的集装箱码头。
+
+**整个游戏就是一个文件：`fps/index.html`，双击即可在浏览器里玩。** 里面内联了 three.js 和全部游戏代码，运行时不联网、不加载任何外部资源。贴图、模型、音效全部由代码在启动时现场计算。
 
 ## 渲染
 
@@ -29,9 +31,11 @@
 
 ## 开发
 
+源码在 `src/`，HTML 模板是 `src/index.template.html`。唯一的依赖是 three.js（含其自带的 addons），只在构建时需要。
+
 ```bash
 cd fps
 npm install
-npm run build   # 打包 src/ 到 game.js
-npm run dev     # 监听构建
+npm run build   # 把 src/ 和 three.js 打包，内联进单文件 index.html
+npm run dev     # 同上，不压缩
 ```
