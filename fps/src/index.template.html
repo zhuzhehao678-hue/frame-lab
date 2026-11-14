@@ -89,18 +89,19 @@
   <svg id="hit" viewBox="0 0 28 28" fill="none" stroke-width="2" stroke-linecap="round"><path d="M3 3l6 6M25 3l-6 6M3 25l6-6M25 25l-6-6"/></svg>
   <div id="dmgdirs"></div>
   <div id="wave">第 <span id="wn">1</span> 波<b id="wleft">剩余 0</b></div>
+  <div id="scorebox" style="position:absolute;left:56px;top:40px;font-size:11px;letter-spacing:.3em;color:var(--dim)">得分<b id="score" style="display:block;margin-top:6px;font-size:22px;font-weight:300;letter-spacing:.05em;color:var(--hud);font-variant-numeric:tabular-nums">0</b></div>
   <div id="feed"></div>
   <div id="banner"><div class="k" id="bk"></div><div class="t" id="bt"></div><div class="s" id="bs"></div></div>
   <div id="hint"></div>
   <div id="health"><div class="lbl"><span>生命</span><span id="hpn">100</span></div><div class="bar"><i id="hpb"></i></div></div>
-  <div id="ammo"><div class="n"><span id="mag">30</span><small>/ <span id="res">180</span></small></div><div class="pips" id="pips"></div><div class="w">MK-18 CQBR · 5.56</div></div>
+  <div id="ammo"><div class="n"><span id="mag">30</span><small>/ <span id="res">180</span></small></div><div class="pips" id="pips"></div><div class="w">MK-18 CQBR · 5.56</div><div class="w">手雷 <span id="gren" style="letter-spacing:0.15em;color:var(--hud)"></span> <kbd style="font-size:10px;border:1px solid rgba(255,255,255,.3);padding:0 4px;border-radius:2px">G</kbd></div></div>
   <div id="fps" class="hidden"></div>
 </div>
 
 <div id="overlay" class="loading">
   <h1 class="brand"><b>残照</b> AFTERGLOW</h1>
   <p class="sub">Pier 9 · 黄昏码头 · 实时渲染</p>
-  <p class="tag">日落前的最后二十分钟，九号码头被无人机巡逻队接管。清除四波哨兵无人机，夺回堆场。</p>
+  <p class="tag">日落前的最后二十分钟，九号码头被无人机巡逻队接管。清除五波哨兵无人机，夺回堆场。</p>
   <div id="loadwrap"><div id="bar"><i></i></div><div id="loadlabel">初始化渲染器</div></div>
   <div id="menu" class="hidden">
     <div id="paused" class="hidden">已暂停</div>
@@ -112,7 +113,7 @@
     </div>
     <div class="keys">
       <span><kbd>WASD</kbd>移动</span><span><kbd>鼠标</kbd>瞄准</span><span><kbd>左键</kbd>射击</span><span><kbd>右键</kbd>开镜</span>
-      <span><kbd>Shift</kbd>冲刺</span><span><kbd>C</kbd>蹲下</span><span><kbd>空格</kbd>跳跃</span><span><kbd>R</kbd>换弹</span>
+      <span><kbd>Shift</kbd>冲刺</span><span><kbd>C</kbd>蹲下</span><span><kbd>空格</kbd>跳跃</span><span><kbd>R</kbd>换弹</span><span><kbd>G</kbd>手雷</span>
       <span><kbd>F</kbd>帧率</span><span><kbd>P</kbd>照片模式</span><span><kbd>Esc</kbd>暂停</span>
     </div>
   </div>

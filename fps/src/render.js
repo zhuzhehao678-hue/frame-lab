@@ -6,12 +6,13 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { Sky } from 'three/examples/jsm/objects/Sky.js';
 import { FOG } from './fog.js';
+import { PlanarReflection } from './reflect.js';
 
 export const QUALITY = {
-  low: { label: '低', pixelRatio: 0.75, texSize: 1024, shadow: 2048, ao: false, godrays: 0, msaa: 0, bloom: true },
-  medium: { label: '中', pixelRatio: 1.0, texSize: 1024, shadow: 2048, ao: true, godrays: 32, msaa: 0, bloom: true },
-  high: { label: '高', pixelRatio: 1.25, texSize: 1024, shadow: 4096, ao: true, godrays: 56, msaa: 4, bloom: true },
-  ultra: { label: '极致', pixelRatio: 2.0, texSize: 2048, shadow: 4096, ao: true, godrays: 80, msaa: 4, bloom: true },
+  low: { reflect: false, label: '低', pixelRatio: 0.75, texSize: 1024, shadow: 2048, ao: false, godrays: 0, msaa: 0, bloom: true },
+  medium: { reflect: false, label: '中', pixelRatio: 1.0, texSize: 1024, shadow: 2048, ao: true, godrays: 32, msaa: 0, bloom: true },
+  high: { reflect: true, label: '高', pixelRatio: 1.25, texSize: 1024, shadow: 4096, ao: true, godrays: 56, msaa: 4, bloom: true },
+  ultra: { reflect: true, label: '极致', pixelRatio: 2.0, texSize: 2048, shadow: 4096, ao: true, godrays: 80, msaa: 4, bloom: true },
 };
 
 // GTAO that skips objects flagged userData.noAO (particles, sky, alpha-tested fence)
@@ -145,6 +146,8 @@ export class Renderer {
     const r = this.renderer;
     const q = this.q;
     const pr = Math.min(window.devicePixelRatio || 1, q.pixelRatio);
+    this.basePR = pr; this.scale = 1; this.ema = 16; this.adaptT = 0; this.dynRes = true;
+    if (q.reflect) this.refl = new PlanarReflection(r, 0.5);
     r.setPixelRatio(pr);
     r.setSize(window.innerWidth, window.innerHeight, false);
     const size = r.getDrawingBufferSize(new THREE.Vector2());
@@ -186,10 +189,29 @@ export class Renderer {
     this.composer.setSize(w, h);
     const s = this.renderer.getDrawingBufferSize(new THREE.Vector2());
     this.final.uniforms.uRes.value.copy(s);
+    if (this.refl) this.refl.setSize(s.x, s.y);
     if (this.god) this.god.uniforms.uAspect.value = w / h;
   }
 
+  // dynamic resolution: keep frame time near 60 fps on unknown GPUs
+  setScale(k) {
+    this.scale = k;
+    const p = this.basePR * k;
+    this.renderer.setPixelRatio(p); this.composer.setPixelRatio(p);
+    this.resize();
+  }
+  adapt(frameMs) {
+    if (!this.dynRes || !(frameMs > 0) || frameMs > 250) return;
+    this.ema += (frameMs - this.ema) * 0.05;
+    this.adaptT += frameMs;
+    if (this.adaptT < 1500) return;
+    this.adaptT = 0;
+    if (this.ema > 21 && this.scale > 0.55) this.setScale(Math.max(0.55, +(this.scale - 0.1).toFixed(2)));
+    else if (this.ema < 13.5 && this.scale < 1) this.setScale(Math.min(1, +(this.scale + 0.1).toFixed(2)));
+  }
+
   render(dt, t) {
+    if (this.refl) this.refl.render(this.scene, this.camera);
     const f = this.final.uniforms;
     f.uTime.value = t;
     if (this.god) {

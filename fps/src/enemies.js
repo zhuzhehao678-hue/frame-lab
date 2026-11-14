@@ -27,7 +27,8 @@ export function rayColliders(level, o, d, maxT) {
 export class Enemies {
   constructor(scene, lib, effects, level, audio) {
     this.scene = scene; this.lib = lib; this.effects = effects; this.level = level; this.audio = audio;
-    this.list = []; this.bolts = [];
+    this.list = []; this.bolts = []; this.falling = [];
+    this.kamiMat = new THREE.MeshStandardMaterial({ color: 0x220000, emissive: new THREE.Color(1, 0.05, 0.02), emissiveIntensity: 6, roughness: 0.4 });
     const M = lib.M;
     this.hull = M.gunMetal.clone(); this.hull.color = new THREE.Color(3.2, 3.2, 3.3);
     this.accent = M.paintYellow;
@@ -87,20 +88,27 @@ export class Enemies {
     return { group: g, eye, rotors };
   }
 
-  spawn(pos, heavy = false) {
+  spawn(pos, kind = 'normal') {
+    if (kind === true) kind = 'heavy'; if (!kind) kind = 'normal';
+    const heavy = kind === 'heavy', kami = kind === 'kamikaze';
     const m = this.buildDrone(heavy);
+    if (kami) {
+      m.group.scale.setScalar(1.3);
+      m.group.traverse((o) => { if (o.isMesh && o.material === this.accent) o.material = this.kamiMat; });
+    }
     m.group.position.copy(pos);
     this.scene.add(m.group);
     const e = {
       ...m, pos: m.group.position, vel: new THREE.Vector3(), heavy,
-      hp: heavy ? 260 : 100, maxHp: heavy ? 260 : 100, radius: heavy ? 1.0 : 0.76,
+      kami, kind, beepT: 0, armed: -1,
+      hp: heavy ? 260 : (kami ? 45 : 100), maxHp: heavy ? 260 : (kami ? 45 : 100), radius: heavy ? 1.0 : (kami ? 0.62 : 0.76),
       fireCD: 1.5 + Math.random() * 2, charge: 0, burst: 0,
       orbit: Math.random() * Math.PI * 2, orbitDir: Math.random() < 0.5 ? -1 : 1,
       pref: (heavy ? 13 : 10) + Math.random() * 5, alt: 3.2 + Math.random() * 3,
       hitFlash: 0, alive: true, seen: false, lostT: 0, id: Math.random(),
       wob: Math.random() * 10,
     };
-    e.hum = this.audio.droneHum(e.group, heavy);
+    e.hum = this.audio.droneHum(e.group, heavy, kami);
     this.list.push(e);
     // arrival FX
     this.effects.flash(pos, new THREE.Color(1, 0.3, 0.2), 10, 0.4, 8);
@@ -129,8 +137,64 @@ export class Enemies {
     return false;
   }
 
+  // area damage from exploding kamikazes (chains into other drones)
+  blast(pos, radius, playerMax, droneMax) {
+    const pl = this.player;
+    if (pl && !pl.dead) {
+      const d = pl.camera.position.distanceTo(pos);
+      if (d < radius && !segmentBlocked(this.level, pos, pl.camera.position)) {
+        const dmg = playerMax * (1 - d / radius);
+        pl.damage(dmg, pos, this.t || 0);
+        if (this.onPlayerHit) this.onPlayerHit(pos, dmg);
+      }
+      pl.shake = Math.min(1, pl.shake + Math.max(0, 0.7 * (1 - d / 18)));
+    }
+    for (const o of this.list.slice()) {
+      if (!o.alive) continue;
+      const d = o.pos.distanceTo(pos);
+      if (d < radius * 1.3 && d > 0.01) this.damage(o, droneMax * (1 - d / (radius * 1.3)), o.pos.clone(), o.pos.clone().sub(pos).normalize());
+    }
+  }
+
   kill(e, dir) {
     e.alive = false;
+    if (this.onKill) this.onKill(e);
+    if (e.kami) { this.explodeNow(e, dir); this.blast(e.pos.clone(), 4.6, 42, 160); return; }
+    // lose control: spiral down trailing fire/smoke, explode on impact
+    e.fall = { t: 0, spin: (Math.random() < 0.5 ? -1 : 1) * (6 + Math.random() * 6), dir: dir.clone() };
+    e.vel.addScaledVector(dir, 2.5).add(new THREE.Vector3(0, 1.5, 0));
+    this.effects.flash(e.pos, new THREE.Color(1, 0.5, 0.2), 25, 0.25, 10);
+    for (let i = 0; i < 20; i++) this.effects.add.emit({ pos: e.pos, vel: new THREE.Vector3((Math.random() - 0.5) * 9, Math.random() * 6, (Math.random() - 0.5) * 9), life: 0.5, size: 0.015, color: new THREE.Color(9, 5, 2), gravity: 9.8, stretch: 0.03, bounce: true });
+    this.audio.boltImpact(e.pos);
+    this.falling.push(e);
+  }
+
+  updateFalling(dt) {
+    for (let i = this.falling.length - 1; i >= 0; i--) {
+      const e = this.falling[i]; const f = e.fall;
+      f.t += dt;
+      e.vel.y -= 11 * dt;
+      e.vel.x *= Math.exp(-0.6 * dt); e.vel.z *= Math.exp(-0.6 * dt);
+      e.pos.addScaledVector(e.vel, dt);
+      e.group.rotateY(f.spin * dt);
+      e.group.rotateZ(f.spin * 0.15 * dt);
+      for (const r of e.rotors) r.rotation.y += dt * 30;
+      e.eye.material.emissiveIntensity = Math.random() < 0.5 ? 2 : 25;
+      // fire + smoke trail
+      const c = new THREE.Color(0.22, 0.2, 0.18).multiply(this.effects.ambient).multiplyScalar(2.2);
+      for (let k = 0; k < 2; k++) this.effects.smoke.emit({ pos: e.pos.clone().addScaledVector(e.vel, -k * 0.016), vel: new THREE.Vector3((Math.random() - 0.5) * 0.4, 0.7, (Math.random() - 0.5) * 0.4), life: 2.8, size: 0.4, size1: 2.2, color: c, alpha: 0.75, alpha1: 0, drag: 1, gravity: -0.5, fadeIn: 0.04, rotVel: (Math.random() - 0.5) * 2 });
+      this.effects.add.emit({ pos: e.pos, vel: e.vel.clone().multiplyScalar(-0.15), life: 0.3, size: 0.8, size1: 0.1, color: new THREE.Color(9, 3.5, 0.9), color1: new THREE.Color(2, 0.4, 0.1), alpha: 1, alpha1: 0 });
+      if (Math.random() < 0.4) this.effects.add.emit({ pos: e.pos, vel: new THREE.Vector3((Math.random() - 0.5) * 5, Math.random() * 3, (Math.random() - 0.5) * 5), life: 0.5, size: 0.015, color: new THREE.Color(9, 5, 2), gravity: 9.8, stretch: 0.04 });
+      this.audio.updateHum(e.hum, 14 - f.t * 6);
+      let hit = f.t > 3;
+      for (const b of this.level.colliders) {
+        if (e.pos.x > b.min.x - 0.3 && e.pos.x < b.max.x + 0.3 && e.pos.z > b.min.z - 0.3 && e.pos.z < b.max.z + 0.3 && e.pos.y < b.max.y + 0.3 && e.pos.y > b.min.y - 0.3) { hit = true; break; }
+      }
+      if (hit) { this.falling.splice(i, 1); this.explodeNow(e, f.dir); }
+    }
+  }
+
+  explodeNow(e, dir) {
     this.audio.stopHum(e.hum);
     this.audio.explosion(e.pos);
     this.effects.explosion(e.pos.clone(), e.heavy ? 1.4 : 1.0);
@@ -145,7 +209,6 @@ export class Enemies {
       this.effects.spawnDebris(m, wp, v, Math.random() < 0.4);
     }
     this.scene.remove(e.group);
-    if (this.onKill) this.onKill(e);
   }
 
   fireBolt(e, player) {
@@ -167,6 +230,8 @@ export class Enemies {
   }
 
   update(dt, t, player) {
+    this.player = player; this.t = t;
+    this.updateFalling(dt);
     const target = player.camera.position;
     for (const e of this.list) {
       if (!e.alive) continue;
@@ -182,7 +247,9 @@ export class Enemies {
       if (e.lostT > 2) { desired.lerp(target, 0.35); desired.y = e.alt + 2.5; }
       desired.x = THREE.MathUtils.clamp(desired.x, -16, 15.5);
       desired.z = THREE.MathUtils.clamp(desired.z, -22, 19);
-      const acc = desired.sub(e.pos).clampLength(0, 6).multiplyScalar(1.4);
+      const distP = target.distanceTo(e.pos);
+      if (e.kami) { desired.copy(target); desired.y = distP > 9 ? 3.6 : target.y - 0.25; }
+      const acc = desired.sub(e.pos).clampLength(0, 6).multiplyScalar(e.kami ? 3.4 : 1.4);
       // separation
       for (const o of this.list) {
         if (o === e || !o.alive) continue;
@@ -199,7 +266,7 @@ export class Enemies {
       if (e.pos.y < 1.2) acc.y += (1.2 - e.pos.y) * 20;
       e.vel.addScaledVector(acc, dt);
       e.vel.multiplyScalar(Math.exp(-1.6 * dt));
-      e.vel.clampLength(0, e.heavy ? 4.2 : 6.5);
+      e.vel.clampLength(0, e.heavy ? 4.2 : (e.kami ? 10.5 : 6.5));
       e.pos.addScaledVector(e.vel, dt);
 
       // orientation: face the player, bank with acceleration
@@ -224,6 +291,15 @@ export class Enemies {
         if (Math.random() < 0.15) this.effects.add.emit({ pos: e.pos, vel: new THREE.Vector3((Math.random() - 0.5) * 3, Math.random() * 2, (Math.random() - 0.5) * 3), life: 0.4, size: 0.01, color: new THREE.Color(8, 4, 1.5), gravity: 9.8, stretch: 0.04 });
       }
 
+      if (e.kami) {
+        // proximity fuse with an accelerating beep
+        e.beepT -= dt;
+        const iv = THREE.MathUtils.clamp(distP / 14, 0.07, 0.55);
+        if (e.beepT <= 0) { e.beepT = iv; this.audio.beep && this.audio.beep(e.pos, 900 + (1 - iv / 0.55) * 900); e.hitFlash = Math.max(e.hitFlash, 0.6); }
+        if (e.armed < 0 && distP < 2.3 && !player.dead) e.armed = 0.32;
+        if (e.armed >= 0) { e.armed -= dt; if (e.armed <= 0) this.kill(e, new THREE.Vector3(0, 1, 0)); }
+        continue;
+      }
       // attack logic
       if (player.dead) continue;
       e.fireCD -= dt;
@@ -285,7 +361,8 @@ export class Enemies {
   }
 
   clear() {
-    for (const e of this.list) { this.scene.remove(e.group); this.audio.stopHum(e.hum); }
+    for (const e of this.list.concat(this.falling)) { this.scene.remove(e.group); this.audio.stopHum(e.hum); }
+    this.falling = [];
     for (const b of this.bolts) this.scene.remove(b.mesh);
     this.list = []; this.bolts = [];
   }

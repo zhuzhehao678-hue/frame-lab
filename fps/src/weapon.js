@@ -68,6 +68,7 @@ export class Weapon {
     this.flashT = 1;
     this.shotsFired = 0; this.spreadBloom = 0;
     this.equipT = 0;
+    this.throwT = 9;
     this.events = {}; // callbacks: reloadStage
     this.hipPos = new THREE.Vector3(0.135, -0.175, -0.36);
     this.hipRot = new THREE.Euler(0.035, 0.05, -0.06);
@@ -271,7 +272,7 @@ export class Weapon {
     this.flash.visible = false;
   }
 
-  canFire() { return !this.reloading && this.ammo > 0 && this.cool <= 0 && this.sprint < 0.35 && this.equipT >= 1; }
+  canFire() { return this.throwT > 0.6 && !this.reloading && this.ammo > 0 && this.cool <= 0 && this.sprint < 0.35 && this.equipT >= 1; }
 
   startReload() {
     if (this.reloading || this.ammo >= this.magSize || this.reserve <= 0) return false;
@@ -366,6 +367,12 @@ export class Weapon {
     // equip raise
     const e = 1 - this.equipT; pos.y -= e * e * 0.25; rot.x -= e * e * 0.8;
 
+    // grenade throw: gun dips down-left while the off hand throws
+    this.throwT += dt;
+    if (this.throwT < 0.75) {
+      const k = Math.sin(Math.min(this.throwT / 0.75, 1) * Math.PI);
+      pos.y -= 0.16 * k; pos.x -= 0.03 * k; rot.x -= 0.5 * k; rot.z += 0.35 * k;
+    }
     // reload animation
     this.mag.visible = true;
     if (this.reloading) {

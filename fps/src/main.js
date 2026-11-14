@@ -8,17 +8,20 @@ import { Weapon } from './weapon.js';
 import { Effects } from './effects.js';
 import { Enemies } from './enemies.js';
 import { Audio } from './audio.js';
+import { Grenades } from './grenades.js';
 
 installFog();
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
-const saved = JSON.parse(localStorage.getItem('afterglow') || '{}');
+try { localStorage.getItem('x'); } catch (e) { window.__noLS = true; }
+const LS = window.__noLS ? { getItem: () => null, setItem: () => {} } : localStorage;
+const saved = JSON.parse(LS.getItem('afterglow') || '{}');
 let qualityName = params.get('q') || saved.quality || 'high';
 if (!QUALITY[qualityName]) qualityName = 'high';
 const settings = { sens: saved.sens ?? 1, fov: saved.fov ?? 74 };
 $('quality').value = qualityName; $('sens').value = settings.sens; $('fov').value = settings.fov;
-const persist = () => localStorage.setItem('afterglow', JSON.stringify({ quality: qualityName, ...settings }));
+const persist = () => LS.setItem('afterglow', JSON.stringify({ quality: qualityName, ...settings, best: saved.best || 0 }));
 
 const frame = () => new Promise((r) => requestAnimationFrame(() => r()));
 async function progress(f, label) {
@@ -69,12 +72,18 @@ async function boot() {
   const weapon = new Weapon(camera, lib, effects);
   weapon.baseFov = settings.fov;
   const enemies = new Enemies(scene, lib, effects, level, audio);
+  const grenades = new Grenades(scene, lib, effects, level, audio);
 
   R.setup(scene, camera, sunDir);
+  if (R.refl) {
+    R.refl.hidden.push(weapon.root);
+    scene.traverse((o) => { if (o.name === 'static_ground') R.refl.hidden.push(o); });
+  }
 
   // pre-compile all shaders (incl. drone + explosion materials) to avoid hitches
   await progress(0.92, '预编译着色器');
   const warm = enemies.buildDrone(false).group; warm.position.set(0, -50, 0); scene.add(warm);
+  const warmG = grenades.proto.clone(); warmG.position.set(0, -50, 0); warm.add(warmG);
   effects.flash(new THREE.Vector3(0, -50, 0), new THREE.Color(1, 1, 1), 0.001, 0.01);
   player.updateCamera(0.016, 0);
   await renderer.compileAsync(scene, camera);
@@ -82,11 +91,11 @@ async function boot() {
   scene.remove(warm);
   await progress(1, '就绪');
 
-  return { lib, level, effects, audio, player, weapon, enemies, sun };
+  return { lib, level, effects, audio, player, weapon, enemies, grenades, sun };
 }
 
 const G = await boot();
-const { level, effects, audio, player, weapon, enemies } = G;
+const { level, effects, audio, player, weapon, enemies, grenades } = G;
 
 // ------------------------------------------------------------------ input
 const input = { f: false, b: false, l: false, r: false, sprint: false, crouch: false, jump: false, firing: false, ads: false };
@@ -98,6 +107,7 @@ addEventListener('keydown', (e) => {
   if (keymap[e.code]) input[keymap[e.code]] = true;
   if (e.code === 'Space') { input.jump = true; e.preventDefault(); }
   if (e.code === 'KeyR' && locked && !photo) { if (weapon.startReload()) audio.click(1200, 0.3); }
+  if (e.code === 'KeyG' && locked && !photo && !player.dead && grenades.canThrow(weapon)) { grenades.throw(camera, player.vel); weapon.throwT = 0; }
   if (e.code === 'KeyF') $('fps').classList.toggle('hidden');
   if (e.code === 'KeyP' && locked) togglePhoto();
 });
@@ -161,7 +171,7 @@ function togglePhoto() {
 // ------------------------------------------------------------------ HUD
 const hud = {
   pips: $('pips'), mag: $('mag'), res: $('res'), hpn: $('hpn'), hpb: $('hpb'), cross: $('cross'), hit: $('hit'),
-  wn: $('wn'), wleft: $('wleft'), feed: $('feed'), dd: $('dmgdirs'),
+  gren: $('gren'), score: $('score'), wn: $('wn'), wleft: $('wleft'), feed: $('feed'), dd: $('dmgdirs'),
 };
 for (let i = 0; i < 30; i++) hud.pips.appendChild(document.createElement('i'));
 let hitT = 0, killT = 0;
@@ -173,6 +183,7 @@ function banner(k, t, s, dur = 3) {
 }
 function feed(text) { const d = document.createElement('div'); d.textContent = text; hud.feed.prepend(d); setTimeout(() => d.remove(), 3300); }
 function updateHUD(dt, t) {
+  hud.gren.textContent = '◆'.repeat(grenades.count) + '◇'.repeat(Math.max(0, grenades.max - grenades.count));
   hud.mag.textContent = weapon.ammo; hud.res.textContent = weapon.reserve;
   const pips = hud.pips.children;
   for (let i = 0; i < 30; i++) pips[i].className = i < weapon.ammo ? '' : 'e';
@@ -197,6 +208,7 @@ function updateHUD(dt, t) {
     d.el.style.opacity = Math.min(1, d.life * 1.5);
   }
   hud.wn.textContent = waves.index + 1;
+  hud.score.textContent = score.total;
   hud.wleft.textContent = waves.active ? `剩余 ${enemies.list.length + waves.queue.length}` : (waves.index + 1 >= WAVES.length && waves.done ? '已肃清' : '准备');
 }
 
@@ -208,9 +220,16 @@ effects.onBrass = (p) => audio.brass(p);
 weapon.events.magout = () => audio.magOut();
 weapon.events.magin = () => audio.magIn();
 weapon.events.bolt = () => audio.bolt();
+const NAMES = { normal: '哨兵无人机', heavy: '重型哨兵', kamikaze: '自爆蜂' };
+const POINTS = { normal: 100, heavy: 250, kamikaze: 150 };
+const score = { total: 0, combo: 0, last: -10, best: +(saved.best || 0) };
 enemies.onKill = (e) => {
   stats.kills++; killT = 0.35;
-  feed(e.heavy ? '重型哨兵 已摧毁  +250' : '哨兵无人机 已摧毁  +100');
+  score.combo = simTime - score.last < 4 ? score.combo + 1 : 1;
+  score.last = simTime;
+  const pts = POINTS[e.kind] * score.combo;
+  score.total += pts;
+  feed(`${NAMES[e.kind]} 已摧毁  +${pts}${score.combo > 1 ? `  ×${score.combo} 连杀` : ''}`);
   audio.hitmarker(true);
 };
 enemies.onPlayerHit = (from, dmg) => {
@@ -220,18 +239,21 @@ enemies.onPlayerHit = (from, dmg) => {
   dmgIndicators.push({ el, from: from.clone(), life: 1.4 });
 };
 
-const WAVES = [
-  { n: 3, heavy: 0 }, { n: 4, heavy: 1 }, { n: 5, heavy: 1 }, { n: 6, heavy: 2 },
-];
+// each wave: [normal, heavy, kamikaze]
+const WAVES = [[3, 0, 0], [3, 1, 1], [4, 1, 2], [4, 2, 3], [3, 3, 5]];
+const CN = ['一', '二', '三', '四', '五'];
 const waves = {
   index: 0, active: false, queue: [], timer: 0, spawnT: 0, done: false,
   start() { this.index = 0; this.begin(2.5); stats.t0 = performance.now(); },
   begin(delay) {
     this.active = false; this.timer = delay;
-    const w = WAVES[this.index];
-    this.queue = [];
-    for (let i = 0; i < w.n; i++) this.queue.push(i < w.heavy);
-    banner(`WAVE ${this.index + 1} / ${WAVES.length}`, `第 ${['一', '二', '三', '四'][this.index]} 波`, w.heavy ? `哨兵 ×${w.n - w.heavy}  ·  重型哨兵 ×${w.heavy}` : `哨兵无人机 ×${w.n}`, 3.2);
+    const [n, h, k] = WAVES[this.index];
+    const q = [...Array(n).fill('normal'), ...Array(h).fill('heavy'), ...Array(k).fill('kamikaze')];
+    for (let i = q.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [q[i], q[j]] = [q[j], q[i]]; }
+    this.queue = q;
+    const parts = [`哨兵 ×${n}`]; if (h) parts.push(`重型哨兵 ×${h}`); if (k) parts.push(`自爆蜂 ×${k}`);
+    banner(`WAVE ${this.index + 1} / ${WAVES.length}`, `第 ${CN[this.index]} 波`, parts.join('  ·  '), 3.2);
+    if (k && this.index === 1) setTimeout(() => hint('自爆蜂会直冲过来引爆 · 在远处击落它', 4), 3500);
   },
   update(dt) {
     if (this.done) return;
@@ -242,29 +264,36 @@ const waves = {
     }
     this.spawnT -= dt;
     if (this.queue.length && this.spawnT <= 0) {
-      const heavy = this.queue.shift();
+      const kind = this.queue.shift();
       // spawn away from the player
       const pts = level.spawnPoints.slice().sort((a, b) => b.distanceTo(player.pos) - a.distanceTo(player.pos));
       const p = pts[Math.floor(Math.random() * 3)].clone().add(new THREE.Vector3((Math.random() - 0.5) * 3, 0, (Math.random() - 0.5) * 3));
-      enemies.spawn(p, heavy);
+      enemies.spawn(p, kind);
       this.spawnT = 1.1;
     }
-    if (!this.queue.length && enemies.list.length === 0) {
+    if (!this.queue.length && enemies.list.length === 0 && enemies.falling.length === 0) {
       if (this.index + 1 >= WAVES.length) { this.done = true; victory(); return; }
       this.index++;
       weapon.reserve = Math.min(weapon.reserve + 90, 270);
-      hint('弹药已补给  +90', 2.5);
+      grenades.count = Math.min(grenades.max, grenades.count + 2);
+      hint('弹药已补给  +90 · 手雷 +2', 2.5);
       this.begin(6);
     }
   },
 };
 
+function saveBest() {
+  const nb = score.total > score.best; if (nb) { score.best = score.total; saved.best = score.best; LS.setItem('afterglow', JSON.stringify({ ...JSON.parse(LS.getItem('afterglow') || '{}'), best: score.best })); }
+  return nb ? `得分 ${score.total} · 新纪录` : `得分 ${score.total} · 最高 ${score.best}`;
+}
 function victory() {
   gameOver = true;
+  const bonus = Math.max(0, Math.round(300 - (performance.now() - stats.t0) / 1000)) * 10 + Math.round(player.health) * 10;
+  score.total += bonus;
   setTimeout(() => {
     const secs = (performance.now() - stats.t0) / 1000;
     $('et').textContent = '堆场已肃清';
-    $('es').innerHTML = `用时 ${Math.floor(secs / 60)}:${String(Math.floor(secs % 60)).padStart(2, '0')}<br>击毁 ${stats.kills} · 命中率 ${stats.shots ? Math.round(stats.hits / stats.shots * 100) : 0}% · 承受伤害 ${Math.round(stats.dmgTaken)}`;
+    $('es').innerHTML = `${saveBest()}（含时间与生命奖励 +${bonus}）<br>用时 ${Math.floor(secs / 60)}:${String(Math.floor(secs % 60)).padStart(2, '0')}<br>击毁 ${stats.kills} · 命中率 ${stats.shots ? Math.round(stats.hits / stats.shots * 100) : 0}% · 承受伤害 ${Math.round(stats.dmgTaken)}`;
     $('end').classList.remove('hidden'); document.exitPointerLock();
   }, 2500);
 }
@@ -272,16 +301,16 @@ function defeat() {
   gameOver = true;
   setTimeout(() => {
     $('et').textContent = '阵亡';
-    $('es').innerHTML = `坚持到第 ${waves.index + 1} 波 · 击毁 ${stats.kills}`;
+    $('es').innerHTML = `${saveBest()}<br>坚持到第 ${waves.index + 1} 波 · 击毁 ${stats.kills}`;
     $('end').classList.remove('hidden'); document.exitPointerLock();
   }, 2200);
 }
 function restart() {
-  enemies.clear();
+  enemies.clear(); grenades.clear();
   player.pos.copy(level.playerStart); player.vel.set(0, 0, 0); player.yaw = level.playerYaw; player.pitch = 0;
   player.health = 100; player.dead = false;
   weapon.ammo = 30; weapon.reserve = 180; weapon.reloading = false; weapon.equipT = 0;
-  Object.assign(stats, { shots: 0, hits: 0, kills: 0, dmgTaken: 0 });
+  Object.assign(stats, { shots: 0, hits: 0, kills: 0, dmgTaken: 0 }); score.total = 0; score.combo = 0;
   gameOver = false; waves.done = false; waves.start();
 }
 
@@ -378,6 +407,7 @@ function loop() {
     if (input.ads !== prevAds) { audio.click(input.ads ? 900 : 700, 0.12); prevAds = input.ads; }
     waves.update(dt);
     enemies.update(dt, t, player);
+    grenades.update(dt, { enemies, player, t, onPlayerHit: enemies.onPlayerHit });
     for (const e of enemies.list) audio.updateHum(e.hum, e.vel.length());
     if (player.dead && !gameOver) defeat();
   }
@@ -395,10 +425,13 @@ function loop() {
   f.uDamage.value = THREE.MathUtils.clamp(player.shake * 1.2, 0, 1);
   f.uLowHealth.value = THREE.MathUtils.clamp(1 - player.health / 40, 0, 1);
   f.uADS.value = weapon.ads;
-  R.render(dt, performance.now() / 1000);
+  const now = performance.now();
+  if (running && !noLoop) R.adapt(now - (loop.last || now));
+  loop.last = now;
+  R.render(dt, now / 1000);
 
   fpsAcc += dt; fpsN++;
-  if (fpsAcc > 0.5) { $('fps').textContent = `${Math.round(fpsN / fpsAcc)} fps · ${renderer.info.render.calls} calls · ${(renderer.info.render.triangles / 1000).toFixed(0)}k tris · ${R.q.label}`; fpsAcc = 0; fpsN = 0; }
+  if (fpsAcc > 0.5) { $('fps').textContent = `${Math.round(fpsN / fpsAcc)} fps · ${renderer.info.render.calls} calls · ${(renderer.info.render.triangles / 1000).toFixed(0)}k tris · ${R.q.label} · 渲染 ${Math.round(R.scale * 100)}%`; fpsAcc = 0; fpsN = 0; }
 }
 
 showMenu(false);
@@ -406,4 +439,4 @@ weapon.root.visible = false;
 if (!noLoop) loop();
 
 // debug / screenshot hooks
-window.__game = { setLocked: (v) => { locked = v; }, loop, start: () => { started = true; waves.start(); }, FOG, sun: G.sun, THREE, scene, camera, player, weapon, enemies, effects, level, R, waves, renderer, togglePhoto, shoot, input };
+window.__game = { score, grenades, setLocked: (v) => { locked = v; }, loop, start: () => { started = true; waves.start(); }, FOG, sun: G.sun, THREE, scene, camera, player, weapon, enemies, effects, level, R, waves, renderer, togglePhoto, shoot, input };

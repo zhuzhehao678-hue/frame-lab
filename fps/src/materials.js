@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { TexGen, GLSL } from './texgen.js';
+import { REFL } from './reflect.js';
 
 // Builds the full PBR material library. `progress(frac,label)` is awaited
 // between textures so the loading bar can repaint.
@@ -58,9 +59,24 @@ export async function buildMaterials(renderer, quality, progress) {
   M.ground = pbr(tex.ground, { envMapIntensity: 1.0 });
   // break up tiling: world-space macro variation (dirt, sun-bleaching, tyre-worn lanes)
   M.ground.onBeforeCompile = (sh) => {
+    sh.uniforms.uReflTex = REFL.tex; sh.uniforms.uReflMat = REFL.mat; sh.uniforms.uReflOn = REFL.on;
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vGW;')
       .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvGW = (modelMatrix * vec4(transformed, 1.0)).xyz;');
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
+    sh.fragmentShader = sh.fragmentShader.replace('#include <lights_fragment_maps>', `#include <lights_fragment_maps>
+      #if defined( RE_IndirectSpecular )
+      if (uReflOn > 0.5) {
+        // planar reflection replaces the env-map specular on smooth wet areas
+        vec4 rp = uReflMat * vec4(vGW, 1.0);
+        vec2 ruv = rp.xy / rp.w + (normal.xy - geometryNormal.xy) * 0.06;
+        float wetM = smoothstep(0.42, 0.08, roughnessFactor);
+        float rough = clamp(roughnessFactor * 10.0, 0.0, 4.0);
+        vec3 rc = texture2D(uReflTex, ruv).rgb * 0.5;
+        rc += texture2D(uReflTex, ruv + vec2(0.0, 0.004) * rough).rgb * 0.25;
+        rc += texture2D(uReflTex, ruv - vec2(0.0, 0.004) * rough).rgb * 0.25;
+        radiance = mix(radiance, rc, wetM);
+      }
+      #endif`).replace('#include <common>', `#include <common>
+uniform sampler2D uReflTex; uniform mat4 uReflMat; uniform float uReflOn;
 varying vec3 vGW;
 float gh(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float gn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f);

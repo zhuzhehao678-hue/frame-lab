@@ -401,9 +401,9 @@ export class Level {
     const ang = Math.atan2(height, Math.abs(toX - x0));
     for (const s of [-1, 1]) {
       const g = boxUV(new THREE.BoxGeometry(len, 0.22, 0.05), len, 0.22, 0.05, 1);
-      this.put(g, 'paintYellow', (x0 + toX) / 2, height / 2 - 0.05, z + s * (width / 2 + 0.03), 0, { rz: -dir * ang });
+      this.put(g, 'paintYellow', (x0 + toX) / 2, height / 2 - 0.05, z + s * (width / 2 + 0.03), 0, { rz: dir * ang });
       // handrail + posts
-      this.put(new THREE.CylinderGeometry(0.022, 0.022, len, 10), 'paintYellow', (x0 + toX) / 2, height / 2 + 0.95, z + s * (width / 2 + 0.05), 0, { rz: Math.PI / 2 - dir * ang });
+      this.put(new THREE.CylinderGeometry(0.022, 0.022, len, 10), 'paintYellow', (x0 + toX) / 2, height / 2 + 0.95, z + s * (width / 2 + 0.05), 0, { rz: Math.PI / 2 + dir * ang });
       for (let k = 0; k <= 3; k++) {
         const t = k / 3; const px = x0 + (toX - x0) * t; const py = height * t;
         this.put(new THREE.CylinderGeometry(0.02, 0.02, 1.0, 8), 'paintYellow', px, py + 0.5, z + s * (width / 2 + 0.05));

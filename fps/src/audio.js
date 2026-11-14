@@ -151,14 +151,28 @@ export class Audio {
   land(v) { if (!this.enabled) return; const t = this.ctx.currentTime; const d = this.out(null, { verb: 0.1, gain: Math.min(v / 8, 1) }); this.noise(d, t, 0.15, { type: 'lowpass', f: 600, gain: 1 }); this.tone(d, t, 0.1, { f: 70, gain: 0.5 }); }
   hurt() { if (!this.enabled) return; const t = this.ctx.currentTime; const d = this.out(null, { verb: 0.1, gain: 0.6 }); this.noise(d, t, 0.25, { type: 'lowpass', f: 800, f1: 200, gain: 0.8 }); this.tone(d, t, 0.2, { f: 90, f1: 50, gain: 0.6 }); }
 
+  grenadeThrow() {
+    if (!this.enabled) return; const t = this.ctx.currentTime;
+    this.click(3200, 0.5); this.click(1800, 0.35, 0.12); // pin + spoon
+    this.noise(this.out(null, { verb: 0.05, gain: 0.5 }), t + 0.18, 0.25, { type: 'bandpass', f: 600, f1: 1800, q: 1.2, gain: 0.6, attack: 0.08, curve: 2 });
+  }
+  grenadeBounce(pos, k) {
+    if (!this.enabled) return; const t = this.ctx.currentTime; const d = this.out(pos, { verb: 0.2, gain: 0.3 + k * 0.5 });
+    this.tone(d, t, 0.12, { f: 1900 + Math.random() * 800, gain: 0.2, curve: 5 }); this.noise(d, t, 0.05, { f: 2500, q: 2, gain: 0.5 });
+  }
+
   // ------------------------------------------------------------------ drones
-  droneHum(obj, heavy) {
+  beep(pos, f) {
+    if (!this.enabled) return; const t = this.ctx.currentTime; const d = this.out(pos, { verb: 0.1, gain: 0.8 });
+    this.tone(d, t, 0.06, { type: 'square', f, gain: 0.12, curve: 3 });
+  }
+  droneHum(obj, heavy, kami) {
     if (!this.enabled) return null;
     const ctx = this.ctx;
     const p = ctx.createPanner(); p.panningModel = 'HRTF'; p.distanceModel = 'inverse'; p.refDistance = 2.5; p.rolloffFactor = 1.3;
     const g = ctx.createGain(); g.gain.value = 0;
     g.gain.setTargetAtTime(heavy ? 0.22 : 0.16, ctx.currentTime, 0.4);
-    const base = heavy ? 82 : 118;
+    const base = heavy ? 82 : (kami ? 190 : 118);
     const o1 = ctx.createOscillator(); o1.type = 'sawtooth'; o1.frequency.value = base;
     const o2 = ctx.createOscillator(); o2.type = 'sawtooth'; o2.frequency.value = base * 2.01;
     const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 900; lp.Q.value = 2;

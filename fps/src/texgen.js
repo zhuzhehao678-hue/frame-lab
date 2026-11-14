@@ -225,8 +225,8 @@ void material(vec2 uv, out vec3 albedo, out float h, out float rough, out float 
 
   // puddles: low-frequency field, biased into joints / low spots
   float pf = fbm(uv+9.1, vec2(3.0), 6);
-  float puddle = smoothstep(0.60, 0.63, pf + joint*0.03);
-  float wetEdge = smoothstep(0.50, 0.61, pf);
+  float puddle = smoothstep(0.565, 0.59, pf + joint*0.03);
+  float wetEdge = smoothstep(0.47, 0.585, pf);
 
   // oil / grime stains
   float oil = smoothstep(0.62, 0.78, fbm(uv+3.3, vec2(4.0), 5)) * 0.9;
