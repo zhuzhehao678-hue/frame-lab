@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>包你满意 3.0 · 3D 合作厨房</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#f6d9e2;color:#4a3550;font-family:-apple-system,"PingFang SC","Microsoft YaHei","Noto Sans SC",sans-serif;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+#ui{pointer-events:none}
+.ov{position:fixed;inset:0;display:none;align-items:center;justify-content:center;overflow:auto;padding:16px;background:linear-gradient(180deg,#fff0,#ffffff30)}
+.ov.on{display:flex}
+.panel{width:min(900px,100%);max-height:100%;overflow:auto;background:#ffffffb8;-webkit-backdrop-filter:blur(14px) saturate(1.3);backdrop-filter:blur(14px) saturate(1.3);border:1.5px solid #ffffffd0;border-radius:28px;padding:24px 28px;box-shadow:0 20px 70px #7a4a8a40}
+h1{font-family:"Songti SC","Noto Serif SC","STSong",serif;font-size:clamp(30px,5.4vw,52px);letter-spacing:6px;font-weight:900;background:linear-gradient(90deg,#e86a92,#b07be0 55%,#5fa8e8);-webkit-background-clip:text;background-clip:text;color:transparent}
+h1 small{font-family:inherit;font-size:.36em;letter-spacing:1px;color:#fff;-webkit-text-fill-color:#fff;background:linear-gradient(90deg,#f08aa8,#a98be8);border-radius:999px;padding:3px 12px;margin-left:10px;vertical-align:middle}
+.sub{color:#7a6485;margin:6px 0 14px;font-size:14px}
+.row{display:flex;gap:12px;flex-wrap:wrap;margin:10px 0}
+button{font:inherit;color:#5a3d66;background:#fff;border:1.5px solid #ecd6f0;border-radius:16px;padding:10px 18px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px #b07be022;transition:transform .12s,box-shadow .12s}
+button:hover{transform:translateY(-2px);box-shadow:0 8px 22px #b07be040}
+button:active{transform:translateY(1px)}
+button.sel{background:linear-gradient(90deg,#f08aa8,#a98be8);color:#fff;border-color:transparent}
+button.ghost{background:#ffffff80}
+.lv{flex:1 1 180px;text-align:left;padding:14px 16px;line-height:1.5;position:relative;overflow:hidden}
+.lv::before{content:"";position:absolute;inset:0 0 auto 0;height:5px;background:var(--c)}
+.lv b{font-size:17px;display:block}
+.lv span{font-weight:400;font-size:12.5px;display:block;opacity:.8}
+.lv i{font-style:normal;color:#f0a03c;letter-spacing:2px}
+.help{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;font-size:13px;color:#6a5575;line-height:1.75;margin-top:6px}
+.help div{background:#ffffff90;border-radius:16px;padding:10px 14px}
+.help h3{color:#b0649a;font-size:14px;margin-bottom:2px}
+kbd{background:#fff;border:1px solid #e2cde8;border-radius:6px;padding:0 5px;font-family:inherit;font-size:12px;color:#8a5aa8}
+#res .panel{width:min(460px,100%);text-align:center}
+.stars{font-size:54px;letter-spacing:8px;color:#e4d8ea;margin:6px 0}
+.stars b{color:#ffc24a;text-shadow:0 0 22px #ffc24aaa}
+.big{font-size:44px;font-weight:800;color:#b0649a}
+#vig{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 45%,#0000 55%,#3a1f4a38 100%)}
+#touch{position:fixed;inset:0;pointer-events:none;display:none}
+#touch.on{display:block}
+#joy{position:absolute;left:18px;bottom:18px;width:130px;height:130px;border-radius:50%;background:#ffffff40;border:2px solid #ffffffa0;pointer-events:auto}
+#knob{position:absolute;left:40px;top:40px;width:50px;height:50px;border-radius:50%;background:#fff;box-shadow:0 4px 12px #0003}
+.tb{position:absolute;width:64px;height:64px;border-radius:50%;background:#ffffffd0;color:#7a4a8a;font-weight:800;display:flex;align-items:center;justify-content:center;pointer-events:auto;font-size:15px;box-shadow:0 4px 12px #0003}
+.tb.dn{background:#f08aa8;color:#fff}
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div id="vig"></div>
+<canvas id="ui"></canvas>
+
+<div id="touch">
+  <div id="joy"><div id="knob"></div></div>
+  <div class="tb" data-k="KeyE" style="right:20px;bottom:92px">拿/放</div>
+  <div class="tb" data-k="KeyF" style="right:92px;bottom:40px">操作</div>
+  <div class="tb" data-k="ShiftLeft" style="right:20px;bottom:18px;width:56px;height:56px">冲</div>
+  <div class="tb" data-k="Space" style="right:100px;bottom:116px;width:52px;height:52px">换人</div>
+  <div class="tb" data-k="Escape" style="right:14px;bottom:170px;width:44px;height:44px;font-size:12px">暂停</div>
+</div>
+
+<div class="ov on" id="menu"><div class="panel">
+  <h1>包你满意<small>3.0 · 3D</small></h1>
+  <p class="sub">两只包子主厨的合作厨房 —— 在樱花、落日、雪夜与云端之间，切、煮、炒、装盘、出餐。</p>
+  <div class="row">
+    <button id="m1" class="sel">单人（一人控两厨）</button>
+    <button id="m2">双人同屏合作</button>
+    <button id="mus" class="ghost">音乐：开</button>
+    <button id="qb" class="ghost">画质：自动</button>
+    <button id="tutb" class="ghost">重看新手教学</button>
+  </div>
+  <div class="row" id="levels"></div>
+  <div class="help">
+    <div><h3>操作 · 单人</h3><kbd>WASD</kbd>/<kbd>方向键</kbd> 移动　<kbd>E</kbd> 拿/放　<kbd>F</kbd> 切菜·洗碗·投掷·灭火（按住）　<kbd>Shift</kbd> 冲刺　<kbd>空格</kbd> 切换主厨　<kbd>Esc</kbd> 暂停　<kbd>M</kbd> 音乐</div>
+    <div><h3>操作 · 双人</h3>阿橙：<kbd>WASD</kbd> <kbd>E</kbd> <kbd>F</kbd> <kbd>左Shift</kbd><br>小蓝：<kbd>方向键</kbd> <kbd>K</kbd> 拿/放 <kbd>L</kbd> 操作 <kbd>右Shift</kbd></div>
+    <div><h3>玩法要点</h3>
+      <b>主厨特长</b>：阿橙切菜快 80%，小蓝跑得快。<br>
+      <b>连击</b>：按顺序出最左边的订单，小费叠到 ×4。<br>
+      <b>高峰期</b>：中途订单更密、得分翻倍。<br>
+      <b>投掷</b>：拿着食材按操作键扔给队友、锅或砧板。<br>
+      <b>传送门</b>：踩上去瞬移到另一扇门。</div>
+    <div><h3>菜谱</h3><span id="rec"></span></div>
+    <div><h3>厨房守则</h3>米和面直接下锅煮，蔬菜和鱼要先切。菜熟了不端走会烧焦起火，用灭火器（按住操作）扑灭，烧焦的只能倒垃圾桶。脏盘子从回收台拿去水槽洗。</div>
+  </div>
+</div></div>
+
+<div class="ov" id="res"><div class="panel">
+  <h1 id="rt" style="font-size:32px">打烊啦！</h1>
+  <div class="stars" id="rs"></div>
+  <div class="big" id="rsc">0</div>
+  <p class="sub" id="rd"></p>
+  <div class="row" style="justify-content:center">
+    <button id="again" class="sel">再来一次</button>
+    <button id="next">下一关</button>
+    <button id="back" class="ghost">返回菜单</button>
+  </div>
+</div></div>
+
+<div class="ov" id="pause"><div class="panel" style="width:min(360px,100%);text-align:center">
+  <h1 style="font-size:32px">暂停中</h1><p class="sub">灶上的火也停了，放心。</p>
+  <p class="sub" style="text-align:left;line-height:2"><kbd>WASD</kbd>/<kbd>方向键</kbd> 移动　<kbd>E</kbd> 拿/放<br><kbd>F</kbd> 切菜·洗碗·投掷·灭火（按住）<br><kbd>Shift</kbd> 冲刺　<kbd>空格</kbd> 换人　<kbd>H</kbd> 显示/隐藏提示<br>双人时小蓝：<kbd>方向键</kbd> <kbd>K</kbd> 拿/放 <kbd>L</kbd> 操作 <kbd>右Shift</kbd></p>
+  <div class="row" style="justify-content:center"><button id="resume" class="sel">继续</button><button id="quit" class="ghost">返回菜单</button></div>
+</div></div>
+
+<!-- three.js r160 (MIT License) -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script src="js/core.js"></script>
+<script src="js/play.js"></script>
+<script src="js/render.js"></script>
+<script src="js/scene.js"></script>
+<script src="js/ui.js"></script>
+</body>
+</html>
