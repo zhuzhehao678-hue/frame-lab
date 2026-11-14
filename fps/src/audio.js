@@ -151,6 +151,10 @@ export class Audio {
   land(v) { if (!this.enabled) return; const t = this.ctx.currentTime; const d = this.out(null, { verb: 0.1, gain: Math.min(v / 8, 1) }); this.noise(d, t, 0.15, { type: 'lowpass', f: 600, gain: 1 }); this.tone(d, t, 0.1, { f: 70, gain: 0.5 }); }
   hurt() { if (!this.enabled) return; const t = this.ctx.currentTime; const d = this.out(null, { verb: 0.1, gain: 0.6 }); this.noise(d, t, 0.25, { type: 'lowpass', f: 800, f1: 200, gain: 0.8 }); this.tone(d, t, 0.2, { f: 90, f1: 50, gain: 0.6 }); }
 
+  heartbeat() {
+    if (!this.enabled) return; const t = this.ctx.currentTime; const d = this.out(null, { verb: 0, gain: 0.9 });
+    this.tone(d, t, 0.12, { f: 62, f1: 40, gain: 0.7, curve: 3 }); this.tone(d, t + 0.17, 0.12, { f: 55, f1: 38, gain: 0.5, curve: 3 });
+  }
   grenadeThrow() {
     if (!this.enabled) return; const t = this.ctx.currentTime;
     this.click(3200, 0.5); this.click(1800, 0.35, 0.12); // pin + spoon

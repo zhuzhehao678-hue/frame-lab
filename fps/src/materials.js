@@ -59,7 +59,7 @@ export async function buildMaterials(renderer, quality, progress) {
   M.ground = pbr(tex.ground, { envMapIntensity: 1.0 });
   // break up tiling: world-space macro variation (dirt, sun-bleaching, tyre-worn lanes)
   M.ground.onBeforeCompile = (sh) => {
-    sh.uniforms.uReflTex = REFL.tex; sh.uniforms.uReflMat = REFL.mat; sh.uniforms.uReflOn = REFL.on;
+    sh.uniforms.uReflTex = REFL.tex; sh.uniforms.uReflMat = REFL.mat; sh.uniforms.uReflOn = REFL.on; sh.uniforms.uWet = REFL.wet;
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vGW;')
       .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvGW = (modelMatrix * vec4(transformed, 1.0)).xyz;');
     sh.fragmentShader = sh.fragmentShader.replace('#include <lights_fragment_maps>', `#include <lights_fragment_maps>
@@ -76,7 +76,7 @@ export async function buildMaterials(renderer, quality, progress) {
         radiance = mix(radiance, rc, wetM);
       }
       #endif`).replace('#include <common>', `#include <common>
-uniform sampler2D uReflTex; uniform mat4 uReflMat; uniform float uReflOn;
+uniform sampler2D uReflTex; uniform mat4 uReflMat; uniform float uReflOn; uniform float uWet;
 varying vec3 vGW;
 float gh(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float gn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f);
@@ -92,7 +92,9 @@ float gfbm(vec2 p){ float s = 0.0, a = 0.5; for(int i=0;i<5;i++){ s += a*gn(p); 
       float grime = smoothstep(0.55, 0.8, gfbm(vGW.xz * 0.09 + 3.0));
       diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(0.55, 0.5, 0.44), grime * 0.6);`)
       .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
-      roughnessFactor = clamp(roughnessFactor * mix(0.75, 1.1, macro2), 0.03, 1.0);`);
+      roughnessFactor = clamp(roughnessFactor * mix(0.75, 1.1, macro2), 0.03, 1.0);
+      // drier ground for brighter times of day: only the deepest puddles stay glossy
+      roughnessFactor = mix(max(roughnessFactor, mix(0.8, 0.05, smoothstep(0.08, 0.04, roughnessFactor))), roughnessFactor, uWet);`);
   };
   M.brick = pbr(tex.brick);
   M.claddingTeal = pbr(tex.claddingTeal);
@@ -136,6 +138,7 @@ float gfbm(vec2 p){ float s = 0.0, a = 0.5; for(int i=0;i<5;i++){ s += a*gn(p); 
   M.reflective = new THREE.MeshStandardMaterial({ color: 0xdddddd, roughness: 0.25, metalness: 0.6, envMapIntensity: 2 });
   M.cabinWhite = pbr(tex.claddingGrey, { color: new THREE.Color(1.5, 1.5, 1.45) });
   M.lampAmber = new THREE.MeshStandardMaterial({ color: 0x331a00, emissive: new THREE.Color(1.0, 0.45, 0.05), emissiveIntensity: 6, roughness: 0.3 });
+  M.sandbag = new THREE.MeshStandardMaterial({ color: new THREE.Color(0.36, 0.31, 0.2), roughness: 0.95, normalMap: tex.fabric.normalMap, normalScale: new THREE.Vector2(1.2, 1.2) });
   M.silhouette = new THREE.MeshStandardMaterial({ color: 0x2a2523, roughness: 0.9, metalness: 0.3 });
 
   return { M, tex };

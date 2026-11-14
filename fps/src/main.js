@@ -9,6 +9,8 @@ import { Effects } from './effects.js';
 import { Enemies } from './enemies.js';
 import { Audio } from './audio.js';
 import { Grenades } from './grenades.js';
+import { TIMES } from './timeofday.js';
+import { REFL } from './reflect.js';
 
 installFog();
 
@@ -19,9 +21,12 @@ const LS = window.__noLS ? { getItem: () => null, setItem: () => {} } : localSto
 const saved = JSON.parse(LS.getItem('afterglow') || '{}');
 let qualityName = params.get('q') || saved.quality || 'high';
 if (!QUALITY[qualityName]) qualityName = 'high';
-const settings = { sens: saved.sens ?? 1, fov: saved.fov ?? 74 };
-$('quality').value = qualityName; $('sens').value = settings.sens; $('fov').value = settings.fov;
-const persist = () => LS.setItem('afterglow', JSON.stringify({ quality: qualityName, ...settings, best: saved.best || 0 }));
+let todName = params.get('t') || saved.tod || 'golden';
+if (!TIMES[todName]) todName = 'golden';
+const TOD = TIMES[todName];
+const settings = { sens: saved.sens ?? 1, fov: saved.fov ?? 74, adsSens: saved.adsSens ?? 0.9 };
+$('quality').value = qualityName; $('tod').value = todName; $('sens').value = settings.sens; $('adssens').value = settings.adsSens; $('fov').value = settings.fov;
+const persist = () => LS.setItem('afterglow', JSON.stringify({ quality: qualityName, tod: todName, ...settings, best: saved.best || 0 }));
 
 const frame = () => new Promise((r) => requestAnimationFrame(() => r()));
 async function progress(f, label) {
@@ -38,17 +43,21 @@ scene.fog = new THREE.Fog(0xffffff, 1, 2); // switch for our height-fog chunk
 const camera = new THREE.PerspectiveCamera(settings.fov, innerWidth / innerHeight, 0.03, 4500);
 scene.add(camera);
 
-const sunDir = new THREE.Vector3(-0.30, 0.115, -1).normalize();
+const sunDir = TOD.sunDir.clone();
+REFL.wet.value = TOD.wet;
 FOG.uFogSunDir.value.copy(sunDir);
+FOG.uFogColor.value.copy(TOD.fog.color);
+FOG.uFogSunColor.value.copy(TOD.fog.sun);
+FOG.uFogParams.value.x = TOD.fog.density; FOG.uFogParams.value.y = TOD.fog.falloff;
 
 async function boot() {
   await progress(0.02, '初始化渲染器');
   const lib = await buildMaterials(renderer, R.q, (f, l) => progress(0.05 + f * 0.7, l));
   await progress(0.78, '搭建码头');
-  createSky(renderer, scene, sunDir);
+  createSky(renderer, scene, sunDir, TOD);
 
   // sun
-  const sun = new THREE.DirectionalLight(new THREE.Color(1.0, 0.62, 0.36), 3.4);
+  const sun = new THREE.DirectionalLight(TOD.sunColor, TOD.sunIntensity);
   sun.position.copy(sunDir).multiplyScalar(90);
   sun.target.position.set(0, 0, 0);
   sun.castShadow = true;
@@ -58,15 +67,19 @@ async function boot() {
   S.camera.near = 20; S.camera.far = 180;
   S.bias = -0.0003; S.normalBias = 0.035; S.radius = 2.5; S.blurSamples = 12;
   scene.add(sun, sun.target);
-  const hemi = new THREE.HemisphereLight(new THREE.Color(0.45, 0.52, 0.7), new THREE.Color(0.38, 0.27, 0.2), 0.5);
+  const hemi = new THREE.HemisphereLight(TOD.hemiSky, TOD.hemiGround, TOD.hemiIntensity);
   scene.add(hemi);
 
   const level = new Level(scene, lib);
+  for (const l of level.lights) { l.intensity *= TOD.lamps; l.visible = TOD.lamps > 0; }
+  lib.M.lampLens.emissiveIntensity *= Math.max(TOD.lamps, 0.02);
+  lib.M.windowLit.emissiveIntensity *= TOD.windows;
   for (const m of level.rayMeshes) if (m.name === 'static_chainlink') m.userData.noAO = true;
   scene.traverse((o) => { if (o.name === 'static_chainlink') o.userData.noAO = true; });
 
   await progress(0.86, '装配武器');
   const effects = new Effects(scene, lib, camera);
+  effects.ambient.copy(TOD.smokeTint);
   const audio = new Audio(camera);
   const player = new Player(camera, level);
   const weapon = new Weapon(camera, lib, effects);
@@ -75,6 +88,10 @@ async function boot() {
   const grenades = new Grenades(scene, lib, effects, level, audio);
 
   R.setup(scene, camera, sunDir);
+  R.final.uniforms.uExposure.value = TOD.exposure;
+  R.final.uniforms.uGrade.value.copy(TOD.grade);
+  if (R.bloom) R.bloom.strength = TOD.bloom;
+  if (R.god) { R.god.uniforms.uWeight.value = TOD.godWeight; R.god.enabled = TOD.godWeight > 0; }
   if (R.refl) {
     R.refl.hidden.push(weapon.root);
     scene.traverse((o) => { if (o.name === 'static_ground') R.refl.hidden.push(o); });
@@ -102,7 +119,7 @@ const input = { f: false, b: false, l: false, r: false, sprint: false, crouch: f
 const mouse = { x: 0, y: 0 };
 let locked = false, started = false, photo = false, gameOver = false;
 
-const keymap = { KeyW: 'f', KeyS: 'b', KeyA: 'l', KeyD: 'r', ShiftLeft: 'sprint', ShiftRight: 'sprint', KeyC: 'crouch', ControlLeft: 'crouch' };
+const keymap = { KeyQ: 'leanL', KeyE: 'leanR', KeyW: 'f', KeyS: 'b', KeyA: 'l', KeyD: 'r', ShiftLeft: 'sprint', ShiftRight: 'sprint', KeyC: 'crouch', ControlLeft: 'crouch' };
 addEventListener('keydown', (e) => {
   if (keymap[e.code]) input[keymap[e.code]] = true;
   if (e.code === 'Space') { input.jump = true; e.preventDefault(); }
@@ -121,7 +138,8 @@ addEventListener('mouseup', (e) => { if (e.button === 0) input.firing = false; i
 addEventListener('contextmenu', (e) => e.preventDefault());
 addEventListener('mousemove', (e) => {
   if (!locked) return;
-  const s = 0.0021 * settings.sens * (1 - weapon.ads * 0.35) * (camera.fov / 74);
+  // ADS: only the user's ADS multiplier applies (no extra FOV slow-down)
+  const s = 0.0021 * settings.sens * THREE.MathUtils.lerp(1, settings.adsSens, weapon.ads);
   if (photo) { photoCam.yaw -= e.movementX * s; photoCam.pitch = THREE.MathUtils.clamp(photoCam.pitch - e.movementY * s, -1.5, 1.5); return; }
   player.look(e.movementX, e.movementY, s);
   mouse.x += e.movementX; mouse.y += e.movementY;
@@ -135,10 +153,15 @@ document.addEventListener('pointerlockchange', () => {
 });
 
 $('sens').oninput = (e) => { settings.sens = +e.target.value; persist(); };
+$('adssens').oninput = (e) => { settings.adsSens = +e.target.value; persist(); };
 $('fov').oninput = (e) => { settings.fov = +e.target.value; weapon.baseFov = settings.fov; persist(); };
 $('quality').onchange = (e) => {
   qualityName = e.target.value; persist();
   const u = new URL(location.href); u.searchParams.set('q', qualityName); location.href = u.toString();
+};
+$('tod').onchange = (e) => {
+  todName = e.target.value; persist();
+  const u = new URL(location.href); u.searchParams.set('t', todName); u.searchParams.set('q', qualityName); location.href = u.toString();
 };
 $('play').onclick = () => {
   audio.init();
@@ -174,6 +197,33 @@ const hud = {
   gren: $('gren'), score: $('score'), wn: $('wn'), wleft: $('wleft'), feed: $('feed'), dd: $('dmgdirs'),
 };
 for (let i = 0; i < 30; i++) hud.pips.appendChild(document.createElement('i'));
+// compass strip: ticks every 15°, labels on cardinals/intercardinals, enemy markers
+const compass = { el: $('compass'), items: [], enemies: [] };
+{
+  const names = { 0: '北', 45: '东北', 90: '东', 135: '东南', 180: '南', 225: '西南', 270: '西', 315: '西北' };
+  for (let b = 0; b < 360; b += 15) {
+    const tk = document.createElement('i'); tk.className = 'tk' + (b % 45 === 0 ? ' big' : ''); compass.el.appendChild(tk); compass.items.push({ el: tk, b });
+    if (names[b] !== undefined) { const lb = document.createElement('span'); lb.className = 'lb' + (b % 90 ? ' minor' : ''); lb.textContent = names[b]; compass.el.appendChild(lb); compass.items.push({ el: lb, b }); }
+  }
+}
+function updateCompass() {
+  const fwd = new THREE.Vector3(); camera.getWorldDirection(fwd);
+  const head = THREE.MathUtils.radToDeg(Math.atan2(fwd.x, -fwd.z));
+  const place = (el, b) => {
+    let d = ((b - head) % 360 + 540) % 360 - 180;
+    if (Math.abs(d) > 95) { el.style.display = 'none'; return; }
+    el.style.display = ''; el.style.left = (260 + d * 2.75) + 'px';
+  };
+  for (const it of compass.items) place(it.el, it.b);
+  const list = enemies.list;
+  while (compass.enemies.length < list.length) { const e = document.createElement('i'); compass.el.appendChild(e); compass.enemies.push(e); }
+  compass.enemies.forEach((el, i) => {
+    const e = list[i];
+    if (!e) { el.style.display = 'none'; return; }
+    el.className = 'en' + (e.heavy ? ' heavy' : '') + (e.kami ? ' kami' : '');
+    place(el, THREE.MathUtils.radToDeg(Math.atan2(e.pos.x - camera.position.x, -(e.pos.z - camera.position.z))));
+  });
+}
 let hitT = 0, killT = 0;
 const dmgIndicators = [];
 function hint(text, dur = 2) { const h = $('hint'); h.textContent = text; h.style.opacity = 1; clearTimeout(h._t); h._t = setTimeout(() => (h.style.opacity = 0), dur * 1000); }
@@ -207,6 +257,7 @@ function updateHUD(dt, t) {
     d.el.style.transform = `rotate(${ang}rad)`;
     d.el.style.opacity = Math.min(1, d.life * 1.5);
   }
+  updateCompass();
   hud.wn.textContent = waves.index + 1;
   hud.score.textContent = score.total;
   hud.wleft.textContent = waves.active ? `剩余 ${enemies.list.length + waves.queue.length}` : (waves.index + 1 >= WAVES.length && waves.done ? '已肃清' : '准备');
@@ -405,6 +456,7 @@ function loop() {
     }
     input.triggerPulled = false;
     if (input.ads !== prevAds) { audio.click(input.ads ? 900 : 700, 0.12); prevAds = input.ads; }
+    if (player.health < 35 && !player.dead) { loop.hb = (loop.hb || 0) - dt; if (loop.hb <= 0) { audio.heartbeat(); loop.hb = 0.55 + player.health / 60; } }
     waves.update(dt);
     enemies.update(dt, t, player);
     grenades.update(dt, { enemies, player, t, onPlayerHit: enemies.onPlayerHit });
@@ -439,4 +491,4 @@ weapon.root.visible = false;
 if (!noLoop) loop();
 
 // debug / screenshot hooks
-window.__game = { score, grenades, setLocked: (v) => { locked = v; }, loop, start: () => { started = true; waves.start(); }, FOG, sun: G.sun, THREE, scene, camera, player, weapon, enemies, effects, level, R, waves, renderer, togglePhoto, shoot, input };
+window.__game = { updateHUD, score, grenades, setLocked: (v) => { locked = v; }, loop, start: () => { started = true; waves.start(); }, FOG, sun: G.sun, THREE, scene, camera, player, weapon, enemies, effects, level, R, waves, renderer, togglePhoto, shoot, input };

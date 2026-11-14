@@ -159,7 +159,7 @@ export class Enemies {
   kill(e, dir) {
     e.alive = false;
     if (this.onKill) this.onKill(e);
-    if (e.kami) { this.explodeNow(e, dir); this.blast(e.pos.clone(), 4.6, 42, 160); return; }
+    if (e.kami) { this.explodeNow(e, dir); this.blast(e.pos.clone(), 4.6, 36, 160); return; }
     // lose control: spiral down trailing fire/smoke, explode on impact
     e.fall = { t: 0, spin: (Math.random() < 0.5 ? -1 : 1) * (6 + Math.random() * 6), dir: dir.clone() };
     e.vel.addScaledVector(dir, 2.5).add(new THREE.Vector3(0, 1.5, 0));
@@ -217,14 +217,14 @@ export class Enemies {
     // lead the target a bit, add inaccuracy
     const dist = target.distanceTo(muzzle);
     target.addScaledVector(player.vel, dist / 30 * 0.6);
-    const spread = e.heavy ? 0.5 : 0.75;
+    const spread = (e.heavy ? 0.6 : 0.9) * (1 + dist / 18);
     target.add(new THREE.Vector3((Math.random() - 0.5) * spread, (Math.random() - 0.5) * spread * 0.6, (Math.random() - 0.5) * spread));
     const dir = target.sub(muzzle).normalize();
     const mesh = new THREE.Mesh(this.boltGeo, this.boltMat); mesh.userData.noAO = true;
     const glow = new THREE.Mesh(this.boltGlowGeo, this.boltGlowMat); glow.userData.noAO = true; mesh.add(glow);
     mesh.position.copy(muzzle); mesh.lookAt(muzzle.clone().add(dir));
     this.scene.add(mesh);
-    this.bolts.push({ mesh, vel: dir.multiplyScalar(e.heavy ? 24 : 30), life: 0, dmg: e.heavy ? 18 : 11, from: e.pos.clone(), whizzed: false });
+    this.bolts.push({ mesh, vel: dir.multiplyScalar(e.heavy ? 22 : 26), life: 0, dmg: e.heavy ? 15 : 10, from: e.pos.clone(), whizzed: false });
     this.effects.flash(muzzle, new THREE.Color(1, 0.15, 0.05), 14, 0.12, 6);
     this.audio.laser(muzzle, e.heavy);
   }
@@ -305,7 +305,7 @@ export class Enemies {
       e.fireCD -= dt;
       if (los && e.fireCD <= 0 && e.charge <= 0) { e.charge = 0.0001; this.audio.charge(e.pos); }
       if (e.charge > 0) {
-        e.charge += dt / 0.45;
+        e.charge += dt / 0.65;
         if (e.charge >= 1) {
           e.charge = 0;
           this.fireBolt(e, player);
@@ -338,7 +338,7 @@ export class Enemies {
       const tw = rayColliders(this.level, p0, dir, len);
       // player hit: closest approach to player capsule (approx as segment)
       const feet = player.pos.clone().add(new THREE.Vector3(0, 0.3, 0));
-      const head = new THREE.Vector3(player.pos.x, player.pos.y + player.height - 0.15, player.pos.z);
+      const head = player.camera.position.clone().add(new THREE.Vector3(0, 0.05, 0));
       const closest = closestSegSeg(p0, p0.clone().add(step), feet, head);
       if (!dead && closest.d < 0.42 && closest.t * len <= tw) {
         player.damage(b.dmg, b.from, t);

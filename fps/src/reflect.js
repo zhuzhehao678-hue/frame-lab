@@ -8,6 +8,7 @@ export const REFL = {
   tex: { value: null },
   mat: { value: new THREE.Matrix4() },
   on: { value: 0 },
+  wet: { value: 1 },
 };
 
 export class PlanarReflection {

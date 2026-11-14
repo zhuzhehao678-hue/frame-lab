@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { boxUV } from './materials.js';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
+import { FOG } from './fog.js';
 
 const SURF = {
   ground: 'concrete', concreteWall: 'concrete', brick: 'concrete',
@@ -469,6 +470,8 @@ export class Level {
     this.reel(9.2, 13.2, 0.4); this.reel(10.6, 14.6, 1.2, 0.45, 0.45);
     this.reel(-4.5, 6.5, -0.3, 0.5, 0.5);
 
+    this.buildDetails();
+
     // pipe stack on cribbing
     for (let i = 0; i < 3; i++) {
       this.put(new THREE.CylinderGeometry(0.22, 0.22, 6, 24, 1, true), 'paintGrey', -8.5, 0.37 + 0, 13 + i * 0.46, Math.PI / 2, { rz: Math.PI / 2, noShadow: false });
@@ -576,6 +579,60 @@ export class Level {
     this.colliders.push(st);
     const wl = new THREE.Vector3(0, 2.3, W / 2 + 0.3).applyMatrix4(parent);
     this.cabinLamp = wl;
+  }
+
+  // sagging cable between two points (catenary-ish parabola)
+  cable(a, b, sag = 0.8, r = 0.012) {
+    const pts = [];
+    for (let i = 0; i <= 24; i++) {
+      const t = i / 24;
+      const p = a.clone().lerp(b, t); p.y -= Math.sin(Math.PI * t) * sag;
+      pts.push(p);
+    }
+    const g = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 48, r, 6, false);
+    this.put(g, 'rubber', 0, 0, 0, 0, { noShadow: false });
+  }
+
+  buildDetails() {
+    // power / lighting cables
+    this.cable(new THREE.Vector3(-9, 8.6, 4), new THREE.Vector3(-17.9, 7.2, 3), 0.9);
+    this.cable(new THREE.Vector3(-9, 8.3, 4), new THREE.Vector3(-17.9, 6.9, 5.5), 1.1, 0.009);
+    this.cable(new THREE.Vector3(10, 8.6, -11), new THREE.Vector3(16.4, 5.25, -8.5), 0.7);
+    this.cable(new THREE.Vector3(-9, 8.6, 4), new THREE.Vector3(10, 8.6, -11), 1.6, 0.01);
+    // scattered tyres, small crates, a toppled cone, sandbag pile
+    const tyre = (x, z, ry, flat = true) => this.put(new THREE.TorusGeometry(0.32, 0.13, 14, 28).rotateX(flat ? Math.PI / 2 : 0), 'rubber', x, flat ? 0.13 : 0.45, z, ry);
+    tyre(-3.2, 11.5, 0); tyre(-2.6, 12.1, 0.3); tyre(6.8, -6.5, 0.4, false); tyre(12.6, 6.2, 0);
+    this.colliders.push(new THREE.Box3(new THREE.Vector3(-3.6, 0, 11.1), new THREE.Vector3(-2.2, 0.26, 12.5)));
+    this.crate(-0.8, 0, 11.9, 0.5, 0.6); this.crate(7.6, 0, 9.8, -0.2, 0.7); this.crate(7.9, 0.7, 9.7, 0.3, 0.5);
+    for (let i = 0; i < 7; i++) {
+      const g = new RoundedBoxGeometry(0.62, 0.16, 0.38, 2, 0.07);
+      const row = i < 4 ? 0 : 1; const k = row ? i - 4 : i;
+      this.put(g, 'sandbag', 3.8 + k * 0.6 + row * 0.3, 0.08 + row * 0.15, -6.0, 0.05 * (i % 3), { collide: false });
+    }
+    this.colliders.push(new THREE.Box3(new THREE.Vector3(3.45, 0, -6.25), new THREE.Vector3(6.4, 0.32, -5.75)));
+
+    // windsock on a mast at the south-east corner: animated in the vertex shader
+    this.put(new THREE.CylinderGeometry(0.05, 0.07, 7, 12), 'paintGrey', 14.6, 3.5, 18.6);
+    this.colliders.push(new THREE.Box3(new THREE.Vector3(14.5, 0, 18.5), new THREE.Vector3(14.7, 7, 18.7)));
+    const stripes = document.createElement('canvas'); stripes.width = 256; stripes.height = 16;
+    const sg = stripes.getContext('2d');
+    for (let i = 0; i < 5; i++) { sg.fillStyle = i % 2 ? '#e8e2d8' : '#e2541c'; sg.fillRect(i * 51.2, 0, 51.2, 16); }
+    const tex = new THREE.CanvasTexture(stripes); tex.colorSpace = THREE.SRGBColorSpace;
+    const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85, side: THREE.DoubleSide });
+    mat.onBeforeCompile = (sh) => {
+      sh.uniforms.uWind = FOG.uFogParams;
+      sh.vertexShader = 'uniform vec4 uWind;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+        float t = clamp(transformed.x / 2.2, 0.0, 1.0);
+        float tm = uWind.w;
+        transformed.y -= t * t * (0.35 + 0.15 * sin(tm * 1.3));
+        transformed.z += t * t * 0.35 * sin(tm * 2.1 + t * 3.0);
+        transformed.y += t * 0.06 * sin(tm * 9.0 - t * 12.0);`);
+    };
+    const sock = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.12, 2.2, 20, 12, true).rotateZ(Math.PI / 2).translate(1.1, 0, 0), mat);
+    sock.position.set(14.6, 6.75, 18.6); sock.rotation.y = 2.4;
+    sock.castShadow = true; sock.frustumCulled = false;
+    this.scene.add(sock);
+    this.put(new THREE.TorusGeometry(0.3, 0.015, 6, 20).rotateY(Math.PI / 2), 'steel', 14.6, 6.75, 18.6, 2.4);
   }
 
   buildMarkings() {

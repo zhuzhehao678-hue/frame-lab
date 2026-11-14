@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { rayColliders } from './enemies.js';
 
 const RADIUS = 0.34;
 const STAND_H = 1.78, CROUCH_H = 1.15;
@@ -28,7 +29,8 @@ export class Player {
     this.stepDist = 0;
     this.onStep = null; this.onLand = null;
     this.ads = 0;
-    this.lean = 0;
+    this.lean = 0; this.leanOff = 0;
+    this.dmgScale = 0.62; // tuned survivability (armour plating)
   }
 
   get height() { return THREE.MathUtils.lerp(STAND_H, CROUCH_H, this.crouch); }
@@ -89,12 +91,15 @@ export class Player {
     if (input.r) wish.add(right); if (input.l) wish.sub(right);
     if (wish.lengthSq() > 0) wish.normalize();
 
+    const wantLean = this.sprinting ? 0 : (input.leanR ? 1 : 0) - (input.leanL ? 1 : 0);
+    this.lean = THREE.MathUtils.damp(this.lean, wantLean, 11, dt);
     const wantCrouch = input.crouch;
     this.crouch = THREE.MathUtils.damp(this.crouch, wantCrouch ? 1 : 0, 12, dt);
     this.sprinting = input.sprint && input.f && !wantCrouch && this.ads < 0.3 && !input.firing;
     let maxSpeed = this.sprinting ? 7.0 : 4.4;
     if (this.crouch > 0.5) maxSpeed = 2.3;
-    if (this.ads > 0.5) maxSpeed = Math.min(maxSpeed, 2.9);
+    if (this.ads > 0.5) maxSpeed = Math.min(maxSpeed, 3.7);
+    if (Math.abs(this.lean) > 0.3) maxSpeed = Math.min(maxSpeed, 2.6);
 
     // ----- acceleration / friction (ground vs air)
     const hv = new THREE.Vector3(this.vel.x, 0, this.vel.z);
@@ -158,13 +163,14 @@ export class Player {
     }
 
     // regen
-    if (time - this.lastDamage > 4.5 && this.health < this.maxHealth) this.health = Math.min(this.maxHealth, this.health + 22 * dt);
+    if (time - this.lastDamage > 3.2 && this.health < this.maxHealth) this.health = Math.min(this.maxHealth, this.health + 34 * dt);
 
     this.updateCamera(dt, time);
   }
 
   damage(amount, fromPos, time) {
     if (this.dead) return;
+    amount *= this.dmgScale;
     this.health -= amount;
     this.lastDamage = time;
     this.shake = Math.min(this.shake + amount * 0.025, 1.0);
@@ -203,7 +209,16 @@ export class Player {
     }
     const right = new THREE.Vector3(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
     cam.position.set(this.pos.x, this.pos.y + eye - bobY - this.landKick + this.eyeSmooth, this.pos.z).addScaledVector(right, bobX);
-    const roll = -Math.cos(this.bobPhase) * 0.004 * this.bobAmp + n(1.3) * sh * 0.03 + (this.dead ? Math.min((time - this.deathTime), 1) * 0.6 : 0);
+    // lean / peek: shift the head sideways (clamped against walls) and roll
+    if (Math.abs(this.lean) > 0.001) {
+      const side = right.clone().multiplyScalar(Math.sign(this.lean));
+      const want = Math.abs(this.lean) * 0.42;
+      const free = rayColliders(this.level, cam.position, side, want + 0.2) - 0.2;
+      this.leanOff = THREE.MathUtils.damp(this.leanOff, Math.max(0, Math.min(want, free)) * Math.sign(this.lean), 20, dt);
+    } else this.leanOff = THREE.MathUtils.damp(this.leanOff, 0, 20, dt);
+    cam.position.addScaledVector(right, this.leanOff);
+    cam.position.y -= Math.abs(this.leanOff) * 0.12;
+    const roll = -this.lean * 0.17 - Math.cos(this.bobPhase) * 0.004 * this.bobAmp + n(1.3) * sh * 0.03 + (this.dead ? Math.min((time - this.deathTime), 1) * 0.6 : 0);
     cam.rotation.set(this.pitch + this.recoilPitch + n(1.0) * sh * 0.03, this.yaw + this.recoilYaw + n(0.7) * sh * 0.03, roll, 'YXZ');
   }
 }

@@ -64,7 +64,18 @@
   #health .bar { margin-top: 8px; height: 4px; background: rgba(255,255,255,0.14); }
   #health .bar i { display: block; height: 100%; width: 100%; background: var(--hud); transition: width .15s; }
   #health.low .bar i { background: var(--red); }
-  #wave { position: absolute; left: 50%; top: 34px; transform: translateX(-50%); text-align: center; font-size: 11px; letter-spacing: 0.4em; color: var(--dim); }
+  #compass { position: absolute; left: 50%; top: 18px; width: 520px; height: 34px; margin-left: -260px; overflow: hidden;
+    -webkit-mask: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent); mask: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent); }
+  #compass .tk { position: absolute; top: 4px; width: 1px; height: 6px; background: var(--dim); }
+  #compass .tk.big { height: 10px; background: var(--hud); }
+  #compass .lb { position: absolute; top: 15px; font-size: 11px; letter-spacing: 0.1em; transform: translateX(-50%); color: var(--hud); }
+  #compass .lb.minor { color: var(--dim); font-size: 10px; }
+  #compass .en { position: absolute; top: 2px; width: 8px; height: 8px; margin-left: -4px; background: var(--red); transform: rotate(45deg); box-shadow: 0 0 6px rgba(255,60,40,.8); }
+  #compass .en.heavy { width: 11px; height: 11px; margin-left: -5px; top: 1px; }
+  #compass .en.kami { background: #ffb020; animation: blink .35s infinite alternate; }
+  @keyframes blink { to { opacity: .35; } }
+  #compass::after { content: ""; position: absolute; left: 50%; top: 0; width: 0; height: 0; margin-left: -4px; border: 4px solid transparent; border-top-color: var(--accent); }
+  #wave { position: absolute; left: 50%; top: 60px; transform: translateX(-50%); text-align: center; font-size: 11px; letter-spacing: 0.4em; color: var(--dim); }
   #wave b { display: block; font-size: 16px; letter-spacing: 0.25em; color: var(--hud); font-weight: 500; margin-top: 6px; }
   #banner { position: absolute; left: 0; right: 0; top: 30%; text-align: center; opacity: 0; transition: opacity .6s; }
   #banner .k { font-size: 12px; letter-spacing: 0.6em; color: var(--accent); }
@@ -88,6 +99,7 @@
   <div id="cross"><i class="t"></i><i class="b"></i><i class="l"></i><i class="r"></i><i class="d"></i></div>
   <svg id="hit" viewBox="0 0 28 28" fill="none" stroke-width="2" stroke-linecap="round"><path d="M3 3l6 6M25 3l-6 6M3 25l6-6M25 25l-6-6"/></svg>
   <div id="dmgdirs"></div>
+  <div id="compass"></div>
   <div id="wave">第 <span id="wn">1</span> 波<b id="wleft">剩余 0</b></div>
   <div id="scorebox" style="position:absolute;left:56px;top:40px;font-size:11px;letter-spacing:.3em;color:var(--dim)">得分<b id="score" style="display:block;margin-top:6px;font-size:22px;font-weight:300;letter-spacing:.05em;color:var(--hud);font-variant-numeric:tabular-nums">0</b></div>
   <div id="feed"></div>
@@ -107,13 +119,15 @@
     <div id="paused" class="hidden">已暂停</div>
     <button id="play">开始作战</button>
     <div class="opts">
+      <label>时段 <select id="tod"><option value="day">白天</option><option value="golden">黄昏</option><option value="sunset">日落</option></select></label>
       <label>画质 <select id="quality"><option value="low">低</option><option value="medium">中</option><option value="high">高</option><option value="ultra">极致</option></select></label>
       <label>灵敏度 <input id="sens" type="range" min="0.3" max="3" step="0.05" value="1"></label>
+      <label>开镜灵敏度 <input id="adssens" type="range" min="0.4" max="1.5" step="0.05" value="0.9"></label>
       <label>视野 <input id="fov" type="range" min="60" max="95" step="1" value="74"></label>
     </div>
     <div class="keys">
       <span><kbd>WASD</kbd>移动</span><span><kbd>鼠标</kbd>瞄准</span><span><kbd>左键</kbd>射击</span><span><kbd>右键</kbd>开镜</span>
-      <span><kbd>Shift</kbd>冲刺</span><span><kbd>C</kbd>蹲下</span><span><kbd>空格</kbd>跳跃</span><span><kbd>R</kbd>换弹</span><span><kbd>G</kbd>手雷</span>
+      <span><kbd>Shift</kbd>冲刺</span><span><kbd>C</kbd>蹲下</span><span><kbd>空格</kbd>跳跃</span><span><kbd>Q / E</kbd>左右探头</span><span><kbd>R</kbd>换弹</span><span><kbd>G</kbd>手雷</span>
       <span><kbd>F</kbd>帧率</span><span><kbd>P</kbd>照片模式</span><span><kbd>Esc</kbd>暂停</span>
     </div>
   </div>

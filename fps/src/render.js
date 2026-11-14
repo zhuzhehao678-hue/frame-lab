@@ -68,11 +68,11 @@ const FinalShader = {
     tDiffuse: { value: null }, uTime: { value: 0 }, uExposure: { value: 0.56 },
     uRes: { value: new THREE.Vector2(1, 1) }, uDamage: { value: 0 }, uLowHealth: { value: 0 },
     uCA: { value: 0.0018 }, uVignette: { value: 0.32 }, uGrain: { value: 0.045 }, uADS: { value: 0 },
-    uFlash: { value: 0 },
+    uFlash: { value: 0 }, uGrade: { value: new THREE.Color(1, 1, 1) },
   },
   vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} `,
   fragmentShader: /* glsl */`
-    uniform sampler2D tDiffuse; uniform float uTime, uExposure, uDamage, uLowHealth, uCA, uVignette, uGrain, uADS, uFlash;
+    uniform vec3 uGrade; uniform sampler2D tDiffuse; uniform float uTime, uExposure, uDamage, uLowHealth, uCA, uVignette, uGrain, uADS, uFlash;
     uniform vec2 uRes; varying vec2 vUv;
 
     // ACES fitted (Stephen Hill)
@@ -109,12 +109,12 @@ const FinalShader = {
       vec2 hv = normalize(gv + 1e-5) * 0.38;
       ghost += max(texture2D(tDiffuse, uv + hv).rgb - 6.0, 0.0) * pow(1.0 - length(vec2(0.5) - fract(uv + hv)) / 0.7071, 5.0) * vec3(1.0, 0.8, 0.6) * 0.6;
       col += min(ghost * 0.004, vec3(0.6));
-      col *= uExposure;
+      col *= uExposure * uGrade;
       col += uFlash * vec3(1.0, 0.85, 0.6) * 0.15;
 
       // colour grade in linear (pre-tonemap): warm highlights, cool shadows
       float L = luma(col);
-      vec3 shadowTint = vec3(0.92, 0.98, 1.08);
+      vec3 shadowTint = vec3(0.97, 0.99, 1.03);
       vec3 highTint = vec3(1.06, 1.0, 0.92);
       col *= mix(shadowTint, highTint, smoothstep(0.02, 1.2, L));
       // saturation
@@ -242,19 +242,19 @@ export class Renderer {
 }
 
 // Procedural sky + matching PMREM environment
-export function createSky(renderer, scene, sunDir) {
+export function createSky(renderer, scene, sunDir, T) {
   const sky = new Sky();
   sky.scale.setScalar(4000);
   sky.userData.noAO = true;
   sky.frustumCulled = false;
   const u = sky.material.uniforms;
-  u.turbidity.value = 8;
-  u.rayleigh.value = 2.0;
-  u.mieCoefficient.value = 0.005;
-  u.mieDirectionalG.value = 0.86;
+  u.turbidity.value = T.sky.turbidity;
+  u.rayleigh.value = T.sky.rayleigh;
+  u.mieCoefficient.value = T.sky.mie;
+  u.mieDirectionalG.value = T.sky.mieG;
   u.sunPosition.value.copy(sunDir).multiplyScalar(1000);
-  u.cloudCoverage.value = 0.5;
-  u.cloudDensity.value = 0.7;
+  u.cloudCoverage.value = T.sky.clouds;
+  u.cloudDensity.value = T.sky.cloudDensity;
   u.cloudElevation.value = 0.55;
   u.cloudScale.value = 0.00018;
   scene.add(sky);
@@ -267,14 +267,14 @@ export function createSky(renderer, scene, sunDir) {
   sky2.material.uniforms.sunPosition.value.copy(sunDir).multiplyScalar(1000);
   sky2.material.uniforms.showSunDisc.value = 0;
   envScene.add(sky2);
-  const ground = new THREE.Mesh(new THREE.CircleGeometry(900, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: new THREE.Color(0.06, 0.05, 0.045) }));
+  const ground = new THREE.Mesh(new THREE.CircleGeometry(900, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: T.envGround }));
   ground.position.y = -1;
   envScene.add(ground);
   const pmrem = new THREE.PMREMGenerator(renderer);
   const env = pmrem.fromScene(envScene, 0.02, 0.1, 2000).texture;
   pmrem.dispose();
   scene.environment = env;
-  scene.environmentIntensity = 0.75;
+  scene.environmentIntensity = T.env;
   return sky;
 }
 
