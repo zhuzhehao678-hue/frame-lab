@@ -57,7 +57,7 @@ export function installFog() {
     float integ = abs(k) > 1e-4 ? (1.0 - exp(-k * dist)) / k : dist;
     float fogAmt = 1.0 - exp(-a * integ);
     float sunAmt = max(dot(rd, uFogSunDir), 0.0);
-    float mie = pow(sunAmt, 10.0) * 0.9 + pow(sunAmt, 2.5) * 0.35;
+    float mie = pow(sunAmt, 12.0) * 0.55 + pow(sunAmt, 3.0) * 0.3;
     vec3 col = uFogColor + uFogSunColor * mie;
     return vec4(col, clamp(fogAmt, 0.0, 1.0));
   }

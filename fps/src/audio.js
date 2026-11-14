@@ -125,9 +125,9 @@ export class Audio {
     const t = this.ctx.currentTime + delay; const d = this.out(null, { verb: 0.08 });
     this.noise(d, t, 0.04, { f, q: 5, gain }); this.noise(d, t + 0.012, 0.05, { f: f * 0.6, q: 3, gain: gain * 0.6 });
   }
-  magOut() { this.click(1800, 0.5); this.click(900, 0.4, 0.05); this.noise(this.out(null, { verb: 0.05 }), this.ctx.currentTime + 0.06, 0.18, { f: 600, q: 1, gain: 0.15 }); }
-  magIn() { this.click(1400, 0.8); this.click(3200, 0.5, 0.02); this.tone(this.out(null, { verb: 0.1 }), this.ctx.currentTime, 0.06, { f: 220, gain: 0.25 }); }
-  bolt() { this.click(2200, 0.9); this.click(1200, 0.8, 0.07); this.tone(this.out(null, { verb: 0.15 }), this.ctx.currentTime + 0.07, 0.08, { f: 160, gain: 0.3 }); }
+  magOut() { if (!this.enabled) return; this.click(1800, 0.5); this.click(900, 0.4, 0.05); this.noise(this.out(null, { verb: 0.05 }), this.ctx.currentTime + 0.06, 0.18, { f: 600, q: 1, gain: 0.15 }); }
+  magIn() { if (!this.enabled) return; this.click(1400, 0.8); this.click(3200, 0.5, 0.02); this.tone(this.out(null, { verb: 0.1 }), this.ctx.currentTime, 0.06, { f: 220, gain: 0.25 }); }
+  bolt() { if (!this.enabled) return; this.click(2200, 0.9); this.click(1200, 0.8, 0.07); this.tone(this.out(null, { verb: 0.15 }), this.ctx.currentTime + 0.07, 0.08, { f: 160, gain: 0.3 }); }
   hitmarker(kill) {
     if (!this.enabled) return; const t = this.ctx.currentTime; const d = this.out(null, { verb: 0.0, gain: 0.5 });
     this.tone(d, t, 0.05, { type: 'triangle', f: kill ? 1300 : 1800, gain: 0.25 });

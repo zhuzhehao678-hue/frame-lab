@@ -30,7 +30,7 @@ const GodRayShader = {
   uniforms: {
     tDiffuse: { value: null }, tDepth: { value: null },
     uSun: { value: new THREE.Vector2(0.5, 0.5) }, uSunVis: { value: 1 },
-    uDensity: { value: 0.92 }, uDecay: { value: 0.965 }, uWeight: { value: 0.022 }, uExposure: { value: 1.0 },
+    uDensity: { value: 0.92 }, uDecay: { value: 0.965 }, uWeight: { value: 0.022 }, uExposure: { value: 0.8 },
     uTint: { value: new THREE.Color(1.0, 0.74, 0.46) }, uAspect: { value: 1.0 }, uFrame: { value: 0 },
   },
   defines: { SAMPLES: 48 },

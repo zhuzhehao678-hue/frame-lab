@@ -237,7 +237,7 @@ void material(vec2 uv, out vec3 albedo, out float h, out float rough, out float 
   base *= mix(0.82, 1.0, n2);
   base = mix(base, base*vec3(0.72,0.70,0.66), smoothstep(0.4,0.8,grime)*0.6);
   base += (grit-0.5)*0.05;
-  base = mix(base, vec3(0.58,0.56,0.52), pebble*0.6);
+  base = mix(base, base*1.18, pebble*0.5);
   base = mix(base, base*0.28, oil);
   base = mix(base, vec3(0.06), joint*0.85);
   base = mix(base, vec3(0.05), crack);
@@ -247,7 +247,7 @@ void material(vec2 uv, out vec3 albedo, out float h, out float rough, out float 
   albedo = base * mix(1.0, 0.52, wet);
   albedo = mix(albedo, albedo*vec3(0.85,0.9,1.0), puddle);
 
-  h = n1*0.35 + n2*0.25 + fine*0.08 + pebble*0.12 - joint*0.6 - crack*0.5;
+  h = n1*0.35 + n2*0.25 + fine*0.08 + pebble*0.05 - joint*0.6 - crack*0.5;
   h = mix(h, 0.30, puddle); // water surface is flat
 
   rough = mix(0.82, 0.95, fine) - n2*0.1;

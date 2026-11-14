@@ -133,7 +133,7 @@ $('quality').onchange = (e) => {
 $('play').onclick = () => {
   audio.init();
   $('view').requestPointerLock();
-  if (!started) { started = true; waves.start(); }
+  if (!started) { started = true; waves.start(); weapon.root.visible = true; weapon.equipT = 0; }
 };
 $('end').onclick = () => { restart(); $('end').classList.add('hidden'); $('view').requestPointerLock(); };
 
@@ -293,7 +293,7 @@ function shoot(t) {
   const muzzle = weapon.fire();
   stats.shots++;
   audio.gunshot(weapon.ads > 0.5);
-  effects.flash(muzzle.clone().addScaledVector(fwdFlash(), 0.25), new THREE.Color(1, 0.72, 0.4), 14, 0.05, 9);
+  effects.flash(muzzle.clone().addScaledVector(fwdFlash(), 0.9), new THREE.Color(1, 0.72, 0.4), 12, 0.05, 10);
   weapon.ejectBrass();
   const fwd = new THREE.Vector3(); camera.getWorldDirection(fwd);
   effects.muzzleSmoke(muzzle, fwd);
@@ -402,6 +402,7 @@ function loop() {
 }
 
 showMenu(false);
+weapon.root.visible = false;
 if (!noLoop) loop();
 
 // debug / screenshot hooks

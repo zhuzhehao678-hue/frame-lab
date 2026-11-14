@@ -48,7 +48,7 @@ export class Enemies {
 
   buildDrone(heavy) {
     const g = new THREE.Group();
-    const s = heavy ? 1.35 : 1.0;
+    const s = heavy ? 2.2 : 1.65;
     const hull = this.hull, acc = this.accent;
     const mk = (geo, mat, x, y, z, rx = 0, ry = 0, rz = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.set(rx, ry, rz); m.castShadow = true; m.receiveShadow = true; g.add(m); return m; };
     // lathe hull
@@ -74,7 +74,8 @@ export class Enemies {
       const dx = Math.cos(a), dz = Math.sin(a);
       mk(new RoundedBoxGeometry(0.42, 0.04, 0.06, 2, 0.015), hull, dx * 0.36, 0.03, dz * 0.36, 0, -a, 0);
       mk(new THREE.CylinderGeometry(0.045, 0.05, 0.09, 20), this.lib.M.darkSteel, dx * 0.56, 0.05, dz * 0.56);
-      mk(new THREE.CylinderGeometry(0.11, 0.11, 0.035, 28, 1, true), acc, dx * 0.56, 0.07, dz * 0.56); // duct ring
+      mk(new THREE.CylinderGeometry(0.11, 0.11, 0.035, 28, 1, true), hull, dx * 0.56, 0.07, dz * 0.56); // duct ring
+      mk(new THREE.TorusGeometry(0.11, 0.006, 6, 28).rotateX(Math.PI / 2), acc, dx * 0.56, 0.088, dz * 0.56);
       const r = mk(new THREE.CircleGeometry(0.105, 28).rotateX(-Math.PI / 2), this.rotorMat, dx * 0.56, 0.095, dz * 0.56);
       r.castShadow = false;
       const blade = mk(new THREE.BoxGeometry(0.2, 0.004, 0.018), this.lib.M.darkSteel, dx * 0.56, 0.093, dz * 0.56);
@@ -92,7 +93,7 @@ export class Enemies {
     this.scene.add(m.group);
     const e = {
       ...m, pos: m.group.position, vel: new THREE.Vector3(), heavy,
-      hp: heavy ? 260 : 100, maxHp: heavy ? 260 : 100, radius: heavy ? 0.62 : 0.48,
+      hp: heavy ? 260 : 100, maxHp: heavy ? 260 : 100, radius: heavy ? 1.0 : 0.76,
       fireCD: 1.5 + Math.random() * 2, charge: 0, burst: 0,
       orbit: Math.random() * Math.PI * 2, orbitDir: Math.random() < 0.5 ? -1 : 1,
       pref: (heavy ? 13 : 10) + Math.random() * 5, alt: 3.2 + Math.random() * 3,
