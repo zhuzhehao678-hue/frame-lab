@@ -31,7 +31,7 @@ const GodRayShader = {
   uniforms: {
     tDiffuse: { value: null }, tDepth: { value: null },
     uSun: { value: new THREE.Vector2(0.5, 0.5) }, uSunVis: { value: 1 },
-    uDensity: { value: 0.92 }, uDecay: { value: 0.965 }, uWeight: { value: 0.022 }, uExposure: { value: 0.8 },
+    uDensity: { value: 0.92 }, uDecay: { value: 0.965 }, uWeight: { value: 0.016 }, uExposure: { value: 0.8 },
     uTint: { value: new THREE.Color(1.0, 0.74, 0.46) }, uAspect: { value: 1.0 }, uFrame: { value: 0 },
   },
   defines: { SAMPLES: 48 },
@@ -57,7 +57,7 @@ const GodRayShader = {
         illum *= uDecay;
       }
       vec2 dd = (vUv - uSun) * vec2(uAspect, 1.0);
-      float fall = exp(-length(dd) * 2.4);
+      float fall = exp(-length(dd) * 3.0);
       gl_FragColor = vec4(base.rgb + acc * uTint * uExposure * uSunVis * fall, base.a);
     }`,
 };
@@ -96,6 +96,19 @@ const FinalShader = {
       col.r = texture2D(tDiffuse, uv - c*ca).r;
       col.g = texture2D(tDiffuse, uv).g;
       col.b = texture2D(tDiffuse, uv + c*ca).b;
+      // lens ghosts + halo from very bright sources (sun), mirrored through centre
+      vec3 ghost = vec3(0.0);
+      vec2 gv = vec2(0.5) - uv;
+      for (int i = 0; i < 5; i++) {
+        float k = float(i);
+        vec2 suv = fract(uv + gv * (0.42 + k * 0.27));
+        float wgt = pow(1.0 - length(vec2(0.5) - suv) / 0.7071, 6.0);
+        vec3 tint = vec3(0.9 + 0.1 * sin(k * 1.7), 0.75 + 0.2 * sin(k * 2.3 + 1.0), 0.6 + 0.35 * sin(k * 3.1 + 2.0));
+        ghost += max(texture2D(tDiffuse, suv).rgb - 6.0, 0.0) * wgt * tint;
+      }
+      vec2 hv = normalize(gv + 1e-5) * 0.38;
+      ghost += max(texture2D(tDiffuse, uv + hv).rgb - 6.0, 0.0) * pow(1.0 - length(vec2(0.5) - fract(uv + hv)) / 0.7071, 5.0) * vec3(1.0, 0.8, 0.6) * 0.6;
+      col += min(ghost * 0.004, vec3(0.6));
       col *= uExposure;
       col += uFlash * vec3(1.0, 0.85, 0.6) * 0.15;
 
