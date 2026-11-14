@@ -1,0 +1,13 @@
+{
+  "name": "frame-fps",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "esbuild src/main.js --bundle --minify --format=esm --target=es2022 --outfile=game.js",
+    "dev": "esbuild src/main.js --bundle --format=esm --sourcemap --outfile=game.js --watch"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "three": "^0.187.0"
+  }
+}
