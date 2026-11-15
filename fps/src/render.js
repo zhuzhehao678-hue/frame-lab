@@ -314,6 +314,42 @@ export class Renderer {
 }
 
 // Procedural sky + matching PMREM environment
+// Night dome: deep blue gradient, stars, moon with halo, faint city glow.
+function nightSky(moonDir) {
+  const mat = new THREE.ShaderMaterial({
+    side: THREE.BackSide, depthWrite: false,
+    uniforms: { time: { value: 0 }, uMoon: { value: moonDir.clone() }, sunPosition: { value: new THREE.Vector3() }, cloudCoverage: { value: 0 }, showSunDisc: { value: 0 } },
+    vertexShader: 'varying vec3 vDir; void main(){ vDir = normalize((modelMatrix * vec4(position, 1.0)).xyz - cameraPosition); vec4 p = projectionMatrix * modelViewMatrix * vec4(position, 1.0); gl_Position = p.xyww; }',
+    fragmentShader: `uniform float time; uniform vec3 uMoon; varying vec3 vDir;
+      float h(vec3 p){ return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
+      float h2(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float n(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f); return mix(mix(h2(i), h2(i+vec2(1,0)), f.x), mix(h2(i+vec2(0,1)), h2(i+vec2(1,1)), f.x), f.y); }
+      void main(){
+        vec3 d = normalize(vDir);
+        float y = max(d.y, 0.0);
+        vec3 col = mix(vec3(0.045, 0.06, 0.1), vec3(0.008, 0.012, 0.03), pow(y, 0.45));
+        // city light pollution near the horizon
+        col += vec3(0.12, 0.07, 0.04) * exp(-y * 14.0) * 0.6;
+        // stars
+        vec3 sp = floor(d * 420.0);
+        float st = step(0.9965, h(sp)) * smoothstep(0.02, 0.2, y);
+        float tw = 0.6 + 0.4 * sin(time * 3.0 + h(sp + 1.0) * 60.0);
+        col += vec3(0.9, 0.95, 1.0) * st * tw * (0.5 + h(sp + 2.0) * 2.0);
+        // moon + halo
+        float md = dot(d, normalize(uMoon));
+        col += vec3(0.75, 0.8, 0.95) * smoothstep(0.99955, 0.99965, md) * 6.0;
+        col += vec3(0.25, 0.3, 0.45) * pow(max(md, 0.0), 220.0) * 0.8 + vec3(0.06, 0.08, 0.14) * pow(max(md, 0.0), 12.0);
+        // thin moonlit cloud streaks
+        vec2 uv = d.xz / (y + 0.15) * 0.5 + vec2(time * 0.003, 0.0);
+        float c = smoothstep(0.55, 0.85, n(uv * 3.0) * 0.6 + n(uv * 7.0) * 0.4);
+        col = mix(col, vec3(0.08, 0.09, 0.13) + vec3(0.1, 0.11, 0.15) * pow(max(md, 0.0), 6.0), c * 0.7 * smoothstep(0.0, 0.2, y));
+        if (d.y < 0.0) col = vec3(0.02, 0.025, 0.04);
+        gl_FragColor = vec4(col, 1.0);
+      }`,
+  });
+  return new THREE.Mesh(new THREE.SphereGeometry(1, 32, 16), mat);
+}
+
 // Overcast dome for the storm preset: grey gradient + slow cloud banding.
 function overcastSky(T) {
   const mat = new THREE.ShaderMaterial({
@@ -343,6 +379,14 @@ function overcastSky(T) {
 }
 
 export function createSky(renderer, scene, sunDir, T) {
+  if (T.sky.night) {
+    const sky = nightSky(sunDir); sky.scale.setScalar(3000); sky.userData.noAO = true; sky.frustumCulled = false; scene.add(sky);
+    const envScene = new THREE.Scene(); const s2 = nightSky(sunDir); s2.scale.setScalar(900); envScene.add(s2);
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    scene.environment = pmrem.fromScene(envScene, 0.04, 0.1, 2000).texture; pmrem.dispose();
+    scene.environmentIntensity = T.env;
+    return sky;
+  }
   if (T.sky.overcast) {
     const sky = overcastSky(T); sky.scale.setScalar(3000); sky.userData.noAO = true; sky.frustumCulled = false; scene.add(sky);
     const envScene = new THREE.Scene(); const s2 = overcastSky(T); s2.scale.setScalar(900); envScene.add(s2);

@@ -761,6 +761,24 @@ export class Level {
     }
   }
 
+  // soft additive light shaft under a lamp (fades with height and at the rim)
+  lightCone(top, height, r0, r1, color) {
+    if (!this.coneMat) {
+      this.coneMat = new THREE.ShaderMaterial({
+        uniforms: { uStrength: { value: 0 }, uColor: { value: new THREE.Color(1, 0.7, 0.4) } },
+        transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+        vertexShader: 'varying float vH; varying vec3 vN; varying vec3 vV; void main(){ vH = uv.y; vN = normalize(normalMatrix * normal); vec4 mv = modelViewMatrix * vec4(position,1.0); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }',
+        fragmentShader: 'uniform float uStrength; uniform vec3 uColor; varying float vH; varying vec3 vN; varying vec3 vV; void main(){ float rim = pow(abs(dot(normalize(vN), normalize(vV))), 1.6); float a = rim * pow(vH, 1.3) * uStrength * 0.45; gl_FragColor = vec4(uColor * a, a); }',
+      });
+      this.cones = [];
+    }
+    const g = new THREE.CylinderGeometry(r0, r1, height, 32, 1, true).translate(0, -height / 2, 0);
+    const m = new THREE.Mesh(g, this.coneMat);
+    m.position.copy(top); m.userData.noAO = true; m.renderOrder = 8; m.frustumCulled = false;
+    this.scene.add(m); this.cones.push(m);
+    return m;
+  }
+
   buildLights() {
     for (const p of this.lamps) {
       const s = new THREE.SpotLight(new THREE.Color(1.0, 0.68, 0.38), 220, 26, 0.95, 0.6, 1.8);
@@ -768,6 +786,7 @@ export class Level {
       s.target.position.set(p.x - 0.5, 0, p.z);
       this.scene.add(s, s.target);
       this.lights.push(s);
+      this.lightCone(p.clone().add(new THREE.Vector3(0, -0.05, 0)), p.y, 0.25, 4.2);
     }
     if (this.cabinLamp) {
       const cl = new THREE.PointLight(new THREE.Color(1.0, 0.8, 0.55), 6, 7, 2);
@@ -777,6 +796,7 @@ export class Level {
     const wp = new THREE.SpotLight(new THREE.Color(1.0, 0.85, 0.65), 90, 16, 0.9, 0.7, 1.8);
     wp.position.set(-17.4, 5.4, 0.5); wp.target.position.set(-12, 0, 0.5);
     this.scene.add(wp, wp.target); this.lights.push(wp);
+    { const c = this.lightCone(new THREE.Vector3(-17.6, 5.2, 0.5), 5.2, 0.15, 2.6); c.rotation.z = 0.55; c.position.x += 0.0; }
     this.box(0.3, 0.3, 0.45, 'darkSteel', -17.85, 5.3, 0.5, 0, { collide: false });
     this.put(new THREE.PlaneGeometry(0.35, 0.22).rotateX(Math.PI / 2), 'lampLens', -17.72, 5.295, 0.5);
   }

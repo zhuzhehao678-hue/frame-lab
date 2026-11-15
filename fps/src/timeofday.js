@@ -36,8 +36,19 @@ export const TIMES = {
     sky: { turbidity: 14, rayleigh: 0.5, mie: 0.004, mieG: 0.6, clouds: 1.0, cloudDensity: 1.0, noSun: true, overcast: true },
     env: 0.32, envGround: c(0.08, 0.08, 0.085), wet: 1, grade: c(0.94, 0.99, 1.06),
     fog: { color: c(0.30, 0.33, 0.37), sun: c(0.05, 0.05, 0.05), density: 0.011, falloff: 0.05 },
-    exposure: 0.64, bloom: 0.2, godWeight: 0.0, lamps: 1, windows: 1,
+    exposure: 0.64, bloom: 0.2, godWeight: 0.0, lamps: 1, windows: 1, cones: 0.6,
     smokeTint: c(0.5, 0.52, 0.55),
+  },
+  // night: moonlight, sodium lamps, flashlight territory
+  night: {
+    label: '夜晚', night: true,
+    sunDir: v(-0.45, 0.62, -0.35), sunColor: c(0.55, 0.66, 0.95), sunIntensity: 0.3,
+    hemiSky: c(0.2, 0.26, 0.42), hemiGround: c(0.08, 0.07, 0.06), hemiIntensity: 0.22,
+    sky: { night: true },
+    env: 0.5, envGround: c(0.02, 0.02, 0.025), wet: 0.85, grade: c(0.92, 0.98, 1.1),
+    fog: { color: c(0.035, 0.045, 0.07), sun: c(0.03, 0.035, 0.05), density: 0.006, falloff: 0.08 },
+    exposure: 1.25, bloom: 0.38, godWeight: 0.0, lamps: 1.7, windows: 1.4, cones: 1,
+    smokeTint: c(0.3, 0.3, 0.35),
   },
   // the original low sunset, with the glare reined in
   sunset: {
@@ -47,7 +58,7 @@ export const TIMES = {
     sky: { turbidity: 8, rayleigh: 2.0, mie: 0.004, mieG: 0.84, clouds: 0.5, cloudDensity: 0.7 },
     env: 0.8, envGround: c(0.06, 0.05, 0.045), wet: 1, grade: c(1, 1, 1),
     fog: { color: c(0.24, 0.20, 0.19), sun: c(0.5, 0.28, 0.13), density: 0.0035, falloff: 0.12 },
-    exposure: 0.6, bloom: 0.15, godWeight: 0.011, lamps: 1, windows: 1,
+    exposure: 0.6, bloom: 0.15, godWeight: 0.011, lamps: 1, windows: 1, cones: 0.3,
     smokeTint: c(0.55, 0.45, 0.38),
   },
 };

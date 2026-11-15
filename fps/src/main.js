@@ -83,6 +83,7 @@ async function boot() {
   for (const l of level.lights) { l.intensity *= TOD.lamps; l.visible = TOD.lamps > 0; }
   lib.M.lampLens.emissiveIntensity *= Math.max(TOD.lamps, 0.02);
   lib.M.windowLit.emissiveIntensity *= TOD.windows;
+  if (level.coneMat) level.coneMat.uniforms.uStrength.value = TOD.cones || 0;
   if (TOD.rain) {
     // soaked surfaces: darker and glossier
     for (const [k, m] of Object.entries(lib.M)) {
@@ -103,6 +104,14 @@ async function boot() {
   const pistol = new Pistol(camera, lib, effects);
   weapon.baseFov = pistol.baseFov = settings.fov;
   pistol.root.visible = false;
+  // tactical flashlight: always present (intensity 0 when off) so toggling never recompiles shaders
+  const flashlight = new THREE.SpotLight(new THREE.Color(1.0, 0.96, 0.9), 0, 40, 0.38, 0.55, 1.6);
+  flashlight.position.set(0.06, -0.06, -0.85); // ahead of the muzzle so it doesn't bleach the viewmodel
+  flashlight.target.position.set(0.05, -0.15, -10);
+  camera.add(flashlight, flashlight.target);
+  if (R.q.shadow >= 4096) { flashlight.castShadow = true; flashlight.shadow.mapSize.set(1024, 1024); flashlight.shadow.bias = -0.0005; flashlight.shadow.normalBias = 0.03; flashlight.shadow.camera.near = 0.3; }
+  const lensGlow = new THREE.Mesh(new THREE.CircleGeometry(0.0125, 20), new THREE.MeshBasicMaterial({ color: new THREE.Color(6, 5.6, 5), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+  lensGlow.position.set(0.034, 0.04, -0.4815); lensGlow.rotation.y = Math.PI; lensGlow.visible = false; weapon.gun.add(lensGlow);
   const enemies = new Enemies(scene, lib, effects, level, audio);
   const grenades = new Grenades(scene, lib, effects, level, audio);
   const ambient = new Ambient(scene, lib);
@@ -139,7 +148,7 @@ async function boot() {
   scene.remove(warm); warmLegs.forEach((o) => scene.remove(o));
   await progress(1, '就绪');
 
-  return { lib, level, effects, audio, player, weapon, pistol, enemies, grenades, ambient, boss, music, pickups, hazards, rain, hemi, walkers, sun };
+  return { flashlight, lensGlow, lib, level, effects, audio, player, weapon, pistol, enemies, grenades, ambient, boss, music, pickups, hazards, rain, hemi, walkers, sun };
 }
 
 const G = await boot();
@@ -180,6 +189,11 @@ addEventListener('keydown', (e) => {
   if (e.code === 'Digit2' && locked) switchWeapon(1);
   if (e.code === 'KeyR' && locked && !photo) { if (weapon.startReload()) audio.click(1200, 0.3); }
   if (e.code === 'KeyG' && locked && !photo && !player.dead && grenades.canThrow(weapon)) { grenades.throw(camera, player.vel); weapon.throwT = 0; }
+  if (e.code === 'KeyT' && locked && !photo) {
+    G.flashOn = !G.flashOn;
+    G.flashlight.intensity = G.flashOn ? 90 : 0; G.lensGlow.visible = G.flashOn;
+    audio.click(G.flashOn ? 2400 : 1700, 0.35);
+  }
   if (e.code === 'KeyF') $('fps').classList.toggle('hidden');
   if (e.code === 'KeyP' && locked) togglePhoto();
 });
@@ -226,7 +240,7 @@ $('play').onclick = () => {
   music.setVolume(settings.music); music.start();
   if (G.rain) G.rain.startAudio();
   $('view').requestPointerLock();
-  if (!started) { started = true; waves.start(); weapon.root.visible = true; weapon.equipT = 0; }
+  if (!started) { started = true; waves.start(); weapon.root.visible = true; weapon.equipT = 0; if (TOD.night) setTimeout(() => hint('夜间作战 · 按 T 开启战术手电', 4), 3500); }
 };
 $('end').onclick = () => { restart(); $('end').classList.add('hidden'); $('view').requestPointerLock(); };
 
@@ -642,4 +656,4 @@ weapon.root.visible = false;
 if (!noLoop) loop();
 
 // debug / screenshot hooks
-window.__game = { walkers, REFL, rain: G.rain, hazards, pickups: G.pickups, music: G.music, boss, switchWeapon, weapons, get weapon() { return weapon; }, ambient, updateHUD, score, grenades, setLocked: (v) => { locked = v; }, loop, start: () => { started = true; waves.start(); }, FOG, sun: G.sun, THREE, scene, camera, player, enemies, effects, level, R, waves, renderer, togglePhoto, shoot, input };
+window.__game = { G, walkers, REFL, rain: G.rain, hazards, pickups: G.pickups, music: G.music, boss, switchWeapon, weapons, get weapon() { return weapon; }, ambient, updateHUD, score, grenades, setLocked: (v) => { locked = v; }, loop, start: () => { started = true; waves.start(); }, FOG, sun: G.sun, THREE, scene, camera, player, enemies, effects, level, R, waves, renderer, togglePhoto, shoot, input };
