@@ -17,6 +17,7 @@ import { Music } from './music.js';
 import { Pickups } from './pickups.js';
 import { Hazards } from './hazards.js';
 import { Props } from './props.js';
+import { Heli } from './heli.js';
 import { Rain } from './rain.js';
 import { Walkers } from './walker.js';
 
@@ -126,6 +127,7 @@ async function boot() {
   const pickups = new Pickups(scene, lib, audio);
   const hazards = new Hazards(scene, lib, level, effects, audio);
   const props = new Props(scene, lib, level, audio);
+  const heli = new Heli(scene, lib, effects, audio);
   const rain = TOD.rain ? new Rain(scene, camera, effects, audio) : null;
   const walkers = new Walkers(scene, lib, effects, level, audio, enemies);
   enemies.walkers = walkers;
@@ -160,7 +162,7 @@ async function boot() {
   flareLight.castShadow = false; scene.add(flareLight);
   const flareCore = new THREE.Mesh(new THREE.SphereGeometry(0.18, 10, 8), new THREE.MeshBasicMaterial({ color: new THREE.Color(40, 34, 26), fog: false }));
   flareCore.visible = false; flareCore.userData.noAO = true; scene.add(flareCore);
-  return { skyMesh, flareLight, flareCore, flashlight, lensGlow, lib, level, effects, audio, player, weapon, pistol, dmr, shotgun, enemies, grenades, ambient, boss, music, pickups, hazards, props, rain, hemi, walkers, sun };
+  return { skyMesh, flareLight, flareCore, flashlight, lensGlow, lib, level, effects, audio, player, weapon, pistol, dmr, shotgun, enemies, grenades, ambient, boss, music, pickups, hazards, props, heli, rain, hemi, walkers, sun };
 }
 
 const G = await boot();
@@ -430,7 +432,7 @@ const RADIO = {
   boss: ['侦测到大型目标——母舰 WARDEN 正在接近。先打掉它的旋翼舱！'],
   low: ['你的生命体征在下降，找掩体！', '你受伤了，退到掩体后面等护盾恢复。'],
   emp: ['EMP 已充能完毕。按 X 让它们全部趴下。'],
-  win: ['干得漂亮。九号码头已收复，撤离直升机五分钟后到。'],
+  win: ['干得漂亮。九号码头已收复——撤离直升机已经在路上，看海面方向。'],
   dead: ['……九号码头？听到请回答……信号丢失。'],
 };
 function hint(text, dur = 2) { const h = $('hint'); h.textContent = text; h.style.opacity = 1; clearTimeout(h._t); h._t = setTimeout(() => (h.style.opacity = 0), dur * 1000); }
@@ -698,7 +700,8 @@ function victory() {
   const bonus = Math.max(0, Math.round(300 - (performance.now() - stats.t0) / 1000)) * 10 + Math.round(player.health) * 10;
   score.total += bonus;
   radio(RADIO.win[0]);
-  setTimeout(() => showEnd(true, bonus), 2500);
+  setTimeout(() => { G.heli.arrive(TOD.night || TOD.rain); hint('撤离直升机正在接近', 3); }, 1500);
+  setTimeout(() => showEnd(true, bonus), 13000);
 }
 function defeat() {
   gameOver = true;
@@ -706,7 +709,7 @@ function defeat() {
   setTimeout(() => showEnd(false), 2200);
 }
 function restart() {
-  enemies.clear(); grenades.clear(); boss.clear(); pickups.reset(); hazards.reset(); walkers.clear(); props.reset();
+  enemies.clear(); grenades.clear(); boss.clear(); pickups.reset(); hazards.reset(); walkers.clear(); props.reset(); G.heli.reset();
   player.pos.copy(level.playerStart); player.vel.set(0, 0, 0); player.yaw = level.playerYaw; player.pitch = 0;
   player.health = 100; player.dead = false;
   G.weapon.ammo = 30; G.weapon.reserve = 180; G.pistol.ammo = 15; G.pistol.reserve = 60; G.dmr.ammo = 20; G.dmr.reserve = 80; G.shotgun.ammo = 6; G.shotgun.reserve = 30;
@@ -1097,6 +1100,7 @@ function loop() {
     hazards.update(dt, { enemies, player, t, onPlayerHit: enemies.onPlayerHit, boss, walkers });
     props.update(dt, player);
     updateFlare(dt, t);
+    G.heli.update(dt);
     updateSunset(dt);
     updateDmgNums(realDt);
     killSource = { type: 'other' };

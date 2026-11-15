@@ -306,6 +306,30 @@ export class Audio {
     o1.start(); o2.start(); n.start(); lfo.start();
     return { p, g, occ, oscs: [o1, o2, n, lfo], obj, base };
   }
+  // helicopter: deep blade slap (pulsed low noise) + turbine whine, positional
+  heliStart(obj) {
+    if (!this.enabled) return null;
+    const ctx = this.ctx;
+    const p = ctx.createPanner(); p.panningModel = 'HRTF'; p.distanceModel = 'inverse'; p.refDistance = 12; p.rolloffFactor = 0.9;
+    const g = ctx.createGain(); g.gain.value = 0; g.gain.setTargetAtTime(0.9, ctx.currentTime, 1.5);
+    const n = ctx.createBufferSource(); n.buffer = this.noiseBuf; n.loop = true;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 320; lp.Q.value = 1.5;
+    const chop = ctx.createGain(); chop.gain.value = 0.2;
+    const lfo = ctx.createOscillator(); lfo.type = 'square'; lfo.frequency.value = 5.2;
+    const lfoG = ctx.createGain(); lfoG.gain.value = 0.8; lfo.connect(lfoG).connect(chop.gain);
+    const whine = ctx.createOscillator(); whine.type = 'sawtooth'; whine.frequency.value = 1450;
+    const wg = ctx.createGain(); wg.gain.value = 0.015; const wf = ctx.createBiquadFilter(); wf.type = 'bandpass'; wf.frequency.value = 1500; wf.Q.value = 6;
+    n.connect(lp).connect(chop).connect(g); whine.connect(wf).connect(wg).connect(g);
+    g.connect(p).connect(this.master);
+    const s = ctx.createGain(); s.gain.value = 0.3; p.connect(s).connect(this.verb);
+    n.start(); lfo.start(); whine.start();
+    return { p, g, oscs: [n, lfo, whine], obj };
+  }
+  heliUpdate(h, obj) {
+    const t = this.ctx.currentTime, pos = obj.position;
+    h.p.positionX.setTargetAtTime(pos.x, t, 0.05); h.p.positionY.setTargetAtTime(pos.y, t, 0.05); h.p.positionZ.setTargetAtTime(pos.z, t, 0.05);
+  }
+  heliStop(h) { if (!h) return; const t = this.ctx.currentTime; h.g.gain.setTargetAtTime(0, t, 0.3); for (const o of h.oscs) o.stop(t + 1.5); }
   isOccluded(pos) {
     if (!this.level) return false;
     const ear = this.camera.getWorldPosition(new THREE.Vector3());
