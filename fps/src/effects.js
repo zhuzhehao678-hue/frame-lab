@@ -103,6 +103,80 @@ class ParticleSystem {
   }
 }
 
+// Billowing fireballs: each billboard evaluates animated fbm noise, erodes
+// its silhouette with age and maps a temperature ramp (white -> orange ->
+// red -> soot). Premultiplied alpha lets one particle both glow and occlude.
+class FireSystem {
+  constructor(scene, cap) {
+    this.cap = cap;
+    const g = new THREE.InstancedBufferGeometry();
+    const quad = new THREE.PlaneGeometry(1, 1);
+    g.index = quad.index; g.attributes.position = quad.attributes.position; g.attributes.uv = quad.attributes.uv;
+    this.aPos = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3).setUsage(THREE.DynamicDrawUsage);
+    this.aPar = new THREE.InstancedBufferAttribute(new Float32Array(cap * 4), 4).setUsage(THREE.DynamicDrawUsage); // size, age, seed, heat
+    g.setAttribute('iPos', this.aPos); g.setAttribute('iPar', this.aPar); g.instanceCount = 0;
+    this.uniforms = { uSoot: { value: new THREE.Color(0.08, 0.075, 0.07) } };
+    const mat = new THREE.ShaderMaterial({
+      uniforms: this.uniforms, transparent: true, depthWrite: false,
+      blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor,
+      vertexShader: /* glsl */`
+        attribute vec3 iPos; attribute vec4 iPar; varying vec2 vUv; varying vec4 vPar;
+        void main(){ vUv = uv; vPar = iPar; vec4 mv = modelViewMatrix * vec4(iPos, 1.0);
+          float c = cos(iPar.z * 6.28), s = sin(iPar.z * 6.28);
+          mv.xy += mat2(c, s, -s, c) * position.xy * iPar.x; gl_Position = projectionMatrix * mv; }`,
+      fragmentShader: /* glsl */`
+        uniform vec3 uSoot; varying vec2 vUv; varying vec4 vPar;
+        float h(vec3 p){ p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+        float n(vec3 x){ vec3 i = floor(x), f = fract(x); f = f*f*(3.0-2.0*f);
+          return mix(mix(mix(h(i), h(i+vec3(1,0,0)), f.x), mix(h(i+vec3(0,1,0)), h(i+vec3(1,1,0)), f.x), f.y),
+                     mix(mix(h(i+vec3(0,0,1)), h(i+vec3(1,0,1)), f.x), mix(h(i+vec3(0,1,1)), h(i+vec3(1,1,1)), f.x), f.y), f.z); }
+        float fbm(vec3 p){ float s = 0.0, a = 0.5; for (int i = 0; i < 5; i++){ s += a * n(p); p *= 2.1; a *= 0.5; } return s; }
+        void main(){
+          float age = vPar.y, seed = vPar.z, heat = vPar.w;
+          vec2 c = vUv - 0.5; float r = length(c) * 2.0;
+          float t = age * 2.2 + seed * 10.0;
+          float nn = fbm(vec3(c * 3.2, t) + seed * 7.0);
+          // billowing silhouette that erodes with age
+          float shape = smoothstep(0.0, 0.35, (1.0 - r) * (0.75 + nn * 0.9) - age * 0.55);
+          if (shape < 0.01) discard;
+          float temp = clamp((1.0 - age * 1.25) * heat * (0.55 + nn * 0.8) * (1.15 - r * 0.6), 0.0, 1.0);
+          vec3 fire = mix(vec3(0.9, 0.12, 0.02), vec3(4.0, 1.6, 0.35), smoothstep(0.25, 0.65, temp));
+          fire = mix(fire, vec3(12.0, 9.0, 5.5), smoothstep(0.72, 1.0, temp));
+          float glow = smoothstep(0.12, 0.45, temp);
+          vec3 col = mix(uSoot * (0.6 + nn * 0.5), fire, glow);
+          float a = shape * mix(0.85, 1.0, glow) * (1.0 - smoothstep(0.7, 1.0, age));
+          // premultiplied: glowing parts add light, sooty parts occlude
+          gl_FragColor = vec4(col * a, a * mix(1.0, 0.35, glow));
+        }`,
+    });
+    this.mesh = new THREE.Mesh(g, mat);
+    this.mesh.frustumCulled = false; this.mesh.userData.noAO = true; this.mesh.renderOrder = 11;
+    scene.add(this.mesh);
+    this.p = [];
+  }
+  emit(pos, vel, size, life, heat = 1) {
+    if (this.p.length >= this.cap) this.p.shift();
+    this.p.push({ pos: pos.clone(), vel: vel.clone(), size, life: 0, max: life, seed: Math.random(), heat });
+  }
+  update(dt) {
+    let w = 0;
+    for (const q of this.p) {
+      q.life += dt; if (q.life >= q.max) continue;
+      q.vel.multiplyScalar(Math.exp(-3.2 * dt)); q.vel.y += 1.6 * dt;
+      q.pos.addScaledVector(q.vel, dt);
+      this.p[w++] = q;
+    }
+    this.p.length = w;
+    for (let i = 0; i < w; i++) {
+      const q = this.p[i]; const a = q.life / q.max;
+      this.aPos.setXYZ(i, q.pos.x, q.pos.y, q.pos.z);
+      this.aPar.setXYZW(i, q.size * (0.55 + Math.sqrt(a) * 0.9), a, q.seed, q.heat);
+    }
+    this.mesh.geometry.instanceCount = w;
+    this.aPos.needsUpdate = this.aPar.needsUpdate = true;
+  }
+}
+
 export class Effects {
   constructor(scene, lib, camera) {
     this.scene = scene; this.camera = camera; this.M = lib.M;
@@ -114,6 +188,14 @@ export class Effects {
       uniforms: { map: { value: lib.tex.smoke.map } },
     }));
     this.smoke.mesh.renderOrder = 9;
+    this.fire = new FireSystem(scene, 160);
+    // ground shockwave rings
+    this.ringMat = new THREE.ShaderMaterial({
+      uniforms: { uA: { value: 0 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+      fragmentShader: 'uniform float uA; varying vec2 vUv; void main(){ float r = length(vUv - 0.5) * 2.0; float a = smoothstep(0.75, 0.95, r) * (1.0 - smoothstep(0.95, 1.0, r)) * uA; gl_FragColor = vec4(vec3(1.6, 1.1, 0.7) * a, a); }',
+    });
+    this.rings = [];
     this.ambient = new THREE.Color(0.55, 0.45, 0.38); // smoke lighting tint
 
     // decals (instanced)
@@ -231,9 +313,18 @@ export class Effects {
   explosion(pos, scale = 1) {
     const rnd = () => new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize();
     this.flash(pos, new THREE.Color(1, 0.6, 0.3), 120 * scale, 0.5, 22);
-    for (let i = 0; i < 26; i++) {
-      const v = rnd().multiplyScalar(2 + Math.random() * 5 * scale);
-      this.add.emit({ pos, vel: v, life: 0.35 + Math.random() * 0.4, size: 0.5 * scale, size1: 1.4 * scale, color: new THREE.Color(9, 4, 1.4), color1: new THREE.Color(1.2, 0.25, 0.05), alpha: 0.9, alpha1: 0, drag: 4, gravity: -1.5 });
+    // core flash + billowing fireballs
+    this.add.emit({ pos, life: 0.12, size: 2.5 * scale, size1: 4 * scale, color: new THREE.Color(10, 7, 4), alpha: 1, alpha1: 0 });
+    const nFire = Math.round(10 + 6 * scale);
+    for (let i = 0; i < nFire; i++) {
+      const v = rnd().multiplyScalar((2.5 + Math.random() * 5) * scale); v.y = Math.abs(v.y) * 0.8 + 1;
+      this.fire.emit(pos.clone().add(rnd().multiplyScalar(0.3 * scale)), v, (1.2 + Math.random() * 1.2) * scale, 0.9 + Math.random() * 0.7, 0.85 + Math.random() * 0.3);
+    }
+    // shockwave ring hugging the ground
+    if (pos.y < 3.5) {
+      const ring = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), this.ringMat.clone());
+      ring.position.set(pos.x, 0.05, pos.z); ring.userData.noAO = true; ring.renderOrder = 12;
+      this.scene.add(ring); this.rings.push({ mesh: ring, t: 0, s: scale });
     }
     for (let i = 0; i < 40; i++) {
       const v = rnd().multiplyScalar(6 + Math.random() * 12);
@@ -253,7 +344,13 @@ export class Effects {
   }
 
   update(dt, level) {
-    this.add.update(dt); this.smoke.update(dt);
+    this.add.update(dt); this.smoke.update(dt); this.fire.update(dt);
+    for (let i = this.rings.length - 1; i >= 0; i--) {
+      const r = this.rings[i]; r.t += dt;
+      const k = r.t / 0.45;
+      if (k >= 1) { this.scene.remove(r.mesh); this.rings.splice(i, 1); continue; }
+      const sz = (1 + k * 11) * r.s; r.mesh.scale.set(sz, 1, sz); r.mesh.material.uniforms.uA.value = (1 - k) * 1.2;
+    }
     for (const L of this.lights) {
       if (L.light.intensity <= 0) continue;
       L.t += dt;
