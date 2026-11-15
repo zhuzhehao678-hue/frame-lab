@@ -33,8 +33,8 @@ let todName = params.get('t') || saved.tod || 'golden';
 if (!TIMES[todName]) todName = 'golden';
 const TOD = TIMES[todName];
 const DIFF = { easy: { dmg: 0.42, hp: 0.8, fire: 1.35, score: 0.8 }, normal: { dmg: 0.62, hp: 1, fire: 1, score: 1 }, hard: { dmg: 0.85, hp: 1.25, fire: 0.78, score: 1.35 } };
-const settings = { xhStyle: saved.xhStyle || 'both', xhColor: saved.xhColor || '#f0ece4', mblur: saved.mblur ?? true, diff: DIFF[saved.diff] ? saved.diff : 'normal', sens: saved.sens ?? 1, fov: saved.fov ?? 74, adsSens: saved.adsSens ?? 0.9, music: saved.music ?? 0.5, optic: saved.optic || 'reddot' };
-$('diff').value = settings.diff; $('xhstyle').value = settings.xhStyle; $('xhcolor').value = settings.xhColor; $('mblur').checked = settings.mblur; $('quality').value = qualityName; $('tod').value = todName; $('sens').value = settings.sens; $('adssens').value = settings.adsSens; $('music').value = settings.music; $('fov').value = settings.fov; $('optic').value = settings.optic;
+const settings = { xhStyle: saved.xhStyle || 'both', xhColor: saved.xhColor || '#f0ece4', mblur: saved.mblur ?? true, diff: DIFF[saved.diff] ? saved.diff : 'normal', sens: saved.sens ?? 1, fov: saved.fov ?? 74, adsSens: saved.adsSens ?? 0.9, music: saved.music ?? 0.5, optic: saved.optic || 'reddot', muzzle: saved.muzzle || 'brake' };
+$('diff').value = settings.diff; $('xhstyle').value = settings.xhStyle; $('xhcolor').value = settings.xhColor; $('mblur').checked = settings.mblur; $('quality').value = qualityName; $('tod').value = todName; $('sens').value = settings.sens; $('adssens').value = settings.adsSens; $('music').value = settings.music; $('fov').value = settings.fov; $('optic').value = settings.optic; $('muzzle').value = settings.muzzle;
 const persist = () => LS.setItem('afterglow', JSON.stringify({ quality: qualityName, tod: todName, ...settings, best: saved.best || 0, bestWave: saved.bestWave || 0, tutorialDone: !!saved.tutorialDone }));
 
 const frame = () => new Promise((r) => requestAnimationFrame(() => r()));
@@ -107,7 +107,7 @@ async function boot() {
   const pistol = new Pistol(camera, lib, effects);
   const dmr = new DMR(camera, lib, effects);
   weapon.baseFov = pistol.baseFov = dmr.baseFov = settings.fov;
-  weapon.setOptic(settings.optic);
+  weapon.setOptic(settings.optic); weapon.setMuzzle(settings.muzzle === 'sup');
   pistol.root.visible = false; dmr.root.visible = false;
   // tactical flashlight: always present (intensity 0 when off) so toggling never recompiles shaders
   const flashlight = new THREE.SpotLight(new THREE.Color(1.0, 0.96, 0.9), 0, 40, 0.38, 0.55, 1.6);
@@ -249,6 +249,7 @@ $('diff').onchange = (e) => { settings.diff = e.target.value; applyDifficulty();
 $('music').oninput = (e) => { settings.music = +e.target.value; music.setVolume(settings.music); persist(); };
 $('adssens').oninput = (e) => { settings.adsSens = +e.target.value; persist(); };
 $('optic').onchange = (e) => { settings.optic = e.target.value; G.weapon.setOptic(settings.optic); persist(); };
+$('muzzle').onchange = (e) => { settings.muzzle = e.target.value; G.weapon.setMuzzle(settings.muzzle === 'sup'); persist(); };
 $('fov').oninput = (e) => { settings.fov = +e.target.value; for (const w of weapons) w.baseFov = settings.fov; persist(); };
 $('quality').onchange = (e) => {
   qualityName = e.target.value; persist();
@@ -616,9 +617,10 @@ function shoot(t) {
   killSource = { type: 'gun', w: weapon.kind, dist: 0 };
   const muzzle = weapon.fire();
   stats.shots++;
-  audio.gunshot(weapon.ads > 0.5, weapon.kind);
+  audio.gunshot(weapon.ads > 0.5, weapon.suppressed ? 'suppressed' : weapon.kind);
+  if (!weapon.suppressed) enemies.noiseT = 2.5; // loud shots keep every drone on its toes
   if (pad.active) rumble(weapon.kind === 'dmr' ? 0.6 : 0.25, 0.4, 70);
-  effects.flash(muzzle.clone().addScaledVector(fwdFlash(), 0.9), new THREE.Color(1, 0.72, 0.4), 12, 0.05, 10);
+  effects.flash(muzzle.clone().addScaledVector(fwdFlash(), 0.9), new THREE.Color(1, 0.72, 0.4), weapon.suppressed ? 2 : 12, 0.05, weapon.suppressed ? 4 : 10);
   weapon.ejectBrass();
   const fwd = new THREE.Vector3(); camera.getWorldDirection(fwd);
   effects.muzzleSmoke(muzzle, fwd);

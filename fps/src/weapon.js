@@ -207,6 +207,17 @@ export class Weapon {
     const grab = (n0) => { const g = new THREE.Group(); for (const c of this.gun.children.slice(n0)) { this.gun.remove(c); g.add(c); } this.gun.add(g); return g; };
     this.optics.reddot = { group: grab(nOptic0), reticle: this.reticle, sightY: 0.1055, zoom: 0.72, sens: 1, label: '红点' };
     this.buildHolo(); this.buildPrism();
+    // suppressor (muzzle attachment), slid over the brake
+    {
+      const n0 = this.gun.children.length;
+      const A2 = (g, m, x, y, z) => this.add(g, m, x, y, z);
+      A2(uvScale(new THREE.CylinderGeometry(0.019, 0.019, 0.17, 28).rotateX(Math.PI / 2), 2), metal, 0, 0.031, -0.69);
+      A2(new THREE.CylinderGeometry(0.0195, 0.0195, 0.02, 28).rotateX(Math.PI / 2), dark, 0, 0.031, -0.612);
+      A2(new THREE.CylinderGeometry(0.0195, 0.0195, 0.012, 28).rotateX(Math.PI / 2), dark, 0, 0.031, -0.77);
+      A2(new THREE.CircleGeometry(0.019, 28).rotateY(Math.PI), dark, 0, 0.031, -0.776);
+      this.suppressor = new THREE.Group(); for (const c of this.gun.children.slice(n0)) { this.gun.remove(c); this.suppressor.add(c); } this.gun.add(this.suppressor);
+      this.suppressor.visible = false;
+    }
 
     // magazine (group so it can be animated)
     this.mag = new THREE.Group(); this.mag.position.set(0, -0.055, -0.064); this.gun.add(this.mag);
@@ -349,6 +360,16 @@ export class Weapon {
     this.mat.hot.emissiveIntensity = k * k * 2.2;
   }
 
+  setMuzzle(suppressed) {
+    if (!this.suppressor) return;
+    this.suppressed = !!suppressed; this.suppressor.visible = this.suppressed;
+    this.muzzle.position.z = this.suppressed ? -0.78 : -0.655;
+    this.baseDamage = this.baseDamage || this.damage.slice();
+    this.damage = this.baseDamage.map((d) => Math.round(d * (this.suppressed ? 0.9 : 1)));
+    this.recoilMul = this.suppressed ? 0.85 : 1;
+    this.flash.scale.setScalar(this.suppressed ? 0.35 : 1);
+  }
+
   setOptic(name) {
     if (!this.optics || !this.optics[name]) return;
     for (const [k, o] of Object.entries(this.optics)) { o.group.visible = k === name; o.reticle.visible = false; }
@@ -469,7 +490,7 @@ export class Weapon {
     this.flashT = 0;
     this.flash.visible = true;
     this.flash.rotation.z = Math.random() * Math.PI * 2;
-    const s = 0.8 + Math.random() * 0.5; this.flash.scale.setScalar(s * (this.ads > 0.5 ? 0.4 : 1));
+    const s = 0.8 + Math.random() * 0.5; this.flash.scale.setScalar(s * (this.ads > 0.5 ? 0.4 : 1) * (this.suppressed ? 0.3 : 1));
     this.spreadBloom = Math.min(this.spreadBloom + 0.35, 1.6);
     const mp = new THREE.Vector3(); this.muzzle.getWorldPosition(mp);
     return mp;

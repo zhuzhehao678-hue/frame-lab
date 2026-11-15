@@ -354,6 +354,7 @@ export class Enemies {
   }
 
   update(dt, t, player) {
+    this.noiseT = Math.max(0, (this.noiseT || 0) - dt);
     this.player = player; this.t = t;
     this.updateFalling(dt);
     const target = player.camera.position;
@@ -467,7 +468,7 @@ export class Enemies {
       if (e.kind === 'medic') { this.medicLogic(e, dt); continue; }
       // attack logic
       if (player.dead) continue;
-      e.fireCD -= dt;
+      e.fireCD -= dt * (this.noiseT > 0 ? 1.3 : 1);
       const charging = this.list.reduce((n, o) => n + (o.charge > 0 ? 1 : 0), 0);
       if (los && e.fireCD <= 0 && e.charge <= 0 && e.stagger <= 0 && charging < 2) { e.charge = 0.0001; this.audio.charge(e.pos); }
       else if (los && e.fireCD <= 0 && charging >= 2) e.fireCD = 0.3 + Math.random() * 0.5; // wait for a firing slot
