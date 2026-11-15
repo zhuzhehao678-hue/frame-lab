@@ -4,6 +4,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
+import { SMAAPass } from 'three/examples/jsm/postprocessing/SMAAPass.js';
 import { Sky } from 'three/examples/jsm/objects/Sky.js';
 import { FOG } from './fog.js';
 import { PlanarReflection } from './reflect.js';
@@ -249,6 +250,8 @@ export class Renderer {
     }
     this.final = new ShaderPass(FinalShader);
     this.composer.addPass(this.final);
+    // tiers without MSAA get SMAA on the tonemapped image (textures are inline data: URIs)
+    if (!q.msaa) { this.smaa = new SMAAPass(); this.composer.addPass(this.smaa); }
 
     window.addEventListener('resize', () => this.resize());
     this.resize();
