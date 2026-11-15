@@ -14,7 +14,7 @@ export const TIMES = {
     sky: { turbidity: 4.5, rayleigh: 0.9, mie: 0.004, mieG: 0.8, clouds: 0.42, cloudDensity: 0.55 },
     env: 0.11, envGround: c(0.16, 0.14, 0.12), wet: 0.35, grade: c(1.0, 1.0, 0.97),
     fog: { color: c(0.50, 0.53, 0.58), sun: c(0.25, 0.23, 0.18), density: 0.0025, falloff: 0.1 },
-    exposure: 0.56, bloom: 0.06, godWeight: 0.0, lamps: 0, windows: 0.25,
+    exposure: 0.56, bloom: 0.06, godWeight: 0.0, lamps: 0, windows: 0.25, clouds: 0.55,
     smokeTint: c(0.75, 0.75, 0.78),
   },
   // golden hour: warm sun ~28° up in the east, off to the side of the main sight lines
@@ -25,7 +25,7 @@ export const TIMES = {
     sky: { turbidity: 9, rayleigh: 1.8, mie: 0.0045, mieG: 0.82, clouds: 0.48, cloudDensity: 0.62 },
     env: 0.12, envGround: c(0.16, 0.11, 0.07), wet: 0.5, grade: c(1.1, 0.98, 0.82),
     fog: { color: c(0.46, 0.38, 0.32), sun: c(0.7, 0.45, 0.24), density: 0.003, falloff: 0.11 },
-    exposure: 0.56, bloom: 0.06, godWeight: 0.0, lamps: 0.35, windows: 0.7,
+    exposure: 0.56, bloom: 0.06, godWeight: 0.0, lamps: 0.35, windows: 0.7, clouds: 0.45,
     smokeTint: c(0.7, 0.6, 0.5),
   },
   // overcast storm: soft light, mist, everything wet, lights on

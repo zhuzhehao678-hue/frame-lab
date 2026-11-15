@@ -57,6 +57,7 @@ FOG.uFogSunDir.value.copy(sunDir);
 FOG.uFogColor.value.copy(TOD.fog.color);
 FOG.uFogSunColor.value.copy(TOD.fog.sun);
 FOG.uFogParams.value.x = TOD.fog.density; FOG.uFogParams.value.y = TOD.fog.falloff;
+FOG.uCloud.value.x = TOD.clouds || 0;
 
 async function boot() {
   await progress(0.02, '初始化渲染器');

@@ -15,6 +15,8 @@ export const FOG = {
   uFogSunDir: { value: new SharedVec3(0, 0.1, -1).normalize() },
   // x density, y height falloff, z base height, w time
   uFogParams: { value: new SharedVec4(0.0035, 0.12, 0.0, 0.0) },
+  // x strength, y scale, z/w wind (cloud shadows on the sun)
+  uCloud: { value: new SharedVec4(0.0, 0.018, 1.6, 0.7) },
 };
 
 export function installFog() {
@@ -45,6 +47,16 @@ export function installFog() {
   uniform vec3 uFogSunColor;
   uniform vec3 uFogSunDir;
   uniform vec4 uFogParams;
+  uniform vec4 uCloud;
+  float cloudH(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+  float cloudN(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f);
+    return mix(mix(cloudH(i), cloudH(i+vec2(1,0)), f.x), mix(cloudH(i+vec2(0,1)), cloudH(i+vec2(1,1)), f.x), f.y); }
+  float cloudShadow(vec3 wp){
+    if (uCloud.x <= 0.0) return 1.0;
+    vec2 p = wp.xz * uCloud.y + uCloud.zw * uFogParams.w * 0.01;
+    float n = cloudN(p) * 0.6 + cloudN(p * 2.3 + 7.1) * 0.3 + cloudN(p * 5.1 + 3.3) * 0.1;
+    return 1.0 - uCloud.x * smoothstep(0.42, 0.72, n);
+  }
 
   // analytic integral of exponential height fog along the view ray
   vec4 heightFog(vec3 camPos, vec3 wp){
@@ -71,6 +83,11 @@ export function installFog() {
   }
 #endif
 `;
+
+  // drifting cloud shadows modulate every directional light
+  THREE.ShaderChunk.lights_fragment_begin = THREE.ShaderChunk.lights_fragment_begin.replace(
+    'getDirectionalLightInfo( directionalLight, directLight );',
+    'getDirectionalLightInfo( directionalLight, directLight );\n\t\t#ifdef USE_FOG\n\t\tdirectLight.color *= cloudShadow( vFogWorldPos );\n\t\t#endif');
 
   // Uniforms must exist on every material that uses fog: patch UniformsLib.fog
   Object.assign(THREE.UniformsLib.fog, FOG);
