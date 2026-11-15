@@ -909,6 +909,8 @@ const laser = (() => {
   for (const m of [beam, dot]) { m.userData.noAO = true; m.frustumCulled = false; m.renderOrder = 12; m.visible = false; scene.add(m); }
   return { beam, dot, n: 0, end: new THREE.Vector3(), nrm: new THREE.Vector3(0, 1, 0), rc: new THREE.Raycaster() };
 })();
+// objects created after the boot warm-up (door sunbeam, laser): compile them now too
+{ const vis = [laser.beam.visible, laser.dot.visible]; laser.beam.visible = laser.dot.visible = true; renderer.compile(scene, camera); laser.beam.visible = vis[0]; laser.dot.visible = vis[1]; }
 function updateLaser() {
   const on = settings.laser && weapon === G.weapon && !player.dead && weapon.ads < 0.6 && weapon.sprint < 0.4 && weapon.equipT >= 1 && !photo;
   laser.beam.visible = laser.dot.visible = on;
