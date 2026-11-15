@@ -38,7 +38,7 @@
   #paused { font-size: 12px; letter-spacing: 0.4em; color: var(--accent); }
 
   /* ---------- HUD ---------- */
-  #hud { opacity: 0; transition: opacity .5s; text-shadow: 0 1px 6px rgba(0,0,0,0.55); }
+  #hud { zoom: var(--hs, 1); opacity: 0; transition: opacity .5s; text-shadow: 0 1px 6px rgba(0,0,0,0.55); }
   #hud.on { opacity: 1; }
   #cross { position: absolute; left: 50%; top: 50%; width: 0; height: 0; transition: opacity .12s; }
   #cross i { position: absolute; background: var(--xh, var(--hud)); box-shadow: 0 0 2px rgba(0,0,0,0.7); }
@@ -203,6 +203,8 @@
       <label>颜色 <select id="xhcolor"><option value="#f0ece4">白</option><option value="#5dff8a">绿</option><option value="#4de3ff">青</option><option value="#ff5ce0">品红</option><option value="#ffd23f">黄</option></select></label>
       <label>运动模糊 <input id="mblur" type="checkbox" checked></label>
       <label>伤害数字 <input id="dmgnum" type="checkbox"></label>
+      <label>色觉辅助 <select id="cb"><option value="0">关闭</option><option value="1">红色弱</option><option value="2">绿色弱</option><option value="3">蓝色弱</option></select></label>
+      <label>界面缩放 <input id="hudscale" type="range" min="0.8" max="1.4" step="0.05" value="1"></label>
       <label>视野 <input id="fov" type="range" min="60" max="95" step="1" value="74"></label>
     </div>
     <div class="keys">

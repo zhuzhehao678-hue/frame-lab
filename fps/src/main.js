@@ -33,8 +33,8 @@ let todName = params.get('t') || saved.tod || 'golden';
 if (!TIMES[todName]) todName = 'golden';
 const TOD = TIMES[todName];
 const DIFF = { easy: { dmg: 0.42, hp: 0.8, fire: 1.35, score: 0.8 }, normal: { dmg: 0.62, hp: 1, fire: 1, score: 1 }, hard: { dmg: 0.85, hp: 1.25, fire: 0.78, score: 1.35 } };
-const settings = { xhStyle: saved.xhStyle || 'both', xhColor: saved.xhColor || '#f0ece4', mblur: saved.mblur ?? true, diff: DIFF[saved.diff] ? saved.diff : 'normal', sens: saved.sens ?? 1, fov: saved.fov ?? 74, adsSens: saved.adsSens ?? 0.9, music: saved.music ?? 0.5, optic: saved.optic || 'reddot', muzzle: saved.muzzle || 'brake', dmgNums: saved.dmgNums ?? false };
-$('diff').value = settings.diff; $('xhstyle').value = settings.xhStyle; $('xhcolor').value = settings.xhColor; $('mblur').checked = settings.mblur; $('quality').value = qualityName; $('tod').value = todName; $('sens').value = settings.sens; $('adssens').value = settings.adsSens; $('music').value = settings.music; $('fov').value = settings.fov; $('optic').value = settings.optic; $('dmgnum').checked = settings.dmgNums; $('muzzle').value = settings.muzzle;
+const settings = { xhStyle: saved.xhStyle || 'both', xhColor: saved.xhColor || '#f0ece4', mblur: saved.mblur ?? true, diff: DIFF[saved.diff] ? saved.diff : 'normal', sens: saved.sens ?? 1, fov: saved.fov ?? 74, adsSens: saved.adsSens ?? 0.9, music: saved.music ?? 0.5, optic: saved.optic || 'reddot', muzzle: saved.muzzle || 'brake', dmgNums: saved.dmgNums ?? false, cb: saved.cb || 0, hudScale: saved.hudScale ?? 1 };
+$('diff').value = settings.diff; $('xhstyle').value = settings.xhStyle; $('xhcolor').value = settings.xhColor; $('mblur').checked = settings.mblur; $('quality').value = qualityName; $('tod').value = todName; $('sens').value = settings.sens; $('adssens').value = settings.adsSens; $('music').value = settings.music; $('fov').value = settings.fov; $('optic').value = settings.optic; $('dmgnum').checked = settings.dmgNums; $('cb').value = settings.cb; $('hudscale').value = settings.hudScale; $('muzzle').value = settings.muzzle;
 const persist = () => LS.setItem('afterglow', JSON.stringify({ quality: qualityName, tod: todName, ...settings, binds: saved.binds, best: saved.best || 0, bestWave: saved.bestWave || 0, tutorialDone: !!saved.tutorialDone }));
 
 const frame = () => new Promise((r) => requestAnimationFrame(() => r()));
@@ -294,6 +294,9 @@ $('diff').onchange = (e) => { settings.diff = e.target.value; applyDifficulty();
 $('music').oninput = (e) => { settings.music = +e.target.value; music.setVolume(settings.music); persist(); };
 $('adssens').oninput = (e) => { settings.adsSens = +e.target.value; persist(); };
 $('optic').onchange = (e) => { settings.optic = e.target.value; G.weapon.setOptic(settings.optic); persist(); };
+const applyAccess = () => { if (R.final) R.final.uniforms.uCB.value = +settings.cb; document.documentElement.style.setProperty('--hs', settings.hudScale); };
+$('cb').onchange = (e) => { settings.cb = +e.target.value; applyAccess(); persist(); };
+$('hudscale').oninput = (e) => { settings.hudScale = +e.target.value; applyAccess(); persist(); };
 $('dmgnum').onchange = (e) => { settings.dmgNums = e.target.checked; persist(); };
 $('muzzle').onchange = (e) => { settings.muzzle = e.target.value; G.weapon.setMuzzle(settings.muzzle === 'sup'); persist(); };
 $('fov').oninput = (e) => { settings.fov = +e.target.value; for (const w of weapons) w.baseFov = settings.fov; persist(); };
@@ -660,6 +663,7 @@ function recordLB(grade, reached, win) {
   return { list, id };
 }
 renderLB($('mlb'), loadLB());
+applyAccess();
 $('bindbtn').onclick = () => { renderBinds(); $('binds').classList.remove('hidden'); };
 $('bindclose').onclick = () => { $('binds').classList.add('hidden'); bindCapture = null; };
 $('bindreset').onclick = () => { for (const [a, , d] of BIND_ACTIONS) binds[a] = d; saved.binds = { ...binds }; rebuildBinds(); persist(); renderBinds(); };
@@ -749,7 +753,7 @@ function dmgNum(point, v, crit) {
   n.t = 0; n.pos.copy(point); n.vx = (Math.random() - 0.5) * 0.6; n.el.textContent = Math.round(v); n.el.className = 'dn' + (crit ? ' crit' : '');
 }
 function updateDmgNums(dt) {
-  const w = innerWidth, h = innerHeight, v = new THREE.Vector3();
+  const hs = settings.hudScale || 1, w = innerWidth / hs, h = innerHeight / hs, v = new THREE.Vector3();
   for (const n of dmgPool) {
     if (n.t > 0.9) { if (n.el.style.opacity !== '0') n.el.style.opacity = 0; continue; }
     n.t += dt; n.pos.y += dt * 0.9; n.pos.x += n.vx * dt;

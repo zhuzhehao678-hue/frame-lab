@@ -69,11 +69,11 @@ const FinalShader = {
     tDiffuse: { value: null }, uTime: { value: 0 }, uExposure: { value: 0.56 },
     uRes: { value: new THREE.Vector2(1, 1) }, uDamage: { value: 0 }, uLowHealth: { value: 0 },
     uCA: { value: 0.0018 }, uVignette: { value: 0.32 }, uGrain: { value: 0.045 }, uADS: { value: 0 },
-    uFlash: { value: 0 }, uKill: { value: 0 }, uFilter: { value: 0 }, uLensWet: { value: 0 }, uGrade: { value: new THREE.Color(1, 1, 1) },
+    uFlash: { value: 0 }, uKill: { value: 0 }, uFilter: { value: 0 }, uCB: { value: 0 }, uLensWet: { value: 0 }, uGrade: { value: new THREE.Color(1, 1, 1) },
   },
   vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} `,
   fragmentShader: /* glsl */`
-    uniform vec3 uGrade; uniform float uKill; uniform int uFilter; uniform float uLensWet; uniform sampler2D tDiffuse; uniform float uTime, uExposure, uDamage, uLowHealth, uCA, uVignette, uGrain, uADS, uFlash;
+    uniform vec3 uGrade; uniform float uKill; uniform int uFilter; uniform int uCB; uniform float uLensWet; uniform sampler2D tDiffuse; uniform float uTime, uExposure, uDamage, uLowHealth, uCA, uVignette, uGrain, uADS, uFlash;
     uniform vec2 uRes; varying vec2 vUv;
 
     // ACES fitted (Stephen Hill)
@@ -163,6 +163,16 @@ const FinalShader = {
       else if (uFilter == 2) { col = pow(col, vec3(0.95, 1.0, 1.12)) * vec3(1.06, 1.0, 0.86); col = mix(col, vec3(dot(col, vec3(0.33))), 0.12); }
       else if (uFilter == 3) { float m = dot(col, vec3(0.333)); col = mix(col, mix(vec3(0.0, 0.32, 0.38), vec3(1.0, 0.62, 0.32), smoothstep(0.1, 0.9, m)) * m * 1.6, 0.35); }
       else if (uFilter == 4) { col = clamp((col - 0.5) * 1.35 + 0.5, 0.0, 1.0); col = mix(vec3(dot(col, vec3(0.333))), col, 1.2); }
+      // colour-vision assist (daltonize): simulate the deficiency in LMS space and
+      // push the lost contrast into channels the viewer can still separate
+      if (uCB > 0) {
+        vec3 c0 = clamp(col, 0.0, 1.0);
+        float L = 17.8824*c0.r + 43.5161*c0.g + 4.11935*c0.b, M = 3.45565*c0.r + 27.1554*c0.g + 3.86714*c0.b, S = 0.0299566*c0.r + 0.184309*c0.g + 1.46709*c0.b;
+        if (uCB == 1) L = 2.02344*M - 2.52581*S; else if (uCB == 2) M = 0.494207*L + 1.24827*S; else S = -0.395913*L + 0.801109*M;
+        vec3 sim = vec3(0.0809444479*L - 0.130504409*M + 0.116721066*S, -0.0102485335*L + 0.0540193266*M - 0.113614708*S, -0.000365296938*L - 0.00412161469*M + 0.693511405*S);
+        vec3 err = c0 - sim;
+        col = clamp(c0 + vec3(0.0, 0.7*err.r + err.g, 0.7*err.r + err.b), 0.0, 1.0);
+      }
 
       // vignette
       float vig = smoothstep(0.85, 0.18, length(c*vec2(1.0, 0.9)) * (1.0 + uVignette*0.6 + uADS*0.25));
