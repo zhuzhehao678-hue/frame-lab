@@ -406,6 +406,7 @@ boss.onExploded = () => { player.shake = 1; };
 walkers.onKill = (w) => enemies.onKill(w);
 enemies.onPlayerHit = (from, dmg) => {
   stats.dmgTaken += dmg; stats.waveDmg += dmg;
+  if (pad.active) rumble(0.8, 0.5, 160);
   audio.hurt();
   const el = document.createElement('div'); el.className = 'dd'; hud.dd.appendChild(el);
   dmgIndicators.push({ el, from: from.clone(), life: 1.4 });
@@ -552,6 +553,7 @@ function shoot(t) {
   const muzzle = weapon.fire();
   stats.shots++;
   audio.gunshot(weapon.ads > 0.5, weapon.kind);
+  if (pad.active) rumble(weapon.kind === 'dmr' ? 0.6 : 0.25, 0.4, 70);
   effects.flash(muzzle.clone().addScaledVector(fwdFlash(), 0.9), new THREE.Color(1, 0.72, 0.4), 12, 0.05, 10);
   weapon.ejectBrass();
   const fwd = new THREE.Vector3(); camera.getWorldDirection(fwd);
@@ -653,6 +655,67 @@ const clock = new THREE.Clock();
 let fpsAcc = 0, fpsN = 0, simTime = 0;
 let prevAds = false;
 const noLoop = params.has('noloop');
+// ------------------------------------------------------------------ gamepad
+const pad = { prev: [], sprintLatch: false, active: false };
+function rumble(strong, weak, ms) {
+  const gp = navigator.getGamepads && [...navigator.getGamepads()].find((p) => p);
+  if (gp && gp.vibrationActuator && gp.vibrationActuator.playEffect) gp.vibrationActuator.playEffect('dual-rumble', { duration: ms, strongMagnitude: strong, weakMagnitude: weak }).catch(() => {});
+}
+function pollGamepad(dt) {
+  const gps = navigator.getGamepads ? navigator.getGamepads() : [];
+  const gp = [...gps].find((p) => p && p.connected);
+  if (!gp) { if (pad.active) { input.moveX = input.moveY = 0; pad.active = false; } return; }
+  const b = (i) => !!(gp.buttons[i] && gp.buttons[i].pressed);
+  const down = (i) => b(i) && !pad.prev[i];
+  const up = (i) => !b(i) && pad.prev[i];
+  const dz = (v, d = 0.16) => Math.abs(v) < d ? 0 : Math.sign(v) * (Math.abs(v) - d) / (1 - d);
+  const lx = dz(gp.axes[0] || 0), ly = dz(gp.axes[1] || 0), rx = dz(gp.axes[2] || 0, 0.12), ry = dz(gp.axes[3] || 0, 0.12);
+  if (lx || ly || rx || ry || gp.buttons.some((x) => x.pressed)) pad.active = true;
+  if (!pad.active) return;
+  input.moveX = lx; input.moveY = ly;
+  // look: expo curve, ADS + aim-assist slowdown over targets
+  const fwd = camera.getWorldDirection(new THREE.Vector3());
+  let assist = 1;
+  for (const e of enemies.list.concat(walkers.list.filter((w) => w.alive))) {
+    const to = e.pos.clone().sub(camera.position); const d = to.length();
+    if (fwd.dot(to.normalize()) > Math.cos(Math.max(0.03, 1.2 / d))) { assist = 0.55; break; }
+  }
+  const rate = 3.1 * settings.sens * THREE.MathUtils.lerp(1, settings.adsSens * 0.8, weapon.ads) * (weapon.kind === 'dmr' ? THREE.MathUtils.lerp(1, 0.4, weapon.ads) : 1) * assist;
+  const cx = Math.sign(rx) * rx * rx, cy = Math.sign(ry) * ry * ry;
+  player.yaw -= cx * rate * dt; player.pitch = THREE.MathUtils.clamp(player.pitch - cy * rate * 0.75 * dt, -1.5, 1.5);
+  mouse.x += cx * 600 * dt; mouse.y += cy * 600 * dt;
+  // buttons
+  input.firing = (gp.buttons[7] && gp.buttons[7].value > 0.35) || false;
+  if (input.firing && !pad.firePrev) input.triggerPulled = true;
+  pad.firePrev = input.firing;
+  const wasAds = input.ads; input.ads = (gp.buttons[6] && gp.buttons[6].value > 0.35) || false;
+  if (input.ads && !wasAds) {
+    // ADS snap: nudge toward the nearest target close to the crosshair
+    let best = null, bestA = 0.1;
+    for (const e of enemies.list.concat(walkers.list.filter((w) => w.alive))) {
+      const to = e.pos.clone().sub(camera.position).normalize(); const a = Math.acos(THREE.MathUtils.clamp(fwd.dot(to), -1, 1));
+      if (a < bestA && !segmentBlockedFn(camera.position, e.pos)) { bestA = a; best = to; }
+    }
+    if (best) { player.yaw = THREE.MathUtils.lerp(player.yaw, Math.atan2(-best.x, -best.z), 0.6); player.pitch = THREE.MathUtils.lerp(player.pitch, Math.asin(best.y), 0.6); }
+  }
+  if (down(0)) input.jump = true;
+  if (down(1)) input.crouch = !input.crouch;
+  if (b(10) && !pad.prev[10]) pad.sprintLatch = !pad.sprintLatch;
+  if (ly > -0.3) pad.sprintLatch = false;
+  input.sprint = pad.sprintLatch;
+  if (down(2) && weapon.startReload()) audio.click(1200, 0.3);
+  if (down(3)) switchWeapon((weaponIdx + 1) % weapons.length);
+  if (down(4) && grenades.canThrow(weapon)) G.aimingGrenade = true;
+  if (up(4) && G.aimingGrenade) { G.aimingGrenade = false; if (grenades.canThrow(weapon)) { grenades.throw(camera, player.vel); weapon.throwT = 0; } else grenades.hidePreview(); }
+  if (down(5)) window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyV' }));
+  if (down(12)) window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyT' }));
+  if (down(13)) window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyI' }));
+  input.leanL = b(14); input.leanR = b(15);
+  if (down(9)) document.exitPointerLock();
+  pad.prev = gp.buttons.map((x) => x.pressed);
+}
+const segmentBlockedFn = (a, b) => { const d = b.clone().sub(a); const l = d.length(); return level.colliders.some((bx) => { const r = new THREE.Ray(a, d.clone().divideScalar(l)); const hit = r.intersectBox(bx, new THREE.Vector3()); return hit && hit.distanceTo(a) < l - 0.3; }); };
+
 const slowmo = { t: 0 };
 let meleePending = -1;
 // resolve the strike a moment into the swing
@@ -697,6 +760,7 @@ function loop() {
     camera.position.copy(photoCam.pos); camera.rotation.set(photoCam.pitch, photoCam.yaw, 0, 'YXZ');
     camera.fov = settings.fov; camera.updateProjectionMatrix();
   } else if (running) {
+    pollGamepad(realDt);
     player.update(dt, input, t);
     weapon.update(dt, t, player, input, mouse);
     mouse.x = 0; mouse.y = 0;

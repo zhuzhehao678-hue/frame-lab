@@ -138,7 +138,11 @@ export class Player {
     const wish = new THREE.Vector3();
     if (input.f) wish.add(fwd); if (input.b) wish.sub(fwd);
     if (input.r) wish.add(right); if (input.l) wish.sub(right);
-    if (wish.lengthSq() > 0) wish.normalize();
+    if (input.moveX || input.moveY) {
+      // analog stick
+      wish.set(0, 0, 0).addScaledVector(fwd, -input.moveY).addScaledVector(right, input.moveX);
+      if (wish.lengthSq() > 1) wish.normalize();
+    } else if (wish.lengthSq() > 0) wish.normalize();
 
     const wantLean = this.sprinting ? 0 : (input.leanR ? 1 : 0) - (input.leanL ? 1 : 0);
     this.lean = THREE.MathUtils.damp(this.lean, wantLean, 11, dt);
@@ -159,7 +163,7 @@ export class Player {
     }
     const wantCrouch = input.crouch || this.slideT > 0;
     this.crouch = THREE.MathUtils.damp(this.crouch, wantCrouch ? 1 : 0, 12, dt);
-    this.sprinting = input.sprint && input.f && !input.crouch && !this.slideT && this.ads < 0.3 && !input.firing;
+    this.sprinting = input.sprint && (input.f || input.moveY < -0.5) && !input.crouch && !this.slideT && this.ads < 0.3 && !input.firing;
     let maxSpeed = this.sprinting ? 7.0 : 4.4;
     if (this.crouch > 0.5) maxSpeed = 2.3;
     if (this.ads > 0.5) maxSpeed = Math.min(maxSpeed, 3.7);
