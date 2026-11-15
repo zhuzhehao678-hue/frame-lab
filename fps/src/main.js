@@ -555,6 +555,7 @@ boss.onDeath = () => { stats.bossKilled = true; score.total += 3000; feed('母�
 boss.onExploded = () => { player.shake = 1; };
 walkers.onKill = (w) => enemies.onKill(w);
 enemies.onPlayerHit = (from, dmg) => {
+  G.lastHitFrom = from && from.clone ? from.clone() : null;
   if (player.health < 30 && !player.dead && simTime - (G.lowRadioT ?? -99) > 40) { G.lowRadioT = simTime; radio(pick(RADIO.low)); }
   stats.dmgTaken += dmg; stats.waveDmg += dmg;
   if (pad.active) rumble(0.8, 0.5, 160);
@@ -717,10 +718,24 @@ function victory() {
 function defeat() {
   gameOver = true;
   radio(RADIO.dead[0]);
-  setTimeout(() => showEnd(false), 2200);
+  // kill cam: find who fired the last hit and turn the fallen camera toward it
+  const from = G.lastHitFrom;
+  let best = null, bd = Infinity;
+  if (from) {
+    for (const e of enemies.list.concat(walkers.list)) if (e.alive) { const d = e.pos.distanceTo(from); if (d < bd) { bd = d; best = e; } }
+    if (boss.active && boss.pos && boss.pos.distanceTo(from) < bd) best = { pos: boss.pos, kind: 'boss', hp: boss.hpFrac, maxHp: 1 };
+  }
+  if (best && bd < 25) {
+    G.killcam = { target: best, t: 0 };
+    const nm = best.kind === 'boss' ? '母舰 WARDEN' : (NAMES[best.kind] || '敌方单位');
+    const hp = Math.max(0, Math.round(100 * best.hp / (best.maxHp || 1)));
+    const k = $('killcam'); k.innerHTML = `<small>击杀者</small>${nm}<small>剩余耐久 ${hp}%</small>`; k.classList.add('on');
+    slowmo.t = Math.max(slowmo.t, 1.4);
+  }
+  setTimeout(() => showEnd(false), 4200);
 }
 function restart() {
-  enemies.clear(); grenades.clear(); boss.clear(); pickups.reset(); hazards.reset(); walkers.clear(); props.reset(); G.heli.reset(); G.crash.reset();
+  enemies.clear(); grenades.clear(); boss.clear(); pickups.reset(); hazards.reset(); walkers.clear(); props.reset(); G.heli.reset(); G.crash.reset(); G.killcam = null; $('killcam').classList.remove('on');
   player.pos.copy(level.playerStart); player.vel.set(0, 0, 0); player.yaw = level.playerYaw; player.pitch = 0;
   player.health = 100; player.dead = false;
   G.weapon.ammo = 30; G.weapon.reserve = 180; G.pistol.ammo = 15; G.pistol.reserve = 60; G.dmr.ammo = 20; G.dmr.reserve = 80; G.shotgun.ammo = 6; G.shotgun.reserve = 30;
@@ -1091,6 +1106,16 @@ function loop() {
   } else if (running) {
     pollGamepad(realDt);
     player.update(dt, input, t);
+    if (G.killcam && player.dead) {
+      const kc = G.killcam; kc.t += realDt;
+      const tgt = kc.target.pos.clone();
+      const m = new THREE.Matrix4().lookAt(camera.position, tgt, new THREE.Vector3(0, 1, 0));
+      const q = new THREE.Quaternion().setFromRotationMatrix(m).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), 0.35));
+      kc.q = kc.q || camera.quaternion.clone();
+      kc.q.slerp(q, 1 - Math.exp(-2.2 * realDt * THREE.MathUtils.smoothstep(kc.t, 0.6, 1.6)));
+      camera.quaternion.copy(kc.q);
+      camera.fov = THREE.MathUtils.lerp(camera.fov, 40, 1 - Math.exp(-1.5 * realDt)); camera.updateProjectionMatrix();
+    }
     weapon.update(dt, t, player, input, mouse);
     mouse.x = 0; mouse.y = 0;
     if (!player.dead) {
