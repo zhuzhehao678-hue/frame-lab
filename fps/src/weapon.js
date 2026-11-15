@@ -886,6 +886,8 @@ export class Shotgun extends Weapon {
     this.adsPos = new THREE.Vector3(0, -this.sightY - 0.008, -0.4);
     this.adsZoom = 0.86;
     this.pumpT = 9; this.ejectPending = false;
+    // the forend sits ~2.6 cm lower than the rifle's handguard the hand rig was posed for
+    this.leftHome.y -= 0.04; this.leftHand.position.copy(this.leftHome);
     // a shell held in the loading hand
     this.handShell = new THREE.Mesh(new THREE.CylinderGeometry(0.0105, 0.0105, 0.07, 12).rotateZ(Math.PI / 2), viewmodelMaterial(lib.M.paintRed));
     this.handShell.position.set(0.0, 0.02, 0.0); this.handShell.visible = false; this.leftHand.add(this.handShell);
