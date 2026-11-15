@@ -67,7 +67,8 @@ export class Grenades {
     }
   }
 
-  explode(pos, { enemies, player, t, onPlayerHit, boss }) {
+  explode(pos, { enemies, player, t, onPlayerHit, boss, hazards }) {
+    if (hazards) hazards.splash(pos, 6);
     if (boss) boss.splash(pos, 7.5, 210);
     this.effects.explosion(pos.clone().add(new THREE.Vector3(0, 0.2, 0)), 1.25);
     this.audio.explosion(pos);

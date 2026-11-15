@@ -15,6 +15,7 @@ import { Ambient } from './ambient.js';
 import { Boss } from './boss.js';
 import { Music } from './music.js';
 import { Pickups } from './pickups.js';
+import { Hazards } from './hazards.js';
 
 installFog();
 
@@ -97,6 +98,8 @@ async function boot() {
   const boss = new Boss(scene, lib, effects, level, audio, enemies);
   const music = new Music(audio);
   const pickups = new Pickups(scene, lib, audio);
+  const hazards = new Hazards(scene, lib, level, effects, audio);
+  enemies.hazards = hazards;
 
   R.setup(scene, camera, sunDir);
   R.final.uniforms.uExposure.value = TOD.exposure;
@@ -120,11 +123,11 @@ async function boot() {
   scene.remove(warm);
   await progress(1, '就绪');
 
-  return { lib, level, effects, audio, player, weapon, pistol, enemies, grenades, ambient, boss, music, pickups, sun };
+  return { lib, level, effects, audio, player, weapon, pistol, enemies, grenades, ambient, boss, music, pickups, hazards, sun };
 }
 
 const G = await boot();
-const { level, effects, audio, player, enemies, grenades, ambient, boss, music, pickups } = G;
+const { level, effects, audio, player, enemies, grenades, ambient, boss, music, pickups, hazards } = G;
 function applyDifficulty() {
   const D = DIFF[settings.diff];
   player.dmgScale = D.dmg; enemies.hpMult = D.hp; enemies.fireMult = D.fire;
@@ -415,7 +418,7 @@ function defeat() {
   }, 2200);
 }
 function restart() {
-  enemies.clear(); grenades.clear(); boss.clear(); pickups.reset();
+  enemies.clear(); grenades.clear(); boss.clear(); pickups.reset(); hazards.reset();
   player.pos.copy(level.playerStart); player.vel.set(0, 0, 0); player.yaw = level.playerYaw; player.pitch = 0;
   player.health = 100; player.dead = false;
   G.weapon.ammo = 30; G.weapon.reserve = 180; G.pistol.ammo = 15; G.pistol.reserve = 60;
@@ -485,6 +488,7 @@ function shoot(t) {
     const n = wh.face.normal.clone();
     if (n.dot(dir) > 0) n.negate();
     effects.impact(wh.point, n, wh.object.userData.surf);
+    if (wh.object.userData.drum) hazards.damage(wh.object.userData.drum, THREE.MathUtils.randFloat(weapon.damage[0], weapon.damage[1]), wh.point.clone().addScaledVector(n, 0.03));
     audio.impact(wh.point, wh.object.userData.surf);
   } else end = origin.clone().addScaledVector(dir, 400);
   if (weapon.kind === 'rifle' && weapon.shotsFired % 3 === 1) effects.tracer(muzzle, end);
@@ -550,7 +554,8 @@ function loop() {
       effects.smoke.emit({ pos: mp, vel: new THREE.Vector3((Math.random() - 0.5) * 0.05, 0.35 + Math.random() * 0.2, (Math.random() - 0.5) * 0.05).add(player.vel.clone().multiplyScalar(0.8)), life: 1.4, size: 0.015, size1: 0.12, color: new THREE.Color(0.8, 0.8, 0.8).multiply(effects.ambient), alpha: Math.min(0.35, (weapon.heat - 7) * 0.04), alpha1: 0, drag: 1.5, gravity: -0.3, rotVel: (Math.random() - 0.5) * 3 });
     }
     enemies.update(dt, t, player);
-    grenades.update(dt, { enemies, player, t, onPlayerHit: enemies.onPlayerHit, boss });
+    grenades.update(dt, { enemies, player, t, onPlayerHit: enemies.onPlayerHit, boss, hazards });
+    hazards.update(dt, { enemies, player, t, onPlayerHit: enemies.onPlayerHit, boss });
     boss.update(dt, t, player);
     pickups.update(dt, t, player, (kind) => {
       if (kind === 'med') {
@@ -596,4 +601,4 @@ weapon.root.visible = false;
 if (!noLoop) loop();
 
 // debug / screenshot hooks
-window.__game = { pickups: G.pickups, music: G.music, boss, switchWeapon, weapons, get weapon() { return weapon; }, ambient, updateHUD, score, grenades, setLocked: (v) => { locked = v; }, loop, start: () => { started = true; waves.start(); }, FOG, sun: G.sun, THREE, scene, camera, player, enemies, effects, level, R, waves, renderer, togglePhoto, shoot, input };
+window.__game = { hazards, pickups: G.pickups, music: G.music, boss, switchWeapon, weapons, get weapon() { return weapon; }, ambient, updateHUD, score, grenades, setLocked: (v) => { locked = v; }, loop, start: () => { started = true; waves.start(); }, FOG, sun: G.sun, THREE, scene, camera, player, enemies, effects, level, R, waves, renderer, togglePhoto, shoot, input };
