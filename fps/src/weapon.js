@@ -70,6 +70,7 @@ export class Weapon {
     this.equipT = 0;
     this.throwT = 9;
     this.meleeT = 9;
+    this.inspectT = 9;
     this.events = {}; // callbacks: reloadStage
     this.hipPos = new THREE.Vector3(0.135, -0.175, -0.36);
     this.hipRot = new THREE.Euler(0.035, 0.05, -0.06);
@@ -208,8 +209,73 @@ export class Weapon {
     cf.position.copy(start); cf.quaternion.copy(q); parent.add(cf);
   }
 
+  // Articulated glove. Canonical frame: palm centre at origin, palm faces -x,
+  // fingers point -z, finger stack along y (index at +y). curls = per-finger
+  // total bend (radians); thumb = [yaw, bend].
+  makeHand(curls, thumb, { spread = 0.0, indexStraight = false } = {}) {
+    const { glove, knuckle } = this.mat;
+    const H = new THREE.Group();
+    const seg = (r, l) => new THREE.CapsuleGeometry(r, l, 5, 10).rotateX(Math.PI / 2).translate(0, 0, -l / 2 - r * 0.4);
+    // palm: slightly tapered block + thenar pad
+    const palm = new THREE.Mesh(uvScale(RB(0.028, 0.082, 0.09, 0.012), 3), glove); H.add(palm);
+    const thenar = new THREE.Mesh(new THREE.SphereGeometry(0.022, 14, 10).scale(0.8, 1.0, 1.5), glove); thenar.position.set(-0.008, -0.03, 0.012); H.add(thenar);
+    // back-of-hand armour + knuckle ridge
+    const plate = new THREE.Mesh(uvScale(RB(0.008, 0.07, 0.05, 0.004), 3), knuckle); plate.position.set(0.016, 0.0, -0.012); H.add(plate);
+    const ridge = new THREE.Mesh(new THREE.CapsuleGeometry(0.008, 0.06, 4, 8), knuckle); ridge.position.set(0.013, 0, -0.044); H.add(ridge);
+    // cuff strap
+    const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.032, 0.03, 18).rotateX(Math.PI / 2).scale(0.75, 1.15, 1), knuckle); cuff.position.set(0.002, -0.004, 0.058); H.add(cuff);
+    const lens = [[0.042, 0.027, 0.021], [0.046, 0.03, 0.022], [0.043, 0.028, 0.021], [0.034, 0.022, 0.018]];
+    const radii = [0.0092, 0.0095, 0.009, 0.0082];
+    [0.03, 0.0105, -0.009, -0.028].forEach((y, i) => {
+      let parent = new THREE.Group(); parent.position.set(0.002, y, -0.044); parent.rotation.x = (i - 1.5) * spread; H.add(parent);
+      const curl = (i === 0 && indexStraight) ? 0.25 : curls[i];
+      for (let k = 0; k < 3; k++) {
+        const j = new THREE.Group();
+        j.rotation.y = curl * [0.42, 0.33, 0.25][k]; // positive yaw swings -z toward -x: bend toward the palm
+        parent.add(j);
+        const r = radii[i] * (1 - k * 0.08);
+        const m = new THREE.Mesh(seg(r, lens[i][k]), glove); j.add(m);
+        const next = new THREE.Group(); next.position.z = -lens[i][k] - r * 0.5; j.add(next);
+        parent = next;
+      }
+    });
+    // thumb: rooted at the heel of the palm, opposes the fingers
+    let tp = new THREE.Group(); tp.position.set(-0.014, -0.03, 0.01); tp.rotation.set(0.5, thumb[0], -0.6); H.add(tp);
+    for (let k = 0; k < 2; k++) {
+      const j = new THREE.Group(); j.rotation.y = thumb[1] * 0.5; tp.add(j);
+      j.add(new THREE.Mesh(seg(0.0105 - k * 0.001, k ? 0.026 : 0.032), glove));
+      const next = new THREE.Group(); next.position.z = -(k ? 0.026 : 0.032) - 0.005; j.add(next); tp = next;
+    }
+    H.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = true; o.frustumCulled = false; } });
+    return H;
+  }
+
   buildHands() {
     const { glove, sleeve, knuckle } = this.mat;
+    if (this.useNewHands !== false) {
+      // ---- right hand wraps the pistol grip (grip axis tilted by 0.33 rad)
+      const R = new THREE.Group(); R.position.set(0, -0.07, 0.048); R.rotation.set(0.33, 0, 0); this.gun.add(R);
+      const rh = this.makeHand([1.0, 3.1, 3.2, 3.1], [-0.2, 0.9], { indexStraight: true });
+      // palm on the right flank of the grip, fingers forward then around the front strap
+      rh.position.set(0.03, 0.006, 0.012); rh.rotation.set(Math.PI / 2, 0, 0); R.add(rh);
+      rh.rotation.set(-Math.PI / 2 + 0.0, 0, 0);
+      rh.rotation.order = 'YXZ';
+      rh.rotation.set(0, 0, 0);
+      // orient: fingers (-z) should run along -z of the gun at grip height, wrapping toward -x
+      rh.position.set(0.028, 0.0, 0.006);
+      this.arm(R, new THREE.Vector3(0.03, -0.045, 0.05), new THREE.Vector3(0.55, -0.35, 1.0), 0.32, 0.034, 0.045);
+      this.rightHand = rh;
+      // ---- left hand cradles the handguard from below, fingers up the right side, thumb over the top
+      const L = new THREE.Group(); L.position.set(0, 0.01, -0.33); this.gun.add(L);
+      this.leftHand = L; this.leftHome = L.position.clone();
+      const lh = this.makeHand([2.3, 2.4, 2.4, 2.2], [0.4, 0.6], { spread: 0.04 });
+      // palm faces up (+y), fingers point +x then curl up around the guard
+      lh.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(0, -1, 0), new THREE.Vector3(0, 0, 1), new THREE.Vector3(-1, 0, 0)));
+      lh.position.set(-0.012, -0.03, 0.0);
+      L.add(lh);
+      this.arm(L, new THREE.Vector3(-0.042, -0.04, 0.045), new THREE.Vector3(-0.5, -0.55, 1.0), 0.4, 0.033, 0.046);
+      return;
+    }
     const cap = (r, l) => new THREE.CapsuleGeometry(r, l, 6, 12);
     // ---- right hand on the pistol grip
     const R = new THREE.Group(); R.position.set(0.0, -0.07, 0.05); R.rotation.set(0.33, 0, 0); this.gun.add(R);
@@ -375,6 +441,15 @@ export class Weapon {
     // equip raise
     const e = 1 - this.equipT; pos.y -= e * e * 0.25; rot.x -= e * e * 0.8;
 
+    // inspect: roll the weapon over to show its left flank, then the top
+    this.inspectT += dt;
+    if (this.inspectT < 2.6 && !this.reloading && this.ads < 0.1) {
+      const u = this.inspectT / 2.6;
+      const k = THREE.MathUtils.smoothstep(u, 0, 0.18) * (1 - THREE.MathUtils.smoothstep(u, 0.82, 1));
+      const sweep = THREE.MathUtils.smoothstep(u, 0.25, 0.7);
+      pos.x += -0.07 * k; pos.y += 0.05 * k; pos.z += 0.06 * k;
+      rot.y += (0.9 - sweep * 0.25) * k; rot.z += (0.5 + sweep * 0.5) * k; rot.x += (0.15 + sweep * 0.25) * k;
+    }
     // melee: wind up, drive the stock/frame forward, recover
     this.meleeT += dt;
     if (this.meleeT < 0.55) {

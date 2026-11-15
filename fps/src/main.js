@@ -201,6 +201,7 @@ addEventListener('keydown', (e) => {
     weapon.meleeT = 0; weapon.reloading = false; meleePending = 0.17;
     audio.melee && audio.melee(false);
   }
+  if (e.code === 'KeyI' && locked && !photo && !player.dead && weapon.ads < 0.1) { weapon.inspectT = 0; audio.click(1300, 0.25); audio.click(800, 0.2, 0.9); }
   if (e.code === 'KeyF') $('fps').classList.toggle('hidden');
   if (e.code === 'KeyP' && locked) togglePhoto();
 });
