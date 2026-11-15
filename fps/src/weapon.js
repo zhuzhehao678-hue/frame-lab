@@ -169,6 +169,15 @@ export class Weapon {
     this.ejectPort = new THREE.Object3D(); this.ejectPort.position.set(0.02, 0.036, -0.006); this.gun.add(this.ejectPort);
     // angled foregrip
     A(uvScale(RB(0.03, 0.03, 0.07, 0.008), 2), poly, 0, 0.003, -0.34, -0.35);
+    // laser module on the left rail (shown when the laser attachment is fitted)
+    {
+      const n0 = this.gun.children.length;
+      this.add(RB(0.014, 0.018, 0.05, 0.003), metal, -0.026, 0.04, -0.4);
+      this.add(new THREE.CircleGeometry(0.004, 12), dark, -0.026, 0.044, -0.4255, 0, Math.PI);
+      this.laserMod = new THREE.Group(); for (const c of this.gun.children.slice(n0)) { this.gun.remove(c); this.laserMod.add(c); } this.gun.add(this.laserMod);
+      this.laserMod.visible = false;
+      this.laserEmitter = new THREE.Object3D(); this.laserEmitter.position.set(-0.026, 0.044, -0.43); this.gun.add(this.laserEmitter);
+    }
     // weapon light on right rail
     A(RB(0.012, 0.02, 0.03, 0.003), metal, 0.024, 0.04, -0.41);
     A(new THREE.CylinderGeometry(0.0115, 0.0115, 0.085, 20).rotateX(Math.PI / 2), metal, 0.034, 0.04, -0.42);

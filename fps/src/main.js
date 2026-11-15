@@ -4,7 +4,7 @@ import { Renderer, QUALITY, createSky } from './render.js';
 import { buildMaterials } from './materials.js';
 import { Level } from './level.js';
 import { Player } from './player.js';
-import { Weapon, Pistol, DMR, Shotgun } from './weapon.js';
+import { Weapon, Pistol, DMR, Shotgun, VM } from './weapon.js';
 import { Effects } from './effects.js';
 import { Enemies } from './enemies.js';
 import { Audio } from './audio.js';
@@ -48,8 +48,8 @@ let todName = params.get('t') || saved.tod || 'golden';
 if (!TIMES[todName]) todName = 'golden';
 const TOD = TIMES[todName];
 const DIFF = { easy: { dmg: 0.42, hp: 0.8, fire: 1.35, score: 0.8 }, normal: { dmg: 0.62, hp: 1, fire: 1, score: 1 }, hard: { dmg: 0.85, hp: 1.25, fire: 0.78, score: 1.35 }, hardcore: { dmg: 1.1, hp: 1.25, fire: 0.78, score: 1.8, hc: true } };
-const settings = { xhStyle: saved.xhStyle || 'both', xhColor: saved.xhColor || '#f0ece4', mblur: saved.mblur ?? true, diff: DIFF[saved.diff] ? saved.diff : 'normal', sens: saved.sens ?? 1, fov: saved.fov ?? 74, adsSens: saved.adsSens ?? 0.9, music: saved.music ?? 0.5, optic: saved.optic || 'reddot', muzzle: saved.muzzle || 'brake', dmgNums: saved.dmgNums ?? false, cb: saved.cb || 0, hudScale: saved.hudScale ?? 1, finish: saved.finish || 'black', mode: saved.mode || 'campaign', refl: saved.refl ?? true };
-$('diff').value = settings.diff; $('xhstyle').value = settings.xhStyle; $('xhcolor').value = settings.xhColor; $('mblur').checked = settings.mblur; $('quality').value = qualityName; $('tod').value = todName; $('sens').value = settings.sens; $('adssens').value = settings.adsSens; $('music').value = settings.music; $('fov').value = settings.fov; $('optic').value = settings.optic; $('dmgnum').checked = settings.dmgNums; $('cb').value = settings.cb; $('finish').value = settings.finish; $('mode').value = settings.mode; $('reflopt').checked = settings.refl; $('hudscale').value = settings.hudScale; $('muzzle').value = settings.muzzle;
+const settings = { xhStyle: saved.xhStyle || 'both', xhColor: saved.xhColor || '#f0ece4', mblur: saved.mblur ?? true, diff: DIFF[saved.diff] ? saved.diff : 'normal', sens: saved.sens ?? 1, fov: saved.fov ?? 74, adsSens: saved.adsSens ?? 0.9, music: saved.music ?? 0.5, optic: saved.optic || 'reddot', muzzle: saved.muzzle || 'brake', dmgNums: saved.dmgNums ?? false, cb: saved.cb || 0, hudScale: saved.hudScale ?? 1, finish: saved.finish || 'black', mode: saved.mode || 'campaign', refl: saved.refl ?? true, laser: saved.laser ?? false };
+$('diff').value = settings.diff; $('xhstyle').value = settings.xhStyle; $('xhcolor').value = settings.xhColor; $('mblur').checked = settings.mblur; $('quality').value = qualityName; $('tod').value = todName; $('sens').value = settings.sens; $('adssens').value = settings.adsSens; $('music').value = settings.music; $('fov').value = settings.fov; $('optic').value = settings.optic; $('dmgnum').checked = settings.dmgNums; $('cb').value = settings.cb; $('finish').value = settings.finish; $('mode').value = settings.mode; $('reflopt').checked = settings.refl; $('laseropt').checked = settings.laser; $('hudscale').value = settings.hudScale; $('muzzle').value = settings.muzzle;
 const persist = () => LS.setItem('afterglow', JSON.stringify({ quality: qualityName, tod: todName, ...settings, binds: saved.binds, best: saved.best || 0, bestWave: saved.bestWave || 0, tutorialDone: !!saved.tutorialDone, seenV2: !!saved.seenV2 }));
 
 const frame = () => new Promise((r) => requestAnimationFrame(() => r()));
@@ -341,6 +341,7 @@ $('adssens').oninput = (e) => { settings.adsSens = +e.target.value; persist(); }
 $('optic').onchange = (e) => { settings.optic = e.target.value; G.weapon.setOptic(settings.optic); persist(); };
 const applyAccess = () => { if (R.final) R.final.uniforms.uCB.value = +settings.cb; document.documentElement.style.setProperty('--hs', settings.hudScale); };
 const applyRefl = () => { R.reflOn = settings.refl; if (R.refl) REFL.on.value = settings.refl ? 1 : 0; $('reflopt').disabled = !R.refl; };
+$('laseropt').onchange = (e) => { settings.laser = e.target.checked; G.weapon.laserMod.visible = settings.laser; persist(); };
 $('reflopt').onchange = (e) => { settings.refl = e.target.checked; applyRefl(); persist(); };
 $('mode').onchange = (e) => { settings.mode = e.target.value; persist(); };
 $('finish').onchange = (e) => { settings.finish = e.target.value; for (const w of weapons) w.setFinish(settings.finish, G.lib); persist(); };
@@ -759,7 +760,7 @@ function recordLB(grade, reached, win) {
   return { list, id };
 }
 renderLB($('mlb'), loadLB());
-applyRefl();
+applyRefl(); G.weapon.laserMod.visible = settings.laser;
 enemies.onRetreat = (e) => { if (!G.retreatHint) { G.retreatHint = true; feed('受损的无人机正在撤退修理 · 别让它跑了'); } };
 G.crash.onHit = () => radio('防空击中了一架运输无人机——它要砸到货轮上了！');
 G.crash.onCrash = () => { radio('货轮甲板起火了……别管它，专心清理堆场。'); player.shake = Math.max(player.shake, 0.3); };
@@ -898,6 +899,37 @@ function updateSunset(dt) {
   FOG.uFogSunColor.value.copy(sunset.fogSun0).lerp(new THREE.Color(0.85, 0.4, 0.16), p);
   if (sunset.env0 === null) sunset.env0 = scene.environmentIntensity;
   scene.environmentIntensity = sunset.env0 * (1 - 0.2 * p);
+}
+// rifle laser attachment: beam starts where the module appears on screen (the
+// viewmodel has its own projection) and ends on whatever the gun points at
+const laser = (() => {
+  const beamMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(6, 0.25, 0.15), transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 6, 1, true).rotateX(Math.PI / 2).translate(0, 0, 0.5), beamMat);
+  const dot = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 8), new THREE.MeshBasicMaterial({ color: new THREE.Color(14, 0.6, 0.3), fog: false }));
+  for (const m of [beam, dot]) { m.userData.noAO = true; m.frustumCulled = false; m.renderOrder = 12; m.visible = false; scene.add(m); }
+  return { beam, dot, n: 0, end: new THREE.Vector3(), nrm: new THREE.Vector3(0, 1, 0), rc: new THREE.Raycaster() };
+})();
+function updateLaser() {
+  const on = settings.laser && weapon === G.weapon && !player.dead && weapon.ads < 0.6 && weapon.sprint < 0.4 && weapon.equipT >= 1 && !photo;
+  laser.beam.visible = laser.dot.visible = on;
+  if (!on) return;
+  // screen position of the emitter under the viewmodel projection -> world point 1.2 m out
+  const e = weapon.laserEmitter.getWorldPosition(new THREE.Vector3()).applyMatrix4(camera.matrixWorldInverse).applyMatrix4(VM.proj.value);
+  const start = new THREE.Vector3(e.x, e.y, 0.5).unproject(camera).sub(camera.position).normalize().multiplyScalar(1.2).add(camera.position);
+  const fwd = camera.getWorldDirection(new THREE.Vector3());
+  if ((laser.n++ & 1) === 0) {
+    laser.rc.set(camera.position, fwd); laser.rc.far = 120;
+    const h = laser.rc.intersectObjects(level.rayMeshes, false)[0];
+    let t = h ? h.distance : 120;
+    const eh = enemies.raycast(camera.position, fwd, t); if (eh) t = eh.t;
+    laser.end.copy(camera.position).addScaledVector(fwd, t - 0.02);
+  }
+  const d = laser.end.clone().sub(start), L = d.length();
+  laser.beam.position.copy(start); laser.beam.lookAt(laser.end);
+  const w = 0.0016 + Math.random() * 0.0004; laser.beam.scale.set(w, w, L);
+  laser.beam.material.opacity = 0.35 * (1 - weapon.ads);
+  const ds = 0.012 + camera.position.distanceTo(laser.end) * 0.0016;
+  laser.dot.position.copy(laser.end); laser.dot.scale.setScalar(ds);
 }
 function scareGulls(pos, k) {
   const n = ambient.scare(pos, k);
@@ -1262,6 +1294,7 @@ function loop() {
     hazards.update(dt, { enemies, player, t, onPlayerHit: enemies.onPlayerHit, boss, walkers });
     props.update(dt, player);
     updateFlare(dt, t);
+    updateLaser();
     checkMedals(dt);
     G.heli.update(dt);
     G.crash.update(dt);
