@@ -96,6 +96,13 @@ export class Enemies {
     const heavy = kind === 'heavy', kami = kind === 'kamikaze';
     const m = this.buildDrone(heavy);
     const sniper = kind === 'sniper', medic = kind === 'medic';
+    const miner = kind === 'miner';
+    if (miner) {
+      m.group.scale.setScalar(1.4);
+      m.group.traverse((o) => { if (o.isMesh && o.material === this.accent) o.material = this.lib.M.paintYellow; });
+      // mine magazine slung under the belly
+      const pod = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.26, 14).rotateZ(Math.PI / 2), this.lib.M.darkSteel); pod.position.set(0, -0.2, 0.05); m.group.add(pod);
+    }
     if (medic) {
       m.group.scale.setScalar(1.3);
       if (!this.medicMat) this.medicMat = new THREE.MeshStandardMaterial({ color: 0x002208, emissive: new THREE.Color(0.1, 1, 0.35), emissiveIntensity: 7 });
@@ -124,8 +131,8 @@ export class Enemies {
     const e = {
       ...m, pos: m.group.position, vel: new THREE.Vector3(), heavy,
       kami, kind, beepT: 0, armed: -1, stagger: 0, aimT: 0,
-      role: kami ? 'kami' : (heavy ? 'suppress' : ['flank', 'harass', 'suppress'][this.roleIdx = ((this.roleIdx || 0) + 1) % 3]),
-      hp: (heavy ? 260 : (kami ? 45 : (sniper ? 90 : (medic ? 75 : 100)))) * (this.hpMult || 1), maxHp: (heavy ? 260 : (kami ? 45 : (sniper ? 90 : (medic ? 75 : 100)))) * (this.hpMult || 1), radius: heavy ? 1.0 : (kami ? 0.62 : 0.76),
+      role: kami ? 'kami' : (miner ? 'harass' : heavy ? 'suppress' : ['flank', 'harass', 'suppress'][this.roleIdx = ((this.roleIdx || 0) + 1) % 3]),
+      hp: (heavy ? 260 : (kami ? 45 : (sniper ? 90 : (medic ? 75 : (miner ? 110 : 100))))) * (this.hpMult || 1), maxHp: (heavy ? 260 : (kami ? 45 : (sniper ? 90 : (medic ? 75 : (miner ? 110 : 100))))) * (this.hpMult || 1), mineT: 3, radius: heavy ? 1.0 : (kami ? 0.62 : 0.76),
       fireCD: 1.5 + Math.random() * 2, charge: 0, burst: 0,
       orbit: Math.random() * Math.PI * 2, orbitDir: Math.random() < 0.5 ? -1 : 1,
       pref: sniper ? 22 + Math.random() * 5 : (heavy ? 13 : 10) + Math.random() * 5, alt: sniper ? 8 + Math.random() * 2.5 : 3.2 + Math.random() * 3,
@@ -149,6 +156,11 @@ export class Enemies {
       const h = b * b - c; if (h < 0) continue;
       const t = -b - Math.sqrt(h);
       if (t > 0 && t < maxT && (!best || t < best.t)) best = { enemy: e, t, point: o.clone().addScaledVector(d, t) };
+    }
+    for (const m of this.mines || []) {
+      const oc = o.clone().sub(m.pos); const b = oc.dot(d); const h = b * b - (oc.lengthSq() - 0.09); if (h < 0) continue;
+      const t = -b - Math.sqrt(h);
+      if (t > 0 && t < maxT && (!best || t < best.t)) best = { mine: m, t, point: o.clone().addScaledVector(d, t) };
     }
     return best;
   }
@@ -242,6 +254,7 @@ export class Enemies {
   // area damage from exploding kamikazes (chains into other drones)
   blast(pos, radius, playerMax, droneMax) {
     if (this.props) this.props.splash(pos, radius + 2, 30);
+    this.triggerMines(pos, radius);
     if (this.hazards) this.hazards.splash(pos, radius * 0.8);
     if (this.walkers) this.walkers.splash(pos, radius * 1.2, droneMax * 0.8);
     const pl = this.player;
@@ -357,6 +370,7 @@ export class Enemies {
     this.noiseT = Math.max(0, (this.noiseT || 0) - dt);
     this.player = player; this.t = t;
     this.updateFalling(dt);
+    this.updateMines(dt, player);
     const target = player.camera.position;
     for (const e of this.list) {
       if (!e.alive) continue;
@@ -466,6 +480,7 @@ export class Enemies {
       }
       if (e.kind === 'sniper') { this.sniperLogic(e, dt, player, los); continue; }
       if (e.kind === 'medic') { this.medicLogic(e, dt); continue; }
+      if (e.kind === 'miner') { this.minerLogic(e, dt, player); continue; }
       // attack logic
       if (player.dead) continue;
       e.fireCD -= dt * (this.noiseT > 0 ? 1.3 : 1);
@@ -533,6 +548,70 @@ export class Enemies {
     this.falling = [];
     for (const b of this.bolts) this.scene.remove(b.mesh);
     this.list = []; this.bolts = [];
+    for (const m of this.mines || []) this.scene.remove(m.g);
+    this.mines = [];
+  }
+
+  // mine layer: harasses at mid range and drops proximity mines on the player's path
+  minerLogic(e, dt, player) {
+    e.fireCD = 9;
+    e.mineT -= dt;
+    const dx = player.pos.x - e.pos.x, dz = player.pos.z - e.pos.z;
+    if (e.mineT <= 0 && Math.hypot(dx, dz) < 10 && (this.mines || []).length < 4 && !player.dead) {
+      e.mineT = 5 + Math.random() * 2;
+      this.dropMine(e.pos.clone().add(new THREE.Vector3(0, -0.4, 0)), e.vel);
+    }
+  }
+
+  dropMine(pos, vel) {
+    if (!this.mineGeo) {
+      this.mineGeo = new THREE.CylinderGeometry(0.17, 0.2, 0.07, 18).translate(0, 0.035, 0);
+      this.mineTop = new THREE.SphereGeometry(0.08, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2).translate(0, 0.07, 0);
+      this.mineLampGeo = new THREE.SphereGeometry(0.025, 8, 6).translate(0, 0.15, 0);
+    }
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(this.mineGeo, this.lib.M.darkSteel); body.castShadow = true; g.add(body);
+    const top = new THREE.Mesh(this.mineTop, this.lib.M.paintYellow); g.add(top);
+    const lamp = new THREE.Mesh(this.mineLampGeo, new THREE.MeshBasicMaterial({ color: new THREE.Color(6, 0.3, 0.1) })); g.add(lamp);
+    g.position.copy(pos); this.scene.add(g);
+    (this.mines = this.mines || []).push({ g, lamp, pos: g.position, vel: vel.clone().multiplyScalar(0.5), landed: false, arm: 1.0, fuse: -1, blink: 0 });
+    this.audio.click && this.audio.click(900, 0.3);
+  }
+
+  groundAt(x, z, y) {
+    let h = 0;
+    for (const b of this.level.colliders) if (x > b.min.x && x < b.max.x && z > b.min.z && z < b.max.z && b.max.y <= y + 0.05 && b.max.y > h) h = b.max.y;
+    return h;
+  }
+
+  updateMines(dt, player) {
+    if (!this.mines) return;
+    for (const m of this.mines.slice()) {
+      if (!m.landed) {
+        m.vel.y -= 9.8 * dt; m.pos.addScaledVector(m.vel, dt);
+        const gy = this.groundAt(m.pos.x, m.pos.z, m.pos.y + 0.3);
+        if (m.pos.y <= gy) { m.pos.y = gy; m.landed = true; this.audio.impact && this.audio.impact(m.pos, 'metal'); }
+        continue;
+      }
+      if (m.arm > 0) { m.arm -= dt; m.lamp.visible = Math.sin(m.arm * 30) > 0; continue; }
+      const d = Math.hypot(player.pos.x - m.pos.x, player.pos.z - m.pos.z);
+      if (m.fuse < 0 && d < 1.7 && Math.abs(player.pos.y - m.pos.y) < 1.5 && !player.dead) { m.fuse = 0.45; this.audio.beep && this.audio.beep(m.pos, 1800); }
+      m.blink += dt * (m.fuse >= 0 ? 14 : 1.4);
+      m.lamp.visible = (m.blink % 1) < (m.fuse >= 0 ? 0.5 : 0.15);
+      if (m.fuse >= 0) { m.fuse -= dt; if (m.fuse <= 0) this.detonateMine(m); }
+    }
+  }
+
+  detonateMine(m) {
+    const i = this.mines.indexOf(m); if (i < 0) return;
+    this.mines.splice(i, 1); this.scene.remove(m.g);
+    const p = m.pos.clone().add(new THREE.Vector3(0, 0.2, 0));
+    this.audio.explosion(p); this.effects.explosion(p, 0.7);
+    this.blast(p, 3.8, 70, 120);
+  }
+
+  triggerMines(pos, radius) {
+    for (const m of (this.mines || []).slice()) if (m.pos.distanceTo(pos) < radius && m.fuse < 0) m.fuse = 0.12 + Math.random() * 0.15;
   }
 }
 
