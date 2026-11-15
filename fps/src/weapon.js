@@ -56,6 +56,7 @@ export class Weapon {
     this.buildHands();
     this.buildFlash();
 
+    this.mergeStatic();
     this.root.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = true; o.frustumCulled = false; } });
 
     // state
@@ -79,6 +80,26 @@ export class Weapon {
     this.kind = 'rifle'; this.label = 'MK-18 CQBR · 5.56'; this.auto = true;
     this.damage = [26, 32]; this.recoilMul = 1; this.reloadTimes = [2.25, 2.75]; this.equipSpeed = 1.6;
     this.climb = 1; this.baseSpread = 0.022;
+  }
+
+  // collapse the gun's static parts (direct children of this.gun) into one
+  // mesh per material: ~100 draw calls -> ~10 per weapon
+  mergeStatic() {
+    const groups = new Map();
+    for (const c of this.gun.children.slice()) {
+      if (!c.isMesh || c === this.reticle || c === this.scopeLens || !c.geometry.attributes.normal) continue;
+      c.updateMatrix();
+      const g = (c.geometry.index ? c.geometry.toNonIndexed() : c.geometry.clone()).applyMatrix4(c.matrix);
+      for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k);
+      if (!g.attributes.uv) continue;
+      if (!groups.has(c.material)) groups.set(c.material, []);
+      groups.get(c.material).push(g);
+      this.gun.remove(c);
+    }
+    for (const [mat, list] of groups) {
+      const merged = new THREE.Mesh(mergeGeometries(list, false), mat);
+      this.gun.add(merged);
+    }
   }
 
   add(geo, mat, x, y, z, rx = 0, ry = 0, rz = 0, parent = this.gun) {

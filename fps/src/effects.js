@@ -208,7 +208,7 @@ export class Effects {
 
     // pooled point lights — count never changes so shaders never recompile
     this.lights = [];
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 3; i++) {
       const l = new THREE.PointLight(0xffaa55, 0, 12, 2);
       l.castShadow = false;
       scene.add(l);

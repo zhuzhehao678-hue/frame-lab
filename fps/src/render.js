@@ -167,7 +167,7 @@ export class Renderer {
     const q = this.q;
     const pr = Math.min(window.devicePixelRatio || 1, q.pixelRatio);
     this.basePR = pr; this.scale = 1; this.ema = 16; this.adaptT = 0; this.dynRes = true;
-    if (q.reflect) this.refl = new PlanarReflection(r, 0.5);
+    if (q.reflect) this.refl = new PlanarReflection(r, q.texSize >= 2048 ? 0.5 : 0.4);
     r.setPixelRatio(pr);
     r.setSize(window.innerWidth, window.innerHeight, false);
     const size = r.getDrawingBufferSize(new THREE.Vector2());
