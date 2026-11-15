@@ -855,3 +855,116 @@ export class DMR extends Weapon {
     if (this.ads < 0.15) this.scopeMat.uniforms.uAlign.value = 0;
   }
 }
+
+// Pump-action 12 gauge: 8 pellets per shell, a real pump stroke between
+// shots (left hand rides the forend) and shell-by-shell loading that the
+// trigger interrupts.
+export class Shotgun extends Weapon {
+  constructor(camera, lib, effects) {
+    super(camera, lib, effects);
+    this.kind = 'shotgun'; this.label = 'M590 · 12ga · 霰弹'; this.auto = false;
+    this.magSize = 6; this.ammo = 6; this.reserve = 30;
+    this.rate = 0.82; this.damage = [15, 19]; this.pellets = 8; this.recoilMul = 2.0; this.climb = 3.2;
+    this.reloadTimes = [0.5, 0.5]; this.equipSpeed = 1.6; this.baseSpread = 0.055;
+    this.hipPos = new THREE.Vector3(0.13, -0.16, -0.36);
+    this.hipRot = new THREE.Euler(0.04, 0.05, -0.06);
+    this.adsPos = new THREE.Vector3(0, -this.sightY - 0.008, -0.4);
+    this.adsZoom = 0.86;
+    this.pumpT = 9; this.ejectPending = false;
+    // a shell held in the loading hand
+    this.handShell = new THREE.Mesh(new THREE.CylinderGeometry(0.0105, 0.0105, 0.07, 12).rotateZ(Math.PI / 2), viewmodelMaterial(lib.M.paintRed));
+    this.handShell.position.set(0.0, 0.02, 0.0); this.handShell.visible = false; this.leftHand.add(this.handShell);
+  }
+
+  // damage falls off past ~8 m
+  falloff(t) { return THREE.MathUtils.clamp(1 - (t - 8) / 22, 0.2, 1); }
+
+  buildGun() {
+    const { metal, poly, steel, dark, rubber } = this.mat;
+    const A = (g, m, x, y, z, rx, ry, rz, p) => this.add(g, m, x, y, z, rx, ry, rz, p);
+    this.sightY = 0.057;
+    A(uvScale(RB(0.034, 0.052, 0.2, 0.006), 1.5), metal, 0, 0.02, -0.02);           // receiver
+    A(RB(0.003, 0.02, 0.05, 0.001), dark, 0.0172, 0.03, -0.02);                      // ejection port
+    A(RB(0.004, 0.012, 0.03, 0.002), steel, -0.018, 0.012, -0.0);                    // action release
+    A(new THREE.CylinderGeometry(0.011, 0.011, 0.5, 20).rotateX(Math.PI / 2), this.mat.hot, 0, 0.039, -0.37); // barrel
+    A(RB(0.008, 0.004, 0.48, 0.0012), dark, 0, 0.052, -0.37);                        // vent rib
+    for (let i = 0; i < 12; i++) A(RB(0.008, 0.003, 0.004, 0.0008), dark, 0, 0.0545, -0.15 - i * 0.04);
+    A(new THREE.SphereGeometry(0.003, 10, 8), steel, 0, this.sightY, -0.6);         // front bead
+    A(RB(0.012, 0.006, 0.008, 0.001), dark, 0, 0.051, -0.02);                        // rear notch
+    A(new THREE.CylinderGeometry(0.0115, 0.0115, 0.42, 18).rotateX(Math.PI / 2), metal, 0, 0.009, -0.33); // magazine tube
+    A(new THREE.CylinderGeometry(0.013, 0.013, 0.025, 18).rotateX(Math.PI / 2), dark, 0, 0.009, -0.553);
+    A(RB(0.02, 0.012, 0.02, 0.003), dark, 0, 0.025, -0.555);                        // barrel clamp
+    // grip, trigger guard, stock
+    A(RB(0.010, 0.005, 0.064, 0.002), metal, 0, -0.036, 0.006);
+    A(RB(0.005, 0.022, 0.006, 0.002), steel, 0, -0.026, 0.008, -0.3);
+    A(uvScale(RB(0.028, 0.105, 0.042, 0.009), 2), poly, 0, -0.07, 0.048, 0.33);
+    A(uvScale(RB(0.04, 0.06, 0.25, 0.012), 2), poly, 0, 0.0, 0.2, -0.06);
+    A(RB(0.044, 0.12, 0.024, 0.008), rubber, 0, -0.02, 0.33, -0.06);
+    // pump forend (animated)
+    this.pump = new THREE.Group(); this.pump.position.set(0, 0.008, -0.33); this.gun.add(this.pump);
+    this.pumpHome = this.pump.position.clone();
+    this.add(uvScale(RB(0.042, 0.042, 0.17, 0.012), 2), poly, 0, -0.002, 0, 0, 0, 0, this.pump);
+    for (let i = 0; i < 7; i++) this.add(RB(0.044, 0.044, 0.006, 0.006), dark, 0, -0.002, -0.06 + i * 0.02, 0, 0, 0, this.pump);
+    this.muzzle = new THREE.Object3D(); this.muzzle.position.set(0, 0.039, -0.625); this.gun.add(this.muzzle);
+    this.ejectPort = new THREE.Object3D(); this.ejectPort.position.set(0.02, 0.03, -0.02); this.gun.add(this.ejectPort);
+    this.mag = new THREE.Group(); this.gun.add(this.mag); this.magHome = this.mag.position.clone();
+    this.reticle = new THREE.Object3D();
+  }
+
+  // pull the trigger mid-reload to stop loading and fire
+  canFire() {
+    if (this.reloading && this.ammo > 0 && this.pumpT > 0.6) { this.reloading = false; this.handShell.visible = false; }
+    return super.canFire() && this.pumpT > 0.6;
+  }
+
+  startReload() {
+    if (this.reloading || this.ammo >= this.magSize || this.reserve <= 0) return false;
+    this.reloading = true; this.reloadT = 0; this.shellT = 0; this.reloadEmpty = this.ammo === 0;
+    return true;
+  }
+
+  fire() { const p = super.fire(); this.pumpT = 0; this.ejectPending = true; this.spreadBloom = 0.3; return p; }
+
+  // the hull is ejected by the pump stroke, not the shot
+  ejectBrass() { }
+
+  update(dt, t, player, input, mouse) {
+    // shell-by-shell loading, handled here instead of the magazine swap
+    const loading = this.reloading;
+    let stillLoading = loading, tilt = 0, hand = 0;
+    if (loading) {
+      this.reloadT += dt; this.shellT += dt;
+      tilt = THREE.MathUtils.smoothstep(this.reloadT, 0, 0.25);
+      const u = this.shellT / 0.5;
+      hand = Math.sin(Math.min(u, 1) * Math.PI);
+      this.handShell.visible = u < 0.75;
+      if (u >= 1) {
+        this.shellT = 0;
+        if (this.reserve > 0 && this.ammo < this.magSize) { this.ammo++; this.reserve--; this.emit('magin'); this.kickV += 0.2; }
+        if (this.ammo >= this.magSize || this.reserve <= 0) {
+          stillLoading = false; this.handShell.visible = false;
+          if (this.reloadEmpty) { this.pumpT = 0; this.ejectPending = false; }
+        }
+      }
+    }
+    this.reloading = false;            // keep the base class's magazine animation out of it
+    super.update(dt, t, player, input, mouse);
+    this.reloading = stillLoading;
+    // pump stroke: back at 0.12-0.32 s, forward by 0.55 s; the left hand rides it
+    this.pumpT += dt;
+    const p = this.pumpT;
+    let back = 0;
+    if (p > 0.12 && p < 0.55) back = p < 0.32 ? THREE.MathUtils.smoothstep(p, 0.12, 0.32) : 1 - THREE.MathUtils.smoothstep(p, 0.34, 0.55);
+    if (p > 0.2 && this.ejectPending) { this.ejectPending = false; Weapon.prototype.ejectBrass.call(this); this.emit('bolt'); }
+    this.pump.position.z = this.pumpHome.z + back * 0.075;
+    if (this.reloading) {
+      // rolled over, left hand fetches a shell and thumbs it into the loading port
+      this.pivot.rotation.z += 0.5 * tilt; this.pivot.position.y -= 0.02 * tilt;
+      this.leftHand.position.set(-0.01 - hand * 0.04, -0.03 - hand * 0.08, 0.0 - (1 - hand) * 0.05);
+      this.leftHand.rotation.set(hand * 0.5, 0, -0.9 * tilt);
+    } else {
+      this.leftHand.position.copy(this.leftHome); this.leftHand.position.z += back * 0.075;
+      this.leftHand.rotation.set(0, 0, 0);
+    }
+  }
+}

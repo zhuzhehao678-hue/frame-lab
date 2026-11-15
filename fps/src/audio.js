@@ -117,6 +117,16 @@ export class Audio {
     const t = this.ctx.currentTime;
     const d = this.out(null, { verb: 0.9, gain: 0.9 });
     const pistol = kind === 'pistol';
+    if (kind === 'shotgun') {
+      // deep boom with a long rolling tail
+      this.noise(d, t, 0.03, { type: 'highpass', f: 2200, gain: 1.3 });
+      this.noise(d, t, 0.28, { type: 'lowpass', f: 2600 * p, f1: 300, q: 0.7, gain: 1.7, curve: 4 });
+      this.noise(d, t + 0.005, 0.5, { type: 'bandpass', f: 420 * p, f1: 120, q: 0.8, gain: 0.9, curve: 3 });
+      this.tone(d, t, 0.22, { f: 80 * p, f1: 30, gain: 1.3, curve: 3 });
+      const far = this.out(null, { verb: 1.8, gain: 0.0 });
+      this.noise(far, t + 0.04, 0.9, { type: 'lowpass', f: 700, f1: 150, gain: 0.4 });
+      return;
+    }
     if (kind === 'suppressed') {
       // muffled cough + action noise, short tail
       const q = this.out(null, { verb: 0.35, gain: 0.8 });
