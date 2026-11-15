@@ -122,7 +122,7 @@ async function boot() {
   lensGlow.position.set(0.034, 0.04, -0.4815); lensGlow.rotation.y = Math.PI; lensGlow.visible = false; weapon.gun.add(lensGlow);
   const enemies = new Enemies(scene, lib, effects, level, audio);
   const grenades = new Grenades(scene, lib, effects, level, audio);
-  const ambient = new Ambient(scene, lib);
+  const ambient = new Ambient(scene, lib); ambient.level = level;
   const boss = new Boss(scene, lib, effects, level, audio, enemies);
   const music = new Music(audio);
   const pickups = new Pickups(scene, lib, audio);

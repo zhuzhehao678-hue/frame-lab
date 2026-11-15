@@ -10,6 +10,7 @@ export class Ambient {
     this.buildCrane(lib.M);
     this.buildTug(lib.M);
     this.buildFlags(lib.M);
+    this.buildLitter();
   }
 
   buildGulls() {
@@ -89,6 +90,54 @@ export class Ambient {
     flag(43.4, 6.6, -40.7, Math.PI, 1.5, 0.95, 4.5);       // ship's stern staff
   }
 
+  // wind-blown litter: paper sheets skitter across the slab, sometimes lifting on a gust
+  buildLitter() {
+    const N = 24; this.litN = N;
+    const c = document.createElement('canvas'); c.width = 64; c.height = 64; const g = c.getContext('2d');
+    g.fillStyle = '#e6e2d6'; g.fillRect(0, 0, 64, 64); g.fillStyle = 'rgba(40,40,40,.55)';
+    for (let y = 8; y < 58; y += 5) g.fillRect(6, y, 30 + Math.random() * 22, 2);
+    const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+    const geo = new THREE.PlaneGeometry(0.3, 0.38, 2, 2);
+    const p = geo.attributes.position; for (let i = 0; i < p.count; i++) p.setZ(i, Math.sin(p.getX(i) * 9) * 0.02); // a little crumple
+    geo.computeVertexNormals();
+    this.litter = new THREE.InstancedMesh(geo, new THREE.MeshStandardMaterial({ map: tex, side: THREE.DoubleSide, roughness: 0.9 }), N);
+    this.litter.instanceMatrix.setUsage(THREE.DynamicDrawUsage); this.litter.castShadow = false; this.litter.receiveShadow = true; this.litter.frustumCulled = false;
+    this.scene.add(this.litter);
+    this.lit = [];
+    for (let i = 0; i < N; i++) this.lit.push({ p: new THREE.Vector3(-14 + Math.random() * 28, 0.01, -20 + Math.random() * 38), v: new THREE.Vector3(), rot: new THREE.Euler(-Math.PI / 2, Math.random() * 6, 0), spin: new THREE.Vector3(), air: 0 });
+    this.wind = new THREE.Vector3(1.0, 0, -0.45);
+  }
+
+  updateLitter(dt, t) {
+    if (!this.lit) return;
+    const gust = 0.5 + 0.5 * Math.max(0, Math.sin(t * 0.37) * Math.sin(t * 0.91 + 1.3));
+    const m = this._m, q = this._q, s1 = new THREE.Vector3(1, 1, 1);
+    for (let i = 0; i < this.litN; i++) {
+      const L = this.lit[i];
+      const w = this.wind.clone().multiplyScalar((0.6 + gust * 2.4) * (0.7 + 0.6 * Math.sin(i * 1.7 + t * 0.5)));
+      // drag toward wind speed; gusts lift sheets off the ground
+      L.v.x += (w.x - L.v.x) * dt * (L.air > 0 ? 1.4 : 0.9); L.v.z += (w.z - L.v.z) * dt * (L.air > 0 ? 1.4 : 0.9);
+      if (L.air <= 0 && gust > 0.8 && Math.random() < dt * 0.6) { L.air = 1; L.v.y = 1.2 + Math.random() * 1.5; L.spin.set((Math.random() - 0.5) * 10, (Math.random() - 0.5) * 6, (Math.random() - 0.5) * 10); }
+      if (L.air > 0) {
+        L.v.y -= 2.2 * dt; L.v.y *= 1 - dt * 0.8;
+        L.rot.x += L.spin.x * dt; L.rot.y += L.spin.y * dt; L.rot.z += L.spin.z * dt;
+        if (L.p.y <= 0.01 && L.v.y < 0) { L.air = 0; L.p.y = 0.01; L.v.y = 0; L.rot.x = -Math.PI / 2 + (Math.random() - 0.5) * 0.2; L.rot.z = 0; }
+      } else {
+        L.v.multiplyScalar(gust > 0.35 ? 1 : 1 - dt * 3);          // settles between gusts
+        L.rot.y += (L.v.x * 0.8 - L.v.z * 0.5) * dt;
+      }
+      L.p.addScaledVector(L.v, dt);
+      for (const b of this.level ? this.level.colliders : []) {
+        if (L.p.y > b.max.y || b.max.y < 0.2) continue;
+        if (L.p.x > b.min.x - 0.1 && L.p.x < b.max.x + 0.1 && L.p.z > b.min.z - 0.1 && L.p.z < b.max.z + 0.1) { L.p.x -= L.v.x * dt * 1.5; L.p.z -= L.v.z * dt * 1.5; L.v.x *= -0.3; L.v.z *= -0.3; }
+      }
+      // wrap around the yard so the litter keeps flowing
+      if (L.p.x > 15.5) L.p.x = -15.5; if (L.p.z < -22) L.p.z = 19;
+      q.setFromEuler(L.rot); m.compose(L.p, q, s1); this.litter.setMatrixAt(i, m);
+    }
+    this.litter.instanceMatrix.needsUpdate = true;
+  }
+
   buildTug(M) {
     const g = new THREE.Group();
     const hullShape = new THREE.Shape();
@@ -126,6 +175,7 @@ export class Ambient {
 
   update(dt, t, effects) {
     if (this.flagTime) this.flagTime.value = t;
+    this.updateLitter(Math.min(dt, 0.05), t);
     // gulls: circling glide, occasional flapping bursts
     const m = this._m, q = this._q, e = this._e;
     const s = new THREE.Vector3(1, 1, 1);
