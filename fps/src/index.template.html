@@ -86,6 +86,12 @@
   #boss .st { margin-top: 6px; font-size: 11px; letter-spacing: 0.25em; color: var(--dim); }
   #lockwarn { position: absolute; left: 50%; top: 150px; transform: translateX(-50%); padding: 6px 14px; border: 1px solid var(--red); color: var(--red); font-size: 12px; letter-spacing: 0.4em; opacity: 0; }
   #lockwarn.on { opacity: 1; animation: blink .25s infinite alternate; }
+  #photo { position: fixed; right: 24px; top: 50%; transform: translateY(-50%); width: 260px; padding: 18px 18px 12px; background: rgba(10,8,7,0.72); border: 1px solid rgba(255,255,255,0.12); font-size: 11px; letter-spacing: 0.15em; color: var(--dim); pointer-events: auto; cursor: default; }
+  #photo h3 { margin: 0 0 12px; font-size: 12px; letter-spacing: 0.4em; color: var(--accent); font-weight: 500; }
+  #photo label { display: flex; justify-content: space-between; align-items: center; margin: 8px 0; gap: 10px; }
+  #photo input[type=range] { width: 130px; }
+  #photo select { background: rgba(0,0,0,0.4); color: var(--hud); border: 1px solid rgba(255,255,255,0.2); font-family: inherit; }
+  #photo .tip { margin-top: 12px; line-height: 1.7; color: rgba(240,236,228,0.45); }
   #banner { position: absolute; left: 0; right: 0; top: 30%; text-align: center; opacity: 0; transition: opacity .6s; }
   #banner .k { font-size: 12px; letter-spacing: 0.6em; color: var(--accent); }
   #banner .t { margin-top: 14px; font-size: 40px; font-weight: 200; letter-spacing: 0.3em; }
@@ -160,6 +166,17 @@
       <span><kbd>F</kbd>帧率</span><span><kbd>P</kbd>照片模式</span><span><kbd>Esc</kbd>暂停</span>
     </div>
   </div>
+</div>
+<div id="photo" class="hidden"><h3>照片模式</h3>
+  <label>曝光 <input id="ph_ev" type="range" min="-2" max="2" step="0.05" value="0"></label>
+  <label>焦点距离 <input id="ph_focus" type="range" min="0.5" max="60" step="0.1" value="8"></label>
+  <label>光圈（景深） <input id="ph_ap" type="range" min="0" max="3" step="0.05" value="0"></label>
+  <label>视野 <input id="ph_fov" type="range" min="20" max="100" step="1" value="74"></label>
+  <label>倾斜 <input id="ph_roll" type="range" min="-0.6" max="0.6" step="0.01" value="0"></label>
+  <label>暗角 <input id="ph_vig" type="range" min="0" max="1" step="0.01" value="0.32"></label>
+  <label>颗粒 <input id="ph_grain" type="range" min="0" max="0.2" step="0.005" value="0.045"></label>
+  <label>滤镜 <select id="ph_filter"><option value="0">无</option><option value="1">黑白</option><option value="2">暖调胶片</option><option value="3">冷调青橙</option><option value="4">高对比</option></select></label>
+  <div class="tip">点击画面 / Tab：飞行取景（WASD、鼠标、Shift 加速、空格上升、C 下降）<br>H 隐藏面板 · P 退出照片模式</div>
 </div>
 <div id="end" class="hidden"><div class="panel"><div class="k" id="ek"></div><div class="t" id="et"></div><div class="grade" id="eg"></div><div class="score" id="escore"></div><div class="stats" id="es"></div><div class="medals" id="em"></div><div class="btns"><button id="again">再来一局</button><button id="endless" class="hidden">进入无尽模式</button></div></div></div>
 

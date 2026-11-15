@@ -203,7 +203,9 @@ addEventListener('keydown', (e) => {
   }
   if (e.code === 'KeyI' && locked && !photo && !player.dead && weapon.ads < 0.1) { weapon.inspectT = 0; audio.click(1300, 0.25); audio.click(800, 0.2, 0.9); }
   if (e.code === 'KeyF') $('fps').classList.toggle('hidden');
-  if (e.code === 'KeyP' && locked) togglePhoto();
+  if (e.code === 'KeyP' && (locked || photo)) { togglePhoto(); if (!photo && !locked) $('view').requestPointerLock(); }
+  if (e.code === 'Tab' && photo) { e.preventDefault(); if (locked) document.exitPointerLock(); else $('view').requestPointerLock(); }
+  if (e.code === 'KeyH' && photo) $('photo').classList.toggle('hidden');
 });
 addEventListener('keyup', (e) => {
   if (e.code === 'KeyG' && G.aimingGrenade) { G.aimingGrenade = false; if (locked && !player.dead && grenades.canThrow(weapon)) { grenades.throw(camera, player.vel); weapon.throwT = 0; } else grenades.hidePreview(); } if (keymap[e.code]) input[keymap[e.code]] = false; if (e.code === 'Space') input.jump = false; });
@@ -226,6 +228,7 @@ document.addEventListener('pointerlockchange', () => {
   locked = document.pointerLockElement === $('view');
   if (!locked) {
     for (const k in input) input[k] = false;
+    if (photo) { $('photo').classList.remove('hidden'); return; }
     if (!gameOver) showMenu(true);
   }
 });
@@ -276,7 +279,7 @@ function showMenu(paused) {
   $('hud').classList.remove('on');
 }
 function hideMenu() { $('overlay').classList.add('hidden'); if (!photo) $('hud').classList.add('on'); }
-document.addEventListener('pointerlockchange', () => { if (locked) hideMenu(); });
+document.addEventListener('pointerlockchange', () => { if (locked && !photo) hideMenu(); });
 
 // ------------------------------------------------------------------ photo mode
 const photoCam = { pos: new THREE.Vector3(), yaw: 0, pitch: 0 };
@@ -284,8 +287,23 @@ function togglePhoto() {
   photo = !photo;
   weapon.root.visible = !photo;
   $('hud').classList.toggle('on', !photo);
-  if (photo) { photoCam.pos.copy(camera.position); photoCam.yaw = player.yaw; photoCam.pitch = player.pitch; hint('照片模式 · WASD 自由移动 · Shift 加速 · P 退出', 3); }
+  $('photo').classList.toggle('hidden', !photo);
+  if (photo) { photoCam.pos.copy(camera.position); photoCam.yaw = player.yaw; photoCam.pitch = player.pitch; $('ph_fov').value = settings.fov; }
+  else {
+    // restore the gameplay look
+    const f = R.final.uniforms; f.uFilter.value = 0; f.uVignette.value = 0.32; f.uGrain.value = 0.045; f.uExposure.value = TOD.exposure;
+    if (R.dof) R.dof.enabled = false;
+  }
 }
+const ph = (id) => +$(id).value;
+function applyPhoto() {
+  const f = R.final.uniforms;
+  f.uExposure.value = TOD.exposure * Math.pow(2, ph('ph_ev'));
+  f.uVignette.value = ph('ph_vig'); f.uGrain.value = ph('ph_grain'); f.uFilter.value = ph('ph_filter');
+  if (R.dof) { R.dof.enabled = ph('ph_ap') > 0.01; R.dof.uniforms.uFocus.value = ph('ph_focus'); R.dof.uniforms.uAperture.value = ph('ph_ap') * 1.5; R.dof.uniforms.uAspect.value = camera.aspect; }
+}
+$('photo').addEventListener('click', (e) => e.stopPropagation());
+$('view').addEventListener('click', () => { if (photo && !locked) $('view').requestPointerLock(); });
 
 // ------------------------------------------------------------------ HUD
 const hud = {
@@ -757,8 +775,10 @@ function loop() {
     const rgt = new THREE.Vector3(Math.cos(photoCam.yaw), 0, -Math.sin(photoCam.yaw));
     if (input.f) photoCam.pos.addScaledVector(f, s); if (input.b) photoCam.pos.addScaledVector(f, -s);
     if (input.r) photoCam.pos.addScaledVector(rgt, s); if (input.l) photoCam.pos.addScaledVector(rgt, -s);
-    camera.position.copy(photoCam.pos); camera.rotation.set(photoCam.pitch, photoCam.yaw, 0, 'YXZ');
-    camera.fov = settings.fov; camera.updateProjectionMatrix();
+    if (input.jump) photoCam.pos.y += s; if (input.crouch) photoCam.pos.y -= s;
+    camera.position.copy(photoCam.pos); camera.rotation.set(photoCam.pitch, photoCam.yaw, ph('ph_roll'), 'YXZ');
+    camera.fov = ph('ph_fov'); camera.updateProjectionMatrix();
+    applyPhoto();
   } else if (running) {
     pollGamepad(realDt);
     player.update(dt, input, t);

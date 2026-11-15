@@ -69,11 +69,11 @@ const FinalShader = {
     tDiffuse: { value: null }, uTime: { value: 0 }, uExposure: { value: 0.56 },
     uRes: { value: new THREE.Vector2(1, 1) }, uDamage: { value: 0 }, uLowHealth: { value: 0 },
     uCA: { value: 0.0018 }, uVignette: { value: 0.32 }, uGrain: { value: 0.045 }, uADS: { value: 0 },
-    uFlash: { value: 0 }, uKill: { value: 0 }, uGrade: { value: new THREE.Color(1, 1, 1) },
+    uFlash: { value: 0 }, uKill: { value: 0 }, uFilter: { value: 0 }, uGrade: { value: new THREE.Color(1, 1, 1) },
   },
   vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} `,
   fragmentShader: /* glsl */`
-    uniform vec3 uGrade; uniform float uKill; uniform sampler2D tDiffuse; uniform float uTime, uExposure, uDamage, uLowHealth, uCA, uVignette, uGrain, uADS, uFlash;
+    uniform vec3 uGrade; uniform float uKill; uniform int uFilter; uniform sampler2D tDiffuse; uniform float uTime, uExposure, uDamage, uLowHealth, uCA, uVignette, uGrain, uADS, uFlash;
     uniform vec2 uRes; varying vec2 vUv;
 
     // ACES fitted (Stephen Hill)
@@ -127,6 +127,11 @@ const FinalShader = {
       // filmic contrast curve in display space
       col = toSRGB(col);
       col = mix(col, col*col*(3.0-2.0*col), 0.18);
+      // photo-mode looks
+      if (uFilter == 1) { float m = dot(col, vec3(0.299, 0.587, 0.114)); col = vec3(m) * vec3(1.02, 1.0, 0.97); col = mix(col, col*col*(3.0-2.0*col), 0.35); }
+      else if (uFilter == 2) { col = pow(col, vec3(0.95, 1.0, 1.12)) * vec3(1.06, 1.0, 0.86); col = mix(col, vec3(dot(col, vec3(0.33))), 0.12); }
+      else if (uFilter == 3) { float m = dot(col, vec3(0.333)); col = mix(col, mix(vec3(0.0, 0.32, 0.38), vec3(1.0, 0.62, 0.32), smoothstep(0.1, 0.9, m)) * m * 1.6, 0.35); }
+      else if (uFilter == 4) { col = clamp((col - 0.5) * 1.35 + 0.5, 0.0, 1.0); col = mix(vec3(dot(col, vec3(0.333))), col, 1.2); }
 
       // vignette
       float vig = smoothstep(0.85, 0.18, length(c*vec2(1.0, 0.9)) * (1.0 + uVignette*0.6 + uADS*0.25));
@@ -233,6 +238,32 @@ export class Renderer {
       });
       this.composer.addPass(this.mblur);
       this.prevVP = null;
+    }
+    // photo-mode depth of field (poisson-disc gather weighted by circle of confusion)
+    if (this.gtao) {
+      this.dof = new ShaderPass({
+        uniforms: { tDiffuse: { value: null }, tDepth: { value: this.gtao.depthTexture }, uFocus: { value: 10 }, uAperture: { value: 0 }, uNear: { value: camera.near }, uFar: { value: camera.far }, uAspect: { value: 1 } },
+        vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
+        fragmentShader: `uniform sampler2D tDiffuse, tDepth; uniform float uFocus, uAperture, uNear, uFar, uAspect; varying vec2 vUv;
+          float lin(float d){ float z = d * 2.0 - 1.0; return 2.0 * uNear * uFar / (uFar + uNear - z * (uFar - uNear)); }
+          float coc(vec2 uv){ float z = lin(texture2D(tDepth, uv).r); return clamp(abs(z - uFocus) / max(z, 0.1) * uAperture, 0.0, 1.0); }
+          void main(){
+            float c = coc(vUv);
+            vec3 acc = texture2D(tDiffuse, vUv).rgb; float ws = 1.0;
+            if (c > 0.01) {
+              for (int i = 0; i < 24; i++) {
+                float a = float(i) * 2.39996; float r = sqrt(float(i) / 24.0);
+                vec2 o = vec2(cos(a) / uAspect, sin(a)) * r * c * 0.018;
+                float sc = coc(vUv + o);
+                float w = smoothstep(0.0, 1.0, sc * 2.0 + 0.1);
+                acc += texture2D(tDiffuse, vUv + o).rgb * w; ws += w;
+              }
+            }
+            gl_FragColor = vec4(acc / ws, 1.0);
+          }`,
+      });
+      this.dof.enabled = false;
+      this.composer.addPass(this.dof);
     }
     // clamp HDR before bloom: the sun disc can exceed half-float range, which
     // made bloom smear it into a full-screen white veil (and NaN black dots)
