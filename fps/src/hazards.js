@@ -80,6 +80,7 @@ export class Hazards {
     const i = this.level.colliders.indexOf(d.box); if (i >= 0) this.level.colliders.splice(i, 1);
     const j = this.level.rayMeshes.indexOf(d.body); if (j >= 0) this.level.rayMeshes.splice(j, 1);
     const pos = d.pos.clone().add(new THREE.Vector3(0, 0.3, 0));
+    if (this.props) this.props.splash(pos, 7, 40);
     this.effects.explosion(pos, 1.6);
     this.audio.explosion(pos);
     this.effects.decal(new THREE.Vector3(pos.x, 0.003, pos.z), new THREE.Vector3(0, 1, 0), 2.2);

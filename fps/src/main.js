@@ -16,6 +16,7 @@ import { Boss } from './boss.js';
 import { Music } from './music.js';
 import { Pickups } from './pickups.js';
 import { Hazards } from './hazards.js';
+import { Props } from './props.js';
 import { Rain } from './rain.js';
 import { Walkers } from './walker.js';
 
@@ -123,6 +124,7 @@ async function boot() {
   const music = new Music(audio);
   const pickups = new Pickups(scene, lib, audio);
   const hazards = new Hazards(scene, lib, level, effects, audio);
+  const props = new Props(scene, lib, level, audio);
   const rain = TOD.rain ? new Rain(scene, camera, effects, audio) : null;
   const walkers = new Walkers(scene, lib, effects, level, audio, enemies);
   enemies.walkers = walkers;
@@ -152,11 +154,12 @@ async function boot() {
   scene.remove(warm); warmLegs.forEach((o) => scene.remove(o));
   await progress(1, '就绪');
 
-  return { flashlight, lensGlow, lib, level, effects, audio, player, weapon, pistol, dmr, enemies, grenades, ambient, boss, music, pickups, hazards, rain, hemi, walkers, sun };
+  return { flashlight, lensGlow, lib, level, effects, audio, player, weapon, pistol, dmr, enemies, grenades, ambient, boss, music, pickups, hazards, props, rain, hemi, walkers, sun };
 }
 
 const G = await boot();
-const { level, effects, audio, player, enemies, grenades, ambient, boss, music, pickups, hazards, walkers } = G;
+const { level, effects, audio, player, enemies, grenades, ambient, boss, music, pickups, hazards, walkers, props } = G;
+grenades.props = hazards.props = enemies.props = props;
 function applyDifficulty() {
   const D = DIFF[settings.diff];
   player.dmgScale = D.dmg; enemies.hpMult = D.hp; enemies.fireMult = D.fire;
@@ -593,7 +596,7 @@ function defeat() {
   setTimeout(() => showEnd(false), 2200);
 }
 function restart() {
-  enemies.clear(); grenades.clear(); boss.clear(); pickups.reset(); hazards.reset(); walkers.clear();
+  enemies.clear(); grenades.clear(); boss.clear(); pickups.reset(); hazards.reset(); walkers.clear(); props.reset();
   player.pos.copy(level.playerStart); player.vel.set(0, 0, 0); player.yaw = level.playerYaw; player.pitch = 0;
   player.health = 100; player.dead = false;
   G.weapon.ammo = 30; G.weapon.reserve = 180; G.pistol.ammo = 15; G.pistol.reserve = 60; G.dmr.ammo = 20; G.dmr.reserve = 80;
@@ -682,6 +685,7 @@ function shoot(t) {
         audio.glass && audio.glass(pane.pos);
       }
     } else effects.impact(wh.point, n, wh.object.userData.surf);
+    if (wh.object.userData.prop) props.hit(wh.object.userData.prop, wh.point, dir, weapon.damage[1]);
     if (wh.object.userData.drum) hazards.damage(wh.object.userData.drum, THREE.MathUtils.randFloat(weapon.damage[0], weapon.damage[1]), wh.point.clone().addScaledVector(n, 0.03));
     audio.impact(wh.point, wh.object.userData.surf);
   } else end = origin.clone().addScaledVector(dir, 400);
@@ -849,6 +853,7 @@ function loop() {
     killSource = { type: 'boom' };
     grenades.update(dt, { enemies, player, t, onPlayerHit: enemies.onPlayerHit, boss, hazards, walkers });
     hazards.update(dt, { enemies, player, t, onPlayerHit: enemies.onPlayerHit, boss, walkers });
+    props.update(dt, player);
     killSource = { type: 'other' };
     walkers.update(dt, t, player);
     boss.update(dt, t, player);
@@ -918,4 +923,4 @@ weapon.root.visible = false;
 if (!noLoop) loop();
 
 // debug / screenshot hooks
-window.__game = { emp, fireEMP, stats, showEnd, G, walkers, REFL, rain: G.rain, hazards, pickups: G.pickups, music: G.music, boss, switchWeapon, weapons, get weapon() { return weapon; }, ambient, updateHUD, score, grenades, setLocked: (v) => { locked = v; }, loop, start: () => { started = true; waves.start(); }, FOG, sun: G.sun, THREE, scene, camera, player, enemies, effects, level, R, waves, renderer, togglePhoto, shoot, input };
+window.__game = { props, emp, fireEMP, stats, showEnd, G, walkers, REFL, rain: G.rain, hazards, pickups: G.pickups, music: G.music, boss, switchWeapon, weapons, get weapon() { return weapon; }, ambient, updateHUD, score, grenades, setLocked: (v) => { locked = v; }, loop, start: () => { started = true; waves.start(); }, FOG, sun: G.sun, THREE, scene, camera, player, enemies, effects, level, R, waves, renderer, togglePhoto, shoot, input };

@@ -623,6 +623,8 @@ export class Level {
   }
 
   cone(x, z, ry = 0, tipped = false) {
+    // standing cones are loose physics props (see props.js)
+    if (!tipped) { (this.coneSpots = this.coneSpots || []).push([x, z, ry]); return; }
     const pts = [[0, 0.03], [0.17, 0.03], [0.17, 0.0], [0.19, 0.0], [0.19, 0.035], [0.12, 0.05], [0.035, 0.7], [0.0, 0.71]].map(([a, b]) => new THREE.Vector2(a, b));
     const g = new THREE.LatheGeometry(pts, 24);
     const opts = tipped ? { rz: Math.PI / 2 - 0.2 } : {};
