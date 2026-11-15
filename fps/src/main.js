@@ -64,7 +64,7 @@ async function boot() {
   await progress(0.02, '初始化渲染器');
   const lib = await buildMaterials(renderer, R.q, (f, l) => progress(0.05 + f * 0.7, l));
   await progress(0.78, '搭建码头');
-  createSky(renderer, scene, sunDir, TOD);
+  const skyMesh = createSky(renderer, scene, sunDir, TOD);
 
   // sun
   const sun = new THREE.DirectionalLight(TOD.sunColor, TOD.sunIntensity);
@@ -160,7 +160,7 @@ async function boot() {
   flareLight.castShadow = false; scene.add(flareLight);
   const flareCore = new THREE.Mesh(new THREE.SphereGeometry(0.18, 10, 8), new THREE.MeshBasicMaterial({ color: new THREE.Color(40, 34, 26), fog: false }));
   flareCore.visible = false; flareCore.userData.noAO = true; scene.add(flareCore);
-  return { flareLight, flareCore, flashlight, lensGlow, lib, level, effects, audio, player, weapon, pistol, dmr, shotgun, enemies, grenades, ambient, boss, music, pickups, hazards, props, rain, hemi, walkers, sun };
+  return { skyMesh, flareLight, flareCore, flashlight, lensGlow, lib, level, effects, audio, player, weapon, pistol, dmr, shotgun, enemies, grenades, ambient, boss, music, pickups, hazards, props, rain, hemi, walkers, sun };
 }
 
 const G = await boot();
@@ -558,7 +558,7 @@ const WALKER_SPAWNS = [[-9, -20], [13, -0.5], [0, 17.5], [6, -20.5], [-8, 1.5]];
 const CN = ['一', '二', '三', '四', '五'];
 const waves = {
   index: 0, active: false, queue: [], timer: 0, spawnT: 0, done: false,
-  start() { this.index = 0; this.endless = false; this.begin(2.5); stats.t0 = performance.now(); },
+  start() { this.index = 0; this.endless = false; this.begin(2.5); stats.t0 = performance.now(); sunset.startT = simTime; },
   // campaign waves, then procedurally escalating endless waves (boss every 5th)
   wave(i) {
     if (i < WAVES.length && !this.endless) return WAVES[i];
@@ -759,6 +759,24 @@ function updateDmgNums(dt) {
     n.el.style.transform = `translate(${(v.x * 0.5 + 0.5) * w}px, ${(-v.y * 0.5 + 0.5) * h}px) translate(-50%, -50%) scale(${pop})`;
     n.el.style.opacity = Math.min(1, (0.9 - n.t) * 4);
   }
+}
+// golden hour: the sun keeps setting while you fight (~15 min from 28 deg to 13 deg)
+const sunset = { base: sunDir.clone(), col0: TOD.sunColor.clone(), i0: TOD.sunIntensity, fogSun0: TOD.fog.sun.clone(), env0: null, acc: 0 };
+function updateSunset(dt) {
+  if (todName !== 'golden') return;
+  sunset.acc += dt; if (sunset.acc < 0.5) return; sunset.acc = 0;
+  const p = THREE.MathUtils.smoothstep((simTime - (sunset.startT || 0)) / 900, 0, 1);
+  const az = new THREE.Vector3(sunset.base.x, 0, sunset.base.z).normalize();
+  const e0 = Math.asin(sunset.base.y), e = THREE.MathUtils.lerp(e0, THREE.MathUtils.degToRad(13), p);
+  sunDir.copy(az.multiplyScalar(Math.cos(e))).setY(Math.sin(e));
+  G.sun.position.copy(sunDir).multiplyScalar(90);
+  FOG.uFogSunDir.value.copy(sunDir);
+  const u = G.skyMesh && G.skyMesh.material.uniforms; if (u && u.sunPosition) u.sunPosition.value.copy(sunDir).multiplyScalar(1000);
+  G.sun.color.copy(sunset.col0).lerp(new THREE.Color(1.0, 0.5, 0.26), p);
+  G.sun.intensity = sunset.i0 * (1 - 0.25 * p);
+  FOG.uFogSunColor.value.copy(sunset.fogSun0).lerp(new THREE.Color(0.85, 0.4, 0.16), p);
+  if (sunset.env0 === null) sunset.env0 = scene.environmentIntensity;
+  scene.environmentIntensity = sunset.env0 * (1 - 0.2 * p);
 }
 function scareGulls(pos, k) {
   const n = ambient.scare(pos, k);
@@ -1074,6 +1092,7 @@ function loop() {
     hazards.update(dt, { enemies, player, t, onPlayerHit: enemies.onPlayerHit, boss, walkers });
     props.update(dt, player);
     updateFlare(dt, t);
+    updateSunset(dt);
     updateDmgNums(realDt);
     killSource = { type: 'other' };
     walkers.update(dt, t, player);
@@ -1145,4 +1164,4 @@ weapon.root.visible = false;
 if (!noLoop) loop();
 
 // debug / screenshot hooks
-window.__game = { setMenuT: (v) => { menuT = v; }, radio, props, emp, fireEMP, stats, showEnd, G, walkers, REFL, rain: G.rain, hazards, pickups: G.pickups, music: G.music, boss, switchWeapon, weapons, get weapon() { return weapon; }, ambient, updateHUD, score, grenades, setLocked: (v) => { locked = v; }, loop, start: () => { started = true; waves.start(); }, FOG, sun: G.sun, THREE, scene, camera, player, enemies, effects, level, R, waves, renderer, togglePhoto, shoot, input };
+window.__game = { updateSunset, setSimTime: (v) => { simTime = v; }, setMenuT: (v) => { menuT = v; }, radio, props, emp, fireEMP, stats, showEnd, G, walkers, REFL, rain: G.rain, hazards, pickups: G.pickups, music: G.music, boss, switchWeapon, weapons, get weapon() { return weapon; }, ambient, updateHUD, score, grenades, setLocked: (v) => { locked = v; }, loop, start: () => { started = true; waves.start(); }, FOG, sun: G.sun, THREE, scene, camera, player, enemies, effects, level, R, waves, renderer, togglePhoto, shoot, input };
