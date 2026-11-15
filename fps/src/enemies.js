@@ -96,6 +96,30 @@ export class Enemies {
     const heavy = kind === 'heavy', kami = kind === 'kamikaze';
     const m = this.buildDrone(heavy);
     const sniper = kind === 'sniper', medic = kind === 'medic';
+    const shielded = kind === 'shield';
+    if (shielded) {
+      m.group.scale.setScalar(1.5);
+      if (!this.shieldAcc) this.shieldAcc = new THREE.MeshStandardMaterial({ color: 0x001820, emissive: new THREE.Color(0.2, 0.9, 1.4), emissiveIntensity: 6 });
+      m.group.traverse((o) => { if (o.isMesh && o.material === this.accent) o.material = this.shieldAcc; });
+      if (!this.shieldMat) this.shieldMat = new THREE.ShaderMaterial({
+        uniforms: { uHit: { value: 0 }, uUp: { value: 1 }, uTime: { value: 0 }, uHitPos: { value: new THREE.Vector3() } },
+        transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+        vertexShader: 'varying vec3 vN; varying vec3 vV; varying vec3 vP; void main(){ vP = position; vN = normalize(normalMatrix * normal); vec4 mv = modelViewMatrix * vec4(position,1.0); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }',
+        fragmentShader: `uniform float uHit, uUp, uTime; uniform vec3 uHitPos; varying vec3 vN; varying vec3 vV; varying vec3 vP;
+          float hex(vec2 p){ p.x *= 1.1547; p.y += mod(floor(p.x), 2.0) * 0.5; p = abs(fract(p) - 0.5); return abs(max(p.x * 1.5 + p.y, p.y * 2.0) - 1.0); }
+          void main(){
+            float fres = pow(1.0 - abs(dot(normalize(vN), normalize(vV))), 2.2);
+            vec2 uv = vec2(atan(vP.x, vP.z) * 2.2, vP.y * 7.0);
+            float h = smoothstep(0.08, 0.0, hex(uv * 1.6));
+            float d = length(vP - uHitPos);
+            float ring = uHit * smoothstep(0.25, 0.0, abs(d - (1.0 - uHit) * 0.9));
+            float a = (0.10 + fres * 0.55 + h * 0.18 * (0.6 + 0.4 * sin(uTime * 3.0 + vP.y * 9.0)) + ring * 1.6 + uHit * 0.3) * uUp;
+            gl_FragColor = vec4(vec3(0.25, 0.85, 1.4) * a, a);
+          }`,
+      });
+      const sh = new THREE.Mesh(new THREE.SphereGeometry(0.62, 32, 16, 0, Math.PI * 2, 0, Math.PI * 0.42).rotateX(-Math.PI / 2), this.shieldMat.clone());
+      sh.position.set(0, -0.02, -0.05); sh.userData.noAO = true; sh.renderOrder = 11; m.group.add(sh); m.shield = sh;
+    }
     const miner = kind === 'miner';
     if (miner) {
       m.group.scale.setScalar(1.4);
@@ -131,8 +155,8 @@ export class Enemies {
     const e = {
       ...m, pos: m.group.position, vel: new THREE.Vector3(), heavy,
       kami, kind, beepT: 0, armed: -1, stagger: 0, aimT: 0,
-      role: kami ? 'kami' : (miner ? 'harass' : heavy ? 'suppress' : ['flank', 'harass', 'suppress'][this.roleIdx = ((this.roleIdx || 0) + 1) % 3]),
-      hp: (heavy ? 260 : (kami ? 45 : (sniper ? 90 : (medic ? 75 : (miner ? 110 : 100))))) * (this.hpMult || 1), maxHp: (heavy ? 260 : (kami ? 45 : (sniper ? 90 : (medic ? 75 : (miner ? 110 : 100))))) * (this.hpMult || 1), mineT: 3, radius: heavy ? 1.0 : (kami ? 0.62 : 0.76),
+      role: kami ? 'kami' : (shielded ? 'suppress' : miner ? 'harass' : heavy ? 'suppress' : ['flank', 'harass', 'suppress'][this.roleIdx = ((this.roleIdx || 0) + 1) % 3]),
+      hp: (heavy ? 260 : (kami ? 45 : (sniper ? 90 : (medic ? 75 : (miner ? 110 : (shielded ? 130 : 100)))))) * (this.hpMult || 1), maxHp: (heavy ? 260 : (kami ? 45 : (sniper ? 90 : (medic ? 75 : (miner ? 110 : (shielded ? 130 : 100)))))) * (this.hpMult || 1), mineT: 3, shieldHp: shielded ? 220 : 0, shieldDown: 0, shieldHitT: 9, turnRate: shielded ? 1.1 : 6, radius: heavy ? 1.0 : (kami ? 0.62 : 0.76),
       fireCD: 1.5 + Math.random() * 2, charge: 0, burst: 0,
       orbit: Math.random() * Math.PI * 2, orbitDir: Math.random() < 0.5 ? -1 : 1,
       pref: sniper ? 22 + Math.random() * 5 : (heavy ? 13 : 10) + Math.random() * 5, alt: sniper ? 8 + Math.random() * 2.5 : 3.2 + Math.random() * 3,
@@ -163,6 +187,25 @@ export class Enemies {
       if (t > 0 && t < maxT && (!best || t < best.t)) best = { mine: m, t, point: o.clone().addScaledVector(d, t) };
     }
     return best;
+  }
+
+  // shield: true if a shot travelling along dir is caught by the frontal shield
+  shieldBlocks(e, dir) {
+    if (!e.shield || e.shieldDown > 0) return false;
+    const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(e.group.quaternion);
+    return fwd.dot(dir) < -0.45;
+  }
+  hitShield(e, amount, point) {
+    if (!e.shield || e.shieldDown > 0) return;
+    e.shieldHp -= amount; e.shieldHitT = 0;
+    const u = e.shield.material.uniforms; u.uHit.value = 1;
+    if (point) u.uHitPos.value.copy(e.shield.worldToLocal(point.clone()));
+    if (e.shieldHp <= 0) {
+      e.shieldDown = 7;
+      for (let i = 0; i < 40; i++) this.effects.add.emit({ pos: e.pos, vel: new THREE.Vector3((Math.random() - 0.5) * 8, (Math.random() - 0.3) * 6, (Math.random() - 0.5) * 8), life: 0.5 + Math.random() * 0.4, size: 0.02, size1: 0.0, color: new THREE.Color(1, 4, 7), alpha: 1, alpha1: 0, gravity: 3, stretch: 0.03 });
+      this.audio.glass && this.audio.glass(e.pos);
+      if (this.onShieldBreak) this.onShieldBreak(e);
+    }
   }
 
   // weak point: does the ray pass through the sensor eye?
@@ -270,6 +313,7 @@ export class Enemies {
     for (const o of this.list.slice()) {
       if (!o.alive) continue;
       const d = o.pos.distanceTo(pos);
+      if (d < radius * 1.3 && d > 0.01 && o.shield) this.hitShield(o, droneMax * 1.5 * (1 - d / (radius * 1.3)), null);
       if (d < radius * 1.3 && d > 0.01) this.damage(o, droneMax * (1 - d / (radius * 1.3)), o.pos.clone(), o.pos.clone().sub(pos).normalize());
     }
   }
@@ -435,7 +479,7 @@ export class Enemies {
       const pitch = Math.atan2(look.y, Math.hypot(look.x, look.z)) * 0.6;
       const localVel = e.vel.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), -yaw);
       const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(pitch - localVel.z * 0.05 + Math.sin(e.wob * 2.1) * 0.03, yaw, -localVel.x * 0.07 + Math.sin(e.wob * 1.7) * 0.04, 'YXZ'));
-      e.group.quaternion.slerp(q, 1 - Math.exp(-6 * dt));
+      e.group.quaternion.slerp(q, 1 - Math.exp(-(e.turnRate || 6) * dt));
       if (e.stagger > 0) {
         // broken rotor: lurch, sink and spin until it recovers
         e.stagger -= dt;
@@ -460,6 +504,14 @@ export class Enemies {
         if (Math.random() < dt * 14) this.effects.fire.emit(e.core.getWorldPosition(new THREE.Vector3()), new THREE.Vector3(0, 1.2, 0).addScaledVector(e.vel, -0.3), 0.18 + Math.random() * 0.15, 0.35 + Math.random() * 0.2, 0.9);
       }
       if (e.flick > 0) { e.flick -= dt; e.eye.material.emissiveIntensity *= 0.08; }
+      if (e.shield) {
+        const u = e.shield.material.uniforms; u.uTime.value += dt; u.uHit.value = Math.max(0, u.uHit.value - dt * 2.5);
+        e.shieldHitT += dt;
+        if (e.shieldDown > 0) { e.shieldDown -= dt; if (e.shieldDown <= 0) { e.shieldHp = 220; this.audio.charge && this.audio.charge(e.pos); } }
+        else if (e.shieldHitT > 4 && e.shieldHp < 220) e.shieldHp = Math.min(220, e.shieldHp + 60 * dt);
+        const up = e.shieldDown > 0 ? 0 : 1; u.uUp.value += (up - u.uUp.value) * Math.min(1, dt * 6);
+        e.shield.visible = u.uUp.value > 0.02;
+      }
       if (e.core.visible) this.coreMat.emissiveIntensity = 5 + Math.sin(e.wob * 37) * 2;
 
       // damaged smoke

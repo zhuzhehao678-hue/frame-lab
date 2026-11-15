@@ -401,7 +401,7 @@ function updateCompass() {
   compass.enemies.forEach((el, i) => {
     const e = list[i];
     if (!e) { el.style.display = 'none'; return; }
-    el.className = 'en' + (e.heavy ? ' heavy' : '') + (e.kami ? ' kami' : '') + (e.kind === 'walker' ? ' walker' : '') + (e.kind === 'medic' ? ' medic' : '') + (e.kind === 'miner' ? ' miner' : '');
+    el.className = 'en' + (e.heavy ? ' heavy' : '') + (e.kami ? ' kami' : '') + (e.kind === 'walker' ? ' walker' : '') + (e.kind === 'medic' ? ' medic' : '') + (e.kind === 'miner' ? ' miner' : '') + (e.kind === 'shield' ? ' shieldd' : '');
     place(el, THREE.MathUtils.radToDeg(Math.atan2(e.pos.x - camera.position.x, -(e.pos.z - camera.position.z))));
   });
 }
@@ -492,8 +492,8 @@ for (const w of weapons) {
   w.events.magin = () => audio.magIn();
   w.events.bolt = () => audio.bolt();
 }
-const NAMES = { normal: '哨兵无人机', heavy: '重型哨兵', kamikaze: '自爆蜂', walker: '四足机甲', sniper: '狙击无人机', medic: '维修无人机', miner: '布雷无人机' };
-const POINTS = { normal: 100, heavy: 250, kamikaze: 150, walker: 450, sniper: 220, medic: 200, miner: 220 };
+const NAMES = { normal: '哨兵无人机', heavy: '重型哨兵', kamikaze: '自爆蜂', walker: '四足机甲', sniper: '狙击无人机', medic: '维修无人机', miner: '布雷无人机', shield: '盾卫无人机' };
+const POINTS = { normal: 100, heavy: 250, kamikaze: 150, walker: 450, sniper: 220, medic: 200, miner: 220, shield: 300 };
 const score = { total: 0, combo: 0, last: -10, best: +(saved.best || 0) };
 // scorestreak: every EMP_KILLS kills charges an EMP that disables machines nearby
 const EMP_KILLS = 6, EMP_RADIUS = 32;
@@ -515,6 +515,7 @@ function fireEMP() {
     if (!e.alive || e.pos.distanceTo(c) > EMP_RADIUS) continue;
     n++;
     if (e.kind === 'kamikaze') { enemies.damage(e, 1e4, e.pos, e.pos.clone().sub(c).normalize()); continue; }
+    if (e.shield) enemies.hitShield(e, 1e4, null);
     e.stagger = e.heavy ? 3 : 4; e.emp = e.stagger; e.charge = 0; e.burst = 0; e.aimT = 0;
     e.fireCD = Math.max(e.fireCD, e.stagger + 1);
     if (e.beam) e.beam.visible = false;
@@ -559,7 +560,7 @@ enemies.onPlayerHit = (from, dmg) => {
 };
 
 // each wave: [normal, heavy, kamikaze]
-const WAVES = [[3, 0, 0], [3, 1, 1], [3, 1, 2, null, 1, 0, 1, 1], [3, 2, 3, null, 1, 1, 1, 1], [2, 1, 2, 'boss', 1, 1, 0, 1]];
+const WAVES = [[3, 0, 0], [3, 1, 1], [3, 1, 2, null, 1, 0, 1, 1, 1], [3, 2, 3, null, 1, 1, 1, 1, 1], [2, 1, 2, 'boss', 1, 1, 0, 1, 1]];
 const WALKER_SPAWNS = [[-9, -20], [13, -0.5], [0, 17.5], [6, -20.5], [-8, 1.5]];
 const CN = ['一', '二', '三', '四', '五'];
 const waves = {
@@ -569,7 +570,7 @@ const waves = {
   wave(i) {
     if (i < WAVES.length && !this.endless) return WAVES[i];
     const e = i - WAVES.length + 1;
-    return [Math.min(3 + Math.floor(e * 0.6), 7), Math.min(1 + Math.floor(e / 2), 4), Math.min(2 + Math.floor(e / 1.5), 7), e % 5 === 0 ? 'boss' : null, Math.min(1 + Math.floor(e / 3), 3), Math.min(1 + Math.floor(e / 2), 3), Math.min(1 + Math.floor(e / 3), 2), Math.min(Math.floor(e / 2), 2)];
+    return [Math.min(3 + Math.floor(e * 0.6), 7), Math.min(1 + Math.floor(e / 2), 4), Math.min(2 + Math.floor(e / 1.5), 7), e % 5 === 0 ? 'boss' : null, Math.min(1 + Math.floor(e / 3), 3), Math.min(1 + Math.floor(e / 2), 3), Math.min(1 + Math.floor(e / 3), 2), Math.min(Math.floor(e / 2), 2), Math.min(1 + Math.floor(e / 3), 3)];
   },
   goEndless() {
     this.endless = true; this.done = false; gameOver = false;
@@ -585,13 +586,13 @@ const waves = {
   },
   begin(delay) {
     this.active = false; this.timer = delay;
-    const [n, h, k, special, wk = 0, sn = 0, md = 0, mn = 0] = this.wave(this.index);
+    const [n, h, k, special, wk = 0, sn = 0, md = 0, mn = 0, sd = 0] = this.wave(this.index);
     stats.waveDmg = 0;
     this.bossPending = special === 'boss'; this.bossT = 4;
-    const q = [...Array(n).fill('normal'), ...Array(h).fill('heavy'), ...Array(k).fill('kamikaze'), ...Array(wk).fill('walker'), ...Array(sn).fill('sniper'), ...Array(md).fill('medic'), ...Array(mn).fill('miner')];
+    const q = [...Array(n).fill('normal'), ...Array(h).fill('heavy'), ...Array(k).fill('kamikaze'), ...Array(wk).fill('walker'), ...Array(sn).fill('sniper'), ...Array(md).fill('medic'), ...Array(mn).fill('miner'), ...Array(sd).fill('shield')];
     for (let i = q.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [q[i], q[j]] = [q[j], q[i]]; }
     this.queue = q;
-    const parts = [`哨兵 ×${n}`]; if (h) parts.push(`重型哨兵 ×${h}`); if (k) parts.push(`自爆蜂 ×${k}`); if (wk) parts.push(`四足机甲 ×${wk}`); if (sn) parts.push(`狙击无人机 ×${sn}`); if (md) parts.push(`维修无人机 ×${md}`); if (mn) parts.push(`布雷无人机 ×${mn}`);
+    const parts = [`哨兵 ×${n}`]; if (h) parts.push(`重型哨兵 ×${h}`); if (k) parts.push(`自爆蜂 ×${k}`); if (wk) parts.push(`四足机甲 ×${wk}`); if (sn) parts.push(`狙击无人机 ×${sn}`); if (md) parts.push(`维修无人机 ×${md}`); if (mn) parts.push(`布雷无人机 ×${mn}`); if (sd) parts.push(`盾卫无人机 ×${sd}`);
     if (this.endless) banner(`ENDLESS · ${this.index + 1}`, `无尽 · 第 ${this.index + 1} 波`, (special === 'boss' ? '母舰来袭  ·  ' : '') + parts.join('  ·  '), 3.2);
     else if (special === 'boss') banner('FINAL WAVE', '母舰 · WARDEN', '摧毁四个旋翼舱使护盾失效，然后攻击核心 · 激光可被掩体阻挡', 5);
     else banner(`WAVE ${this.index + 1} / ${WAVES.length}`, `第 ${CN[this.index]} 波`, parts.join('  ·  '), 3.2);
@@ -618,6 +619,7 @@ const waves = {
       const pts = level.spawnPoints.slice().sort((a, b) => b.distanceTo(player.pos) - a.distanceTo(player.pos));
       const p = pts[Math.floor(Math.random() * 3)].clone().add(new THREE.Vector3((Math.random() - 0.5) * 3, 0, (Math.random() - 0.5) * 3));
       enemies.spawn(p, kind);
+      if (kind === 'shield' && !this.shieldHint) { this.shieldHint = true; setTimeout(() => hint('盾卫无人机：正面护盾挡子弹 · 它转身很慢，绕侧面打，或用手雷 / EMP 破盾', 5), 1500); }
       if (kind === 'miner' && !this.minerHint) { this.minerHint = true; setTimeout(() => hint('布雷无人机会在你脚下投放感应地雷 · 闪红灯的地雷可以开枪引爆', 4.5), 1500); }
       if (kind === 'medic' && !this.medicHint) { this.medicHint = true; setTimeout(() => hint('维修无人机正在修复敌人 · 优先击落（罗盘绿色标记）', 4.5), 1500); }
       this.spawnT = 1.1;
@@ -869,7 +871,13 @@ function shoot(t) {
       if (r !== 'armor') { stats.hits++; hitT = 0.12; audio.hitmarker(r === 'kill'); if (r === 'kill') killT = 0.35; }
       audio.impact(bh.point, 'metal');
       for (let i = 0; i < 8; i++) effects.add.emit({ pos: bh.point, vel: new THREE.Vector3((Math.random() - 0.5) * 6, Math.random() * 4, (Math.random() - 0.5) * 6), life: 0.3, size: 0.012, color: new THREE.Color(8, 5, 2), gravity: 9.8, stretch: 0.035 });
-    } else if (eh && eh.mine) {
+    } else if (eh && eh.enemy && enemies.shieldBlocks(eh.enemy, dir)) {
+      end = eh.point; stats.hits++; hitT = 0.08;
+      enemies.hitShield(eh.enemy, THREE.MathUtils.randFloat(weapon.damage[0], weapon.damage[1]) * penMul, eh.point);
+      for (let i = 0; i < 6; i++) effects.add.emit({ pos: eh.point, vel: dir.clone().multiplyScalar(-3).add(new THREE.Vector3((Math.random() - 0.5) * 4, Math.random() * 3, (Math.random() - 0.5) * 4)), life: 0.25, size: 0.012, color: new THREE.Color(1, 4, 7), gravity: 4, stretch: 0.03 });
+      audio.impact(eh.point, 'metal');
+      if (!eh.enemy.shieldHinted) { eh.enemy.shieldHinted = true; feed('护盾挡下了子弹 · 绕到侧后方或用手雷 / EMP'); }
+  } else if (eh && eh.mine) {
       end = eh.point; hitT = 0.12; killSource = { type: 'boom' }; enemies.detonateMine(eh.mine);
     } else if (eh) {
       end = eh.point; killSource.dist = eh.t;
