@@ -202,7 +202,7 @@ let locked = false, started = false, photo = false, gameOver = false;
 // --- key rebinding: user keys are translated to the default codes the
 // handlers below listen for, so every handler stays unchanged
 const BIND_ACTIONS = [['f', '前进', 'KeyW'], ['b', '后退', 'KeyS'], ['l', '左移', 'KeyA'], ['r', '右移', 'KeyD'], ['jump', '跳跃', 'Space'], ['sprint', '冲刺', 'ShiftLeft'], ['crouch', '蹲下 / 滑铲', 'KeyC'],
-  ['leanL', '左探头', 'KeyQ'], ['leanR', '右探头', 'KeyE'], ['reload', '换弹', 'KeyR'], ['grenade', '手雷', 'KeyG'], ['melee', '近战', 'KeyV'], ['light', '手电', 'KeyT'], ['inspect', '检视', 'KeyI'], ['emp', 'EMP', 'KeyX']];
+  ['leanL', '左探头', 'KeyQ'], ['leanR', '右探头', 'KeyE'], ['reload', '换弹', 'KeyR'], ['grenade', '手雷', 'KeyG'], ['melee', '近战', 'KeyV'], ['light', '手电', 'KeyT'], ['inspect', '检视', 'KeyI'], ['emp', 'EMP', 'KeyX'], ['gtype', '切换投掷物', 'KeyB']];
 const binds = Object.assign(Object.fromEntries(BIND_ACTIONS.map(([a, , d]) => [a, d])), saved.binds || {});
 let bindFrom = {}, bindAway = new Set();
 function rebuildBinds() {
@@ -246,6 +246,7 @@ addEventListener('keydown', (e) => {
   if (e.code === 'Digit3' && locked) switchWeapon(2);
   if (e.code === 'Digit4' && locked) switchWeapon(3);
   if (e.code === 'KeyX' && locked) fireEMP();
+  if (e.code === 'KeyB' && locked && !G.aimingGrenade) { const ty = grenades.toggleType(); hint(ty === 'smoke' ? '投掷物：烟雾弹（遮断无人机视线）' : '投掷物：破片手雷', 1.4); audio.click(1500, 0.25); }
   if (e.code === 'KeyR' && locked && !photo) { if (weapon.startReload()) audio.click(1200, 0.3); }
   if (e.code === 'KeyG' && locked && !photo && !player.dead && grenades.canThrow(weapon) && !e.repeat) G.aimingGrenade = true;
   if (e.code === 'KeyT' && locked && !photo) {
@@ -445,7 +446,7 @@ function banner(k, t, s, dur = 3) {
 }
 function feed(text) { const d = document.createElement('div'); d.textContent = text; hud.feed.prepend(d); setTimeout(() => d.remove(), 3300); }
 function updateHUD(dt, t) {
-  hud.gren.textContent = '◆'.repeat(grenades.count) + '◇'.repeat(Math.max(0, grenades.max - grenades.count));
+  { const gh = `<span style="opacity:${grenades.type === 'frag' ? 1 : 0.4}">${'◆'.repeat(grenades.count) + '◇'.repeat(Math.max(0, grenades.max - grenades.count))}</span> <span style="opacity:${grenades.type === 'smoke' ? 1 : 0.4}">${'●'.repeat(grenades.smokeCount) + '○'.repeat(Math.max(0, grenades.smokeMax - grenades.smokeCount))}</span>`; if (hud.gren._h !== gh) { hud.gren._h = gh; hud.gren.innerHTML = gh; } }
   hud.mag.textContent = weapon.ammo; hud.res.textContent = weapon.reserve;
   const pips = hud.pips.children;
   for (let i = 0; i < pips.length; i++) pips[i].className = i < weapon.ammo ? '' : 'e';
@@ -585,6 +586,7 @@ const waves = {
     G.dmr.reserve = Math.min(G.dmr.reserve + 20, 100);
     G.shotgun.reserve = Math.min(G.shotgun.reserve + 10, 40);
     grenades.count = Math.min(grenades.max, grenades.count + 2);
+    grenades.smokeCount = Math.min(grenades.smokeMax, grenades.smokeCount + 1);
     player.health = Math.max(player.health, 70);
   },
   begin(delay) {

@@ -205,7 +205,7 @@ export class Walkers {
       const side = new THREE.Vector3(-to.z, 0, to.x).multiplyScalar(w.strafe);
       // line of sight from the turret; lose it for long and the walker pushes in
       const tw0 = w.turret.getWorldPosition(new THREE.Vector3());
-      w.los = !segmentBlocked(this.level, tw0, target);
+      w.los = !segmentBlocked(this.level, tw0, target, true);
       w.lostT = w.los ? 0 : (w.lostT || 0) + dt;
       let want = side.clone().multiplyScalar(0.6);
       if (dist > 13 || w.lostT > 1.5) want.add(to.clone().multiplyScalar(w.lostT > 1.5 ? 1.6 : 1)); else if (dist < 8) want.sub(to);

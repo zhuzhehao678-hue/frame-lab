@@ -185,6 +185,11 @@ export class Audio {
     this.tone(d, t + 0.1, 2.2, { f: 600, f1: 1900, gain: 0.05, attack: 0.3, curve: 1.5 });
     this.noise(d, t + 2.4, 0.3, { type: 'bandpass', f: 1200, q: 0.8, gain: 0.25 });
   }
+  smokePop(pos) {
+    if (!this.enabled) return; const t = this.ctx.currentTime; const d = this.out(pos, { verb: 0.3, gain: 0.8 });
+    this.click(1200, 0.4);
+    this.noise(d, t + 0.05, 3.5, { type: 'bandpass', f: 2600, f1: 900, q: 0.7, gain: 0.35, attack: 0.08, curve: 1.6 });
+  }
   gulls(n) {
     if (!this.enabled) return; const t0 = this.ctx.currentTime;
     for (let i = 0; i < Math.min(n, 5); i++) {

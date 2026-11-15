@@ -13,10 +13,22 @@ function rayBox(o, d, b, maxT) {
   }
   return tmin;
 }
-export function segmentBlocked(level, a, b) {
+// active smoke clouds {pos, r}; they block sight (not blasts or sound)
+export const SMOKES = [];
+export function smokeBlocked(a, b) {
+  if (!SMOKES.length) return false;
+  const d = b.clone().sub(a); const len = d.length(); d.divideScalar(len);
+  for (const s of SMOKES) {
+    if (s.r < 0.5) continue;
+    const t = THREE.MathUtils.clamp(s.pos.clone().sub(a).dot(d), 0, len);
+    if (a.clone().addScaledVector(d, t).distanceTo(s.pos) < s.r * 0.85) return true;
+  }
+  return false;
+}
+export function segmentBlocked(level, a, b, sight = false) {
   const d = b.clone().sub(a); const len = d.length(); d.divideScalar(len);
   for (const bx of level.colliders) { const t = rayBox(a, d, bx, len); if (t >= 0 && t < len - 0.05) return true; }
-  return false;
+  return sight && smokeBlocked(a, b);
 }
 export function rayColliders(level, o, d, maxT) {
   let best = maxT;
@@ -420,7 +432,7 @@ export class Enemies {
       if (!e.alive) continue;
       e.wob += dt;
       // line of sight
-      const los = !segmentBlocked(this.level, e.pos, target);
+      const los = !segmentBlocked(this.level, e.pos, target, true);
       if (los) { e.seen = true; e.lostT = 0; } else e.lostT += dt;
       // desired position: orbit around the player at a preferred range
       e.orbit += dt * 0.22 * e.orbitDir * (e.heavy ? 0.6 : 1);

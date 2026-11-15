@@ -1,6 +1,7 @@
 // Frag grenades: thrown with G, bounce off the level's boxes with restitution
 // and friction, explode after a fuse with distance-falloff damage.
 import * as THREE from 'three';
+import { SMOKES } from './enemies.js';
 import { segmentBlocked } from './enemies.js';
 
 const R = 0.045;
@@ -9,6 +10,7 @@ export class Grenades {
   constructor(scene, lib, effects, level, audio) {
     this.scene = scene; this.effects = effects; this.level = level; this.audio = audio;
     this.count = 3; this.max = 4; this.cool = 0;
+    this.smokeCount = 2; this.smokeMax = 2; this.type = 'frag'; this.clouds = [];
     this.list = [];
     const body = lib.M.gunMetal.clone(); body.color = new THREE.Color(1.6, 2.0, 1.1);
     const pts = [[0, -0.04], [0.02, -0.038], [0.033, -0.025], [0.037, 0], [0.034, 0.022], [0.024, 0.035], [0.014, 0.04], [0.014, 0.05], [0, 0.05]].map(([x, y]) => new THREE.Vector2(x, y));
@@ -17,6 +19,12 @@ export class Grenades {
     const spoon = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.07, 0.006), lib.M.steel); spoon.position.set(0.03, 0.02, 0); spoon.rotation.z = -0.25; this.proto.add(spoon);
     const ring = new THREE.Mesh(new THREE.TorusGeometry(0.012, 0.0022, 6, 16), lib.M.steel); ring.position.set(-0.012, 0.055, 0); this.proto.add(ring);
     this.proto.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    // smoke canister: grey cylinder with a green band
+    this.smokeProto = new THREE.Group();
+    const cyl = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 0.11, 16), lib.M.paintGrey); this.smokeProto.add(cyl);
+    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.0285, 0.0285, 0.02, 16), lib.M.containerGreen); band.position.y = 0.025; this.smokeProto.add(band);
+    const top = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.02, 10), lib.M.steel); top.position.y = 0.065; this.smokeProto.add(top);
+    this.smokeProto.traverse((o) => { if (o.isMesh) o.castShadow = true; });
   }
 
   // launch state shared by the preview and the real throw
@@ -50,16 +58,20 @@ export class Grenades {
   }
   hidePreview() { if (this.dots) { this.dots.visible = false; this.ring.visible = false; } }
 
-  canThrow(weapon) { return this.count > 0 && this.cool <= 0 && !weapon.reloading; }
+  get left() { return this.type === 'smoke' ? this.smokeCount : this.count; }
+  canThrow(weapon) { return this.left > 0 && this.cool <= 0 && !weapon.reloading; }
+  toggleType() { this.type = this.type === 'frag' ? 'smoke' : 'frag'; return this.type; }
 
   throw(camera, playerVel) {
-    this.count--; this.cool = 1.0;
+    const smoke = this.type === 'smoke';
+    if (smoke) this.smokeCount--; else this.count--;
+    this.cool = 1.0;
     this.hidePreview();
     const { pos, vel } = this.launch(camera, playerVel);
-    const mesh = this.proto.clone();
+    const mesh = (smoke ? this.smokeProto : this.proto).clone();
     mesh.position.copy(pos);
     this.scene.add(mesh);
-    this.list.push({ mesh, vel, spin: new THREE.Vector3(Math.random() * 14 - 7, Math.random() * 10, 12), fuse: 2.4, bounces: 0 });
+    this.list.push({ mesh, vel, spin: new THREE.Vector3(Math.random() * 14 - 7, Math.random() * 10, 12), fuse: smoke ? 1.5 : 2.4, bounces: 0, smoke });
     this.audio.grenadeThrow && this.audio.grenadeThrow();
   }
 
@@ -92,9 +104,31 @@ export class Grenades {
         }
       }
       g.mesh.rotation.x += g.spin.x * dt; g.mesh.rotation.y += g.spin.y * dt; g.mesh.rotation.z += g.spin.z * dt;
-      if (g.fuse <= 0) { this.explode(g.mesh.position.clone(), ctx); this.scene.remove(g.mesh); this.list.splice(i, 1); }
+      if (g.fuse <= 0) {
+        if (g.smoke) this.popSmoke(g.mesh.position.clone()); else this.explode(g.mesh.position.clone(), ctx);
+        this.scene.remove(g.mesh); this.list.splice(i, 1);
+      }
+    }
+    // smoke clouds: grow, hold, thin out; keep refilling the volume with puffs
+    for (let i = this.clouds.length - 1; i >= 0; i--) {
+      const c = this.clouds[i]; c.t += dt;
+      c.s.r = c.t < 2.5 ? 4.6 * Math.sqrt(c.t / 2.5) : (c.t > 14 ? 4.6 * Math.max(0, 1 - (c.t - 14) / 2) : 4.6);
+      c.s.pos.y = 0.6 + c.s.r * 0.35;
+      if (c.t < 13 && Math.random() < dt * 32) {
+        const a = Math.random() * Math.PI * 2, r = Math.random() * c.s.r * 0.7;
+        this.effects.smoke.emit({ pos: c.base.clone().add(new THREE.Vector3(Math.cos(a) * r, 0.2 + Math.random() * c.s.r * 0.6, Math.sin(a) * r)), vel: new THREE.Vector3((Math.random() - 0.5) * 0.6, 0.25 + Math.random() * 0.3, (Math.random() - 0.5) * 0.6), life: 5 + Math.random() * 2, size: 1.2, size1: 3.6, color: new THREE.Color(0.62, 0.64, 0.62).multiply(this.effects.ambient).multiplyScalar(1.5), alpha: 0.85, alpha1: 0, drag: 0.8, gravity: -0.02, rotVel: (Math.random() - 0.5) * 0.4, fadeIn: 0.4 });
+      }
+      if (c.t > 16) { this.clouds.splice(i, 1); SMOKES.splice(SMOKES.indexOf(c.s), 1); }
     }
   }
+
+  popSmoke(pos) {
+    const s = { pos: pos.clone(), r: 0 }; SMOKES.push(s);
+    this.clouds.push({ s, base: pos.clone().setY(Math.max(pos.y, 0)), t: 0 });
+    this.audio.smokePop && this.audio.smokePop(pos);
+  }
+
+  clearClouds() { this.clouds.length = 0; SMOKES.length = 0; }
 
   explode(pos, { enemies, player, t, onPlayerHit, boss, hazards, walkers }) {
     if (walkers) walkers.splash(pos, 7, 230);
@@ -129,5 +163,5 @@ export class Grenades {
     player.shake = Math.min(1, player.shake + Math.max(0, 0.9 * (1 - dp / 22)));
   }
 
-  clear() { for (const g of this.list) this.scene.remove(g.mesh); this.list = []; this.count = 3; }
+  clear() { for (const g of this.list) this.scene.remove(g.mesh); this.list = []; this.count = 3; this.smokeCount = 2; this.type = 'frag'; this.clearClouds(); }
 }
