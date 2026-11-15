@@ -688,6 +688,7 @@ function recordLB(grade, reached, win) {
   return { list, id };
 }
 renderLB($('mlb'), loadLB());
+enemies.onRetreat = (e) => { if (!G.retreatHint) { G.retreatHint = true; feed('受损的无人机正在撤退修理 · 别让它跑了'); } };
 G.crash.onHit = () => radio('防空击中了一架运输无人机——它要砸到货轮上了！');
 G.crash.onCrash = () => { radio('货轮甲板起火了……别管它，专心清理堆场。'); player.shake = Math.max(player.shake, 0.3); };
 for (const w of weapons) w.setFinish(settings.finish, G.lib);

@@ -454,6 +454,19 @@ export class Enemies {
       desired.z = THREE.MathUtils.clamp(desired.z, -22, 19);
       const distP = target.distanceTo(e.pos);
       if (e.kami) { desired.copy(target); desired.y = distP > 9 ? 3.6 : target.y - 0.25; }
+      // badly damaged: break off toward a repair drone (or just away), come back when patched up
+      if (!e.kami && e.kind !== 'medic' && e.kind !== 'sniper' && !e.retreatDone) {
+        if (!e.retreating && e.hp < e.maxHp * 0.3 && e.hp > 0) { e.retreating = true; e.retreatT = 0; if (this.onRetreat) this.onRetreat(e); }
+        if (e.retreating) {
+          e.retreatT += dt;
+          const medic = this.list.find((o) => o.alive && o.kind === 'medic');
+          if (medic) { desired.copy(medic.pos).add(new THREE.Vector3(0, -1.2, 0)); }
+          else { const away = e.pos.clone().sub(target).setY(0).normalize(); desired.copy(target).addScaledVector(away, 22); desired.y = 9; }
+          desired.x = THREE.MathUtils.clamp(desired.x, -16, 15.5); desired.z = THREE.MathUtils.clamp(desired.z, -22, 19);
+          e.fireCD = Math.max(e.fireCD, 0.6); e.charge = 0;
+          if (e.hp > e.maxHp * 0.65 || (!medic && e.retreatT > 10)) { e.retreating = false; e.retreatDone = !medic; }
+        }
+      }
       if (e.kind === 'medic') {
         // hang back behind the most damaged ally, away from the player
         let best = null, worst = 1;
