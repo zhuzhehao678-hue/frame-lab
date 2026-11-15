@@ -57,7 +57,10 @@ export class Enemies {
     mk(new THREE.LatheGeometry(pts, 40), hull, 0, 0, 0);
     // armoured belly plate & accent band
     mk(new THREE.TorusGeometry(0.255, 0.018, 10, 48).rotateX(Math.PI / 2), acc, 0, 0.02, 0);
-    mk(new RoundedBoxGeometry(0.22, 0.05, 0.16, 3, 0.02), hull, 0, 0.14, 0.02);
+    const lid = mk(new RoundedBoxGeometry(0.22, 0.05, 0.16, 3, 0.02), hull, 0, 0.14, 0.02);
+    // electronics core under the lid: only visible once the lid is blown off
+    if (!this.coreMat) this.coreMat = new THREE.MeshStandardMaterial({ color: 0x111111, emissive: new THREE.Color(1, 0.45, 0.12), emissiveIntensity: 6, roughness: 0.6 });
+    const core = mk(new THREE.BoxGeometry(0.16, 0.03, 0.11), this.coreMat, 0, 0.125, 0.02); core.visible = false;
     // sensor eye (front = -z)
     mk(new THREE.CylinderGeometry(0.075, 0.085, 0.07, 24).rotateX(Math.PI / 2), this.lib.M.darkSteel, 0, -0.02, -0.21);
     const eye = mk(new THREE.SphereGeometry(0.052, 20, 14), this.eyeMat.clone(), 0, -0.02, -0.245);
@@ -85,7 +88,7 @@ export class Enemies {
       mk(new THREE.CylinderGeometry(0.008, 0.008, 0.14, 6), this.lib.M.darkSteel, dx * 0.2, -0.2, dz * 0.2, dz * 0.3, 0, -dx * 0.3);
     }
     g.scale.setScalar(s);
-    return { group: g, eye, rotors };
+    return { group: g, eye, rotors, lid, core };
   }
 
   spawn(pos, kind = 'normal') {
@@ -215,6 +218,14 @@ export class Enemies {
   damage(e, amount, point, dir) {
     if (!e.alive) return false;
     e.hp -= amount; e.hitFlash = 1; e.seen = true;
+    // first damage stage: the top cover is blown off, exposing the glowing core
+    if (e.lid && e.lid.visible && e.hp > 0 && e.hp < e.maxHp * 0.6) {
+      e.lid.visible = false; e.core.visible = true;
+      const wp = e.lid.getWorldPosition(new THREE.Vector3());
+      const m = e.lid.clone(); m.visible = true; m.scale.multiplyScalar(e.group.scale.x); m.quaternion.premultiply(e.group.quaternion);
+      this.effects.spawnDebris(m, wp, new THREE.Vector3((Math.random() - 0.5) * 3, 3 + Math.random() * 2, (Math.random() - 0.5) * 3).addScaledVector(dir, 2), false);
+      for (let i = 0; i < 12; i++) this.effects.add.emit({ pos: wp, vel: new THREE.Vector3((Math.random() - 0.5) * 5, Math.random() * 4, (Math.random() - 0.5) * 5), life: 0.4 + Math.random() * 0.3, size: 0.012, color: new THREE.Color(9, 5, 2), gravity: 9.8, stretch: 0.04 });
+    }
     e.vel.addScaledVector(dir, e.heavy ? 0.6 : 1.4);
     if (e.hp <= 0) { this.kill(e, dir); return true; }
     return false;
@@ -416,6 +427,16 @@ export class Enemies {
       const chargeGlow = e.charge > 0 ? 1 + e.charge * 3 : 1;
       e.eye.material.emissiveIntensity = 18 * chargeGlow + e.hitFlash * 40;
       e.eye.material.emissive.setRGB(1, 0.06 + e.hitFlash * 0.6, 0.02 + e.hitFlash * 0.5);
+      // critical damage: eye flickers, the drone lists and trails flame
+      const crit = e.hp < e.maxHp * 0.25;
+      if (crit) {
+        if (Math.random() < dt * 8) e.flick = 0.06 + Math.random() * 0.1;
+        if (e.flick > 0) { e.flick -= dt; e.eye.material.emissiveIntensity *= 0.08; }
+        e.group.rotateZ((Math.sin(e.wob * 3.1) * 0.12 + 0.12) * dt * 6);
+        e.vel.y -= dt * 0.8;
+        if (Math.random() < dt * 14) this.effects.fire.emit(e.core.getWorldPosition(new THREE.Vector3()), new THREE.Vector3(0, 1.2, 0).addScaledVector(e.vel, -0.3), 0.18 + Math.random() * 0.15, 0.35 + Math.random() * 0.2, 0.9);
+      }
+      if (e.core.visible) this.coreMat.emissiveIntensity = 5 + Math.sin(e.wob * 37) * 2;
 
       // damaged smoke
       if (e.hp < e.maxHp * 0.45 && Math.random() < dt * 20) {
