@@ -350,7 +350,7 @@ function updateCompass() {
     place(el, THREE.MathUtils.radToDeg(Math.atan2(e.pos.x - camera.position.x, -(e.pos.z - camera.position.z))));
   });
 }
-let hitT = 0, killT = 0;
+let hitT = 0, killT = 0, critT = 0;
 const dmgIndicators = [];
 function hint(text, dur = 2) { const h = $('hint'); h.textContent = text; h.style.opacity = 1; clearTimeout(h._t); h._t = setTimeout(() => (h.style.opacity = 0), dur * 1000); }
 function banner(k, t, s, dur = 3) {
@@ -372,7 +372,7 @@ function updateHUD(dt, t) {
   const c = hud.cross.children;
   c[0].style.top = (-gap - 9) + 'px'; c[1].style.top = gap + 'px'; c[2].style.left = (-gap - 9) + 'px'; c[3].style.left = gap + 'px';
   hud.cross.style.opacity = (1 - weapon.ads * 1.4) * (1 - weapon.sprint) * (weapon.reloading ? 0.4 : 1);
-  hitT -= dt; hud.hit.style.opacity = Math.max(0, hitT * 5); hud.hit.classList.toggle('kill', killT > 0); killT -= dt;
+  hitT -= dt; hud.hit.style.opacity = Math.max(0, hitT * 5); hud.hit.classList.toggle('kill', killT > 0); hud.hit.classList.toggle('crit', critT > 0 && killT <= 0); killT -= dt; critT -= dt;
   hud.hit.style.transform = `scale(${1 + Math.max(0, hitT) * 2})`;
   // damage direction arcs
   for (let i = dmgIndicators.length - 1; i >= 0; i--) {
@@ -396,7 +396,7 @@ function updateHUD(dt, t) {
 }
 
 // ------------------------------------------------------------------ gameplay hooks
-const freshStats = () => ({ shots: 0, hits: 0, kills: 0, t0: performance.now(), dmgTaken: 0, byKind: {}, bestCombo: 0, boomKills: 0, meleeKills: 0, longKills: 0, waveDmg: 0, flawless: 0, bossKilled: false });
+const freshStats = () => ({ shots: 0, hits: 0, kills: 0, t0: performance.now(), dmgTaken: 0, byKind: {}, bestCombo: 0, boomKills: 0, meleeKills: 0, longKills: 0, crits: 0, waveDmg: 0, flawless: 0, bossKilled: false });
 const stats = freshStats();
 let killSource = { type: 'gun' };
 player.onStep = (sp, sprint, surf) => audio.footstep(sprint, surf, TOD.rain ? 0.8 : (TOD.wet >= 1 ? 0.3 : 0.08));
@@ -561,6 +561,7 @@ const MEDALS = [
   ['近身格斗', '用枪托击毁一个目标', (s) => s.meleeKills > 0],
   ['远程狙杀', '用射手步枪在 25 米外击杀', (s) => s.longKills > 0],
   ['屠龙者', '击落母舰 WARDEN', (s) => s.bossKilled],
+  ['弱点专家', '命中无人机传感器 10 次', (s) => s.crits >= 10],
 ];
 function showEnd(win, bonus = 0) {
   const secs = (performance.now() - stats.t0) / 1000;
@@ -578,7 +579,7 @@ function showEnd(win, bonus = 0) {
   $('escore').textContent = bestLine + (bonus ? `（含时间与生命奖励 +${bonus}）` : '') + (waves.endless ? ` · 无尽最高第 ${saved.bestWave} 波` : '');
   const bk = stats.byKind;
   const cell = (k, v) => `<div>${k}<b>${v}</b></div>`;
-  $('es').innerHTML = cell('用时', `${Math.floor(secs / 60)}:${String(Math.floor(secs % 60)).padStart(2, '0')}`) + cell('命中率', acc + '%') + cell('承受伤害', Math.round(stats.dmgTaken)) + cell('最高连杀', '×' + stats.bestCombo)
+  $('es').innerHTML = cell('用时', `${Math.floor(secs / 60)}:${String(Math.floor(secs % 60)).padStart(2, '0')}`) + cell('命中率', acc + '%') + cell('弱点命中', stats.crits) + cell('承受伤害', Math.round(stats.dmgTaken)) + cell('最高连杀', '×' + stats.bestCombo)
     + cell('哨兵', (bk.normal || 0) + (bk.heavy || 0)) + cell('自爆蜂', bk.kamikaze || 0) + cell('四足机甲', bk.walker || 0) + cell('到达波次', reached);
   $('em').innerHTML = MEDALS.map(([n, d, f]) => `<div class="medal ${f(stats) ? 'got' : ''}"><span class="i">${f(stats) ? '★' : '☆'}</span><div class="n">${n}</div><div class="d">${d}</div></div>`).join('');
   $('endless').classList.toggle('hidden', !win);
@@ -667,8 +668,11 @@ function shoot(t) {
     stats.hits++; hitT = 0.12;
     const rotor = enemies.rotorHit(eh.enemy, eh.point);
     if (rotor && !eh.enemy.staggerHinted) { eh.enemy.staggerHinted = true; feed('击中旋翼 · 目标失衡'); }
-    const killed = enemies.damage(eh.enemy, THREE.MathUtils.randFloat(weapon.damage[0], weapon.damage[1]) * (rotor ? 1.3 : 1), eh.point, dir);
-    if (!killed) audio.hitmarker(false);
+    const crit = !rotor && enemies.eyeHit(eh.enemy, origin, dir);
+    if (crit) { stats.crits++; critT = 0.3; eh.enemy.flick = 0.25; }
+    const killed = enemies.damage(eh.enemy, THREE.MathUtils.randFloat(weapon.damage[0], weapon.damage[1]) * (rotor ? 1.3 : 1) * (crit ? 2.2 : 1), eh.point, dir);
+    if (crit) audio.crit(); else if (!killed) audio.hitmarker(false);
+    if (crit) for (let i = 0; i < 14; i++) effects.add.emit({ pos: eh.point, vel: dir.clone().multiplyScalar(-2).add(new THREE.Vector3((Math.random() - 0.5) * 5, Math.random() * 3, (Math.random() - 0.5) * 5)), life: 0.25, size: 0.016, color: new THREE.Color(9, 2, 1), gravity: 6, stretch: 0.04 });
     const n = eh.point.clone().sub(eh.enemy.pos).normalize();
     for (let i = 0; i < 10; i++) effects.add.emit({ pos: eh.point, vel: n.clone().multiplyScalar(2 + Math.random() * 4).add(new THREE.Vector3((Math.random() - 0.5) * 5, Math.random() * 3, (Math.random() - 0.5) * 5)), life: 0.3 + Math.random() * 0.3, size: 0.012, color: new THREE.Color(8, 5, 2), gravity: 9.8, stretch: 0.035, bounce: true });
     effects.flash(eh.point, new THREE.Color(1, 0.7, 0.4), 8, 0.06, 4);

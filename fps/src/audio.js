@@ -149,6 +149,11 @@ export class Audio {
     this.tone(d, t, 0.05, { type: 'triangle', f: kill ? 1300 : 1800, gain: 0.25 });
     if (kill) this.tone(d, t + 0.05, 0.12, { type: 'triangle', f: 900, gain: 0.25 });
   }
+  crit() {
+    if (!this.enabled) return; const t = this.ctx.currentTime; const d = this.out(null, { verb: 0.05, gain: 0.55 });
+    this.tone(d, t, 0.06, { type: 'triangle', f: 2600, gain: 0.3 }); this.tone(d, t + 0.035, 0.09, { type: 'sine', f: 3400, gain: 0.2 });
+    this.noise(d, t, 0.05, { f: 6000, q: 3, gain: 0.25 });
+  }
   impact(pos, surf) {
     if (!this.enabled) return; const t = this.ctx.currentTime; const d = this.out(pos, { verb: 0.25, gain: 0.7 });
     if (surf === 'metal') { this.tone(d, t, 0.25, { type: 'sine', f: 2200 + Math.random() * 1600, gain: 0.25, curve: 6 }); this.noise(d, t, 0.06, { f: 5000, q: 2, gain: 0.6 }); }

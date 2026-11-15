@@ -153,6 +153,14 @@ export class Enemies {
     return best;
   }
 
+  // weak point: does the ray pass through the sensor eye?
+  eyeHit(e, o, d) {
+    const c = e.eye.getWorldPosition(new THREE.Vector3());
+    const r = 0.065 * e.group.scale.x;                       // a little generous vs the 0.052 mesh
+    const t = c.clone().sub(o).dot(d);
+    return t > 0 && o.clone().addScaledVector(d, t).distanceTo(c) < r;
+  }
+
   // medic: green repair beam onto a damaged ally in line of sight
   medicLogic(e, dt) {
     if (!e.beam) {
@@ -432,11 +440,11 @@ export class Enemies {
       const crit = e.hp < e.maxHp * 0.25;
       if (crit) {
         if (Math.random() < dt * 8) e.flick = 0.06 + Math.random() * 0.1;
-        if (e.flick > 0) { e.flick -= dt; e.eye.material.emissiveIntensity *= 0.08; }
         e.group.rotateZ((Math.sin(e.wob * 3.1) * 0.12 + 0.12) * dt * 6);
         e.vel.y -= dt * 0.8;
         if (Math.random() < dt * 14) this.effects.fire.emit(e.core.getWorldPosition(new THREE.Vector3()), new THREE.Vector3(0, 1.2, 0).addScaledVector(e.vel, -0.3), 0.18 + Math.random() * 0.15, 0.35 + Math.random() * 0.2, 0.9);
       }
+      if (e.flick > 0) { e.flick -= dt; e.eye.material.emissiveIntensity *= 0.08; }
       if (e.core.visible) this.coreMat.emissiveIntensity = 5 + Math.sin(e.wob * 37) * 2;
 
       // damaged smoke
