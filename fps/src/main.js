@@ -32,8 +32,8 @@ let todName = params.get('t') || saved.tod || 'golden';
 if (!TIMES[todName]) todName = 'golden';
 const TOD = TIMES[todName];
 const DIFF = { easy: { dmg: 0.42, hp: 0.8, fire: 1.35, score: 0.8 }, normal: { dmg: 0.62, hp: 1, fire: 1, score: 1 }, hard: { dmg: 0.85, hp: 1.25, fire: 0.78, score: 1.35 } };
-const settings = { mblur: saved.mblur ?? true, diff: DIFF[saved.diff] ? saved.diff : 'normal', sens: saved.sens ?? 1, fov: saved.fov ?? 74, adsSens: saved.adsSens ?? 0.9, music: saved.music ?? 0.5 };
-$('diff').value = settings.diff; $('mblur').checked = settings.mblur; $('quality').value = qualityName; $('tod').value = todName; $('sens').value = settings.sens; $('adssens').value = settings.adsSens; $('music').value = settings.music; $('fov').value = settings.fov;
+const settings = { xhStyle: saved.xhStyle || 'both', xhColor: saved.xhColor || '#f0ece4', mblur: saved.mblur ?? true, diff: DIFF[saved.diff] ? saved.diff : 'normal', sens: saved.sens ?? 1, fov: saved.fov ?? 74, adsSens: saved.adsSens ?? 0.9, music: saved.music ?? 0.5 };
+$('diff').value = settings.diff; $('xhstyle').value = settings.xhStyle; $('xhcolor').value = settings.xhColor; $('mblur').checked = settings.mblur; $('quality').value = qualityName; $('tod').value = todName; $('sens').value = settings.sens; $('adssens').value = settings.adsSens; $('music').value = settings.music; $('fov').value = settings.fov;
 const persist = () => LS.setItem('afterglow', JSON.stringify({ quality: qualityName, tod: todName, ...settings, best: saved.best || 0, bestWave: saved.bestWave || 0, tutorialDone: !!saved.tutorialDone }));
 
 const frame = () => new Promise((r) => requestAnimationFrame(() => r()));
@@ -234,6 +234,10 @@ document.addEventListener('pointerlockchange', () => {
 });
 
 $('sens').oninput = (e) => { settings.sens = +e.target.value; persist(); };
+function applyCrosshair() { const c = $('cross'); c.className = settings.xhStyle; c.style.setProperty('--xh', settings.xhColor); }
+applyCrosshair();
+$('xhstyle').onchange = (e) => { settings.xhStyle = e.target.value; applyCrosshair(); persist(); };
+$('xhcolor').onchange = (e) => { settings.xhColor = e.target.value; applyCrosshair(); persist(); };
 $('mblur').onchange = (e) => { settings.mblur = e.target.checked; R.motionBlur = settings.mblur; persist(); };
 $('diff').onchange = (e) => { settings.diff = e.target.value; applyDifficulty(); persist(); };
 $('music').oninput = (e) => { settings.music = +e.target.value; music.setVolume(settings.music); persist(); };
@@ -388,7 +392,7 @@ function updateHUD(dt, t) {
 const freshStats = () => ({ shots: 0, hits: 0, kills: 0, t0: performance.now(), dmgTaken: 0, byKind: {}, bestCombo: 0, boomKills: 0, meleeKills: 0, longKills: 0, waveDmg: 0, flawless: 0, bossKilled: false });
 const stats = freshStats();
 let killSource = { type: 'gun' };
-player.onStep = (sp, sprint) => audio.footstep(sprint);
+player.onStep = (sp, sprint, surf) => audio.footstep(sprint, surf, TOD.rain ? 0.8 : (TOD.wet >= 1 ? 0.3 : 0.08));
 player.onLand = (v) => audio.land(v);
 player.onSlide = () => audio.slide();
 player.onVault = () => audio.vault();

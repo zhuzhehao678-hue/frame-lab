@@ -42,11 +42,12 @@ export class Player {
   }
 
   groundHeightAt(x, z, feet, r = RADIUS * 0.8) {
-    let g = -Infinity;
+    let g = -Infinity, gb = null;
     for (const b of this.level.colliders) {
       if (x + r < b.min.x || x - r > b.max.x || z + r < b.min.z || z - r > b.max.z) continue;
-      if (b.max.y <= feet + STEP + 0.001 && b.max.y > g) g = b.max.y;
+      if (b.max.y <= feet + STEP + 0.001 && b.max.y > g) { g = b.max.y; gb = b; }
     }
+    this.groundSurf = gb && gb.surf ? gb.surf : 'concrete';
     return g;
   }
 
@@ -241,7 +242,7 @@ export class Player {
     if (this.onGround && this.speed > 0.5) {
       this.stepDist += this.speed * dt;
       const stride = this.sprinting ? 2.1 : (this.crouch > 0.5 ? 1.2 : 1.7);
-      if (this.stepDist > stride) { this.stepDist = 0; this.onStep && this.onStep(this.speed, this.sprinting); }
+      if (this.stepDist > stride) { this.stepDist = 0; this.onStep && this.onStep(this.speed, this.sprinting, this.groundSurf); }
     }
 
     // regen

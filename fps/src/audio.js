@@ -159,10 +159,21 @@ export class Audio {
     if (!this.enabled || Math.random() < 0.4) return; const t = this.ctx.currentTime; const d = this.out(pos, { verb: 0.1, gain: 0.25 });
     const f = 4200 + Math.random() * 2000; this.tone(d, t, 0.12, { f, gain: 0.12, curve: 5 }); this.tone(d, t + 0.07, 0.08, { f: f * 1.1, gain: 0.06, curve: 5 });
   }
-  footstep(sprint) {
-    if (!this.enabled) return; const t = this.ctx.currentTime; const d = this.out(null, { verb: 0.05, gain: sprint ? 0.45 : 0.3 });
-    this.noise(d, t, 0.09, { type: 'bandpass', f: 380 + Math.random() * 200, q: 1.2, gain: 0.8 });
-    this.noise(d, t + 0.01, 0.06, { type: 'highpass', f: 3500, gain: 0.25 });
+  footstep(sprint, surf = 'concrete', wet = 0) {
+    if (!this.enabled) return; const t = this.ctx.currentTime; const d = this.out(null, { verb: surf === 'metal' ? 0.25 : 0.05, gain: sprint ? 0.45 : 0.3 });
+    if (surf === 'metal') {
+      // hollow steel: ringing clank
+      this.tone(d, t, 0.18, { type: 'triangle', f: 380 + Math.random() * 120, gain: 0.35, curve: 5 });
+      this.tone(d, t, 0.12, { type: 'square', f: 1150 + Math.random() * 300, gain: 0.04, curve: 6 });
+      this.noise(d, t, 0.05, { type: 'highpass', f: 2500, gain: 0.5 });
+    } else if (surf === 'wood') {
+      this.noise(d, t, 0.1, { type: 'bandpass', f: 240 + Math.random() * 60, q: 2, gain: 1.0 });
+      this.tone(d, t, 0.08, { f: 140, f1: 90, gain: 0.25 });
+    } else {
+      this.noise(d, t, 0.09, { type: 'bandpass', f: 380 + Math.random() * 200, q: 1.2, gain: 0.8 });
+      this.noise(d, t + 0.01, 0.06, { type: 'highpass', f: 3500, gain: 0.25 });
+      if (Math.random() < wet) this.noise(d, t + 0.015, 0.16, { type: 'bandpass', f: 1600 + Math.random() * 800, f1: 700, q: 1.5, gain: 0.55, curve: 3 }); // splash
+    }
   }
   land(v) { if (!this.enabled) return; const t = this.ctx.currentTime; const d = this.out(null, { verb: 0.1, gain: Math.min(v / 8, 1) }); this.noise(d, t, 0.15, { type: 'lowpass', f: 600, gain: 1 }); this.tone(d, t, 0.1, { f: 70, gain: 0.5 }); }
   hurt() { if (!this.enabled) return; const t = this.ctx.currentTime; const d = this.out(null, { verb: 0.1, gain: 0.6 }); this.noise(d, t, 0.25, { type: 'lowpass', f: 800, f1: 200, gain: 0.8 }); this.tone(d, t, 0.2, { f: 90, f1: 50, gain: 0.6 }); }

@@ -88,6 +88,7 @@ export class Level {
       g.computeBoundingBox();
       const b = g.boundingBox.clone();
       if (opts.pad) b.expandByScalar(opts.pad);
+      b.surf = surfOf(matName);
       this.colliders.push(b);
     }
     return g;
@@ -406,7 +407,7 @@ export class Level {
         [0, H / 2, W / 2 - 0.05, L, H, 0.1], [0, H / 2, -W / 2 + 0.05, L, H, 0.1], [-L / 2 + 0.05, H / 2, 0, 0.1, H, W], [0, H - 0.05, 0, L, 0.1, W], [0, 0.1, 0, L, 0.2, W],
       ];
       for (const w of walls) this.colliders.push(new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(w[0], w[1], w[2]), new THREE.Vector3(w[3], w[4], w[5])).applyMatrix4(parent));
-    } else this.colliders.push(b);
+    } else { b.surf = 'metal'; this.colliders.push(b); }
   }
 
   buildContainerWall() {
@@ -485,7 +486,7 @@ export class Level {
     for (const bz of [-0.45, 0, 0.45]) this.put(boxUV(new THREE.BoxGeometry(1.2, 0.04, 0.1), 1.2, 0.04, 0.1, 1.2), 'wood', 0, 0.02, bz, 0, { parent });
     if (collide) {
       const b = new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(0, 0.07, 0), new THREE.Vector3(1.2, 0.145, 1.0)).applyMatrix4(parent);
-      this.colliders.push(b);
+      b.surf = 'wood'; this.colliders.push(b);
     }
   }
 
@@ -503,7 +504,7 @@ export class Level {
     this.put(boxUV(new THREE.BoxGeometry(d, 0.08, 0.02), d, 0.08, 0.02, 1), 'wood', 0, s / 2, o, 0, { parent, rz: Math.PI / 4 });
     this.put(boxUV(new THREE.BoxGeometry(d, 0.08, 0.02), d, 0.08, 0.02, 1), 'wood', 0, s / 2, -o, 0, { parent, rz: -Math.PI / 4 });
     const b = new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(0, s / 2, 0), new THREE.Vector3(s, s, s)).applyMatrix4(parent);
-    this.colliders.push(b);
+    b.surf = 'wood'; this.colliders.push(b);
   }
 
   drum(x, z, mat, tipped = false) {
@@ -536,6 +537,7 @@ export class Level {
       const top = (i + 1) * rise;
       this.box(run + 0.02, 0.05, width, 'tread', sx, top - 0.05, z, 0, { collide: false, uvScale: 1 });
       this.collider(sx - run / 2, 0, z - width / 2, sx + run / 2, top, z + width / 2);
+      this.colliders[this.colliders.length - 1].surf = 'metal';
     }
     const len = Math.hypot(Math.abs(toX - x0), height);
     const ang = Math.atan2(height, Math.abs(toX - x0));
