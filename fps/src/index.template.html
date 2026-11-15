@@ -105,6 +105,7 @@
   #feed { position: absolute; right: 56px; top: 40px; display: flex; flex-direction: column; gap: 6px; align-items: flex-end; font-size: 12px; letter-spacing: 0.15em; }
   #feed div { padding: 5px 10px; background: rgba(0,0,0,0.25); border-right: 2px solid var(--accent); animation: feed 3.2s forwards; }
   @keyframes feed { 0% { opacity: 0; transform: translateX(20px); } 8% { opacity: 1; transform: none; } 85% { opacity: 1; } 100% { opacity: 0; } }
+  #fade { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; }
   #dmgnums { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
   #dmgnums .dn { position: absolute; left: 0; top: 0; opacity: 0; font: 600 15px/1 'Inter', Arial, sans-serif; color: #f4efe6; text-shadow: 0 1px 3px rgba(0,0,0,.9); will-change: transform; }
   #dmgnums .dn.crit { color: #ffd24a; font-size: 21px; text-shadow: 0 0 6px rgba(255,170,0,.7), 0 1px 3px rgba(0,0,0,.9); }
@@ -178,6 +179,7 @@
   <div id="fps" class="hidden"></div>
 </div>
 
+<div id="fade"></div>
 <div id="overlay" class="loading">
   <h1 class="brand"><b>残照</b> AFTERGLOW</h1>
   <p class="sub">Pier 9 · 黄昏码头 · 实时渲染</p>

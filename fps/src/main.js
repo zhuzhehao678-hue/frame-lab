@@ -312,6 +312,7 @@ $('play').onclick = () => {
   $('view').requestPointerLock();
   if (!started) {
     started = true; waves.start(); weapon.root.visible = true; weapon.equipT = 0;
+    $('fade').style.opacity = 0; camera.fov = settings.fov; camera.updateProjectionMatrix(); player.updateCamera(0.016, 1);
     setTimeout(() => radio(RADIO.start[0]), 1200);
     if (!saved.tutorialDone) {
       // first run: walk through the essentials during the opening countdown
@@ -994,6 +995,30 @@ function meleeStrike(t) {
   if (hit) { player.shake = Math.min(1, player.shake + 0.35); player.addRecoil(-0.02, 0.01); audio.melee && audio.melee(true); }
 }
 let killPulse = 0;
+// attract-mode shots: [from, to, look-at from, look-at to, seconds]
+let menuT = 0;
+const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
+const MENU_SHOTS = [
+  [V3(-13, 1.3, -23.5), V3(4, 1.5, -23.8), V3(40, 5, -38), V3(70, 8, -40), 11],
+  [V3(-14, 10, 15), V3(6, 11, 11), V3(-2, 0, -6), V3(4, 0, -10), 11],
+  [V3(11, 1.5, 17), V3(11, 1.7, 2), V3(4, 2.5, -20), V3(-2, 3, -26), 10],
+  [V3(26, 1.0, -25.5), V3(34, 2.2, -25), V3(70, 9, -42), V3(100, 10, -44), 11],
+  [V3(-4, 2.2, 6), V3(-1, 4.5, 14), V3(-14, 3, 2), V3(-10, 2, -4), 10],
+];
+function menuCam(dt) {
+  const total = MENU_SHOTS.reduce((a, s) => a + s[4], 0);
+  let u = menuT % total, i = 0;
+  while (u > MENU_SHOTS[i][4]) { u -= MENU_SHOTS[i][4]; i++; }
+  for (const w of weapons) w.root.visible = false;
+  const [a, b, la, lb, d] = MENU_SHOTS[i];
+  const k = u / d, e = k * k * (3 - 2 * k) * 0.7 + k * 0.3;
+  camera.position.lerpVectors(a, b, e);
+  camera.position.y += Math.sin(menuT * 0.7) * 0.03;
+  camera.lookAt(la.clone().lerp(lb, e));
+  camera.fov = 52; camera.updateProjectionMatrix();
+  const fade = Math.max(0, 1 - u / 0.6, 1 - (d - u) / 0.6);
+  $('fade').style.opacity = fade;
+}
 function loop() {
   if (!noLoop) requestAnimationFrame(loop);
   const realDt = Math.min(clock.getDelta(), 0.05);
@@ -1002,8 +1027,10 @@ function loop() {
   const timeScale = slowmo.t > 0 ? THREE.MathUtils.lerp(1, 0.25, Math.min(1, slowmo.t / 0.6)) : 1;
   const dt = realDt * timeScale;
   const running = locked && !photo;
+  const attract = !started && !photo;   // main menu: slow cinematic camera
   if (running) simTime += dt;
-  const t = simTime;
+  if (attract) menuT += realDt;
+  const t = attract ? menuT : simTime;
   FOG.uFogParams.value.w = t;
 
   if (photo) {
@@ -1016,6 +1043,8 @@ function loop() {
     camera.position.copy(photoCam.pos); camera.rotation.set(photoCam.pitch, photoCam.yaw, ph('ph_roll'), 'YXZ');
     camera.fov = ph('ph_fov'); camera.updateProjectionMatrix();
     applyPhoto();
+  } else if (attract) {
+    menuCam(realDt);
   } else if (running) {
     pollGamepad(realDt);
     player.update(dt, input, t);
@@ -1063,11 +1092,12 @@ function loop() {
     for (const e of enemies.list) audio.updateHum(e.hum, e.vel.length());
     if (player.dead && !gameOver) defeat();
   }
-  if (running || photo) {
-    effects.update(running ? dt : 0, level);
+  if (running || photo || attract) {
+    const adt = running ? dt : (attract ? realDt : 0);
+    effects.update(adt, level);
     if (running && !G.rain) motes(dt);
     if (G.rain) {
-      const fl = G.rain.update(dt, t, player);
+      const fl = G.rain.update(attract ? realDt : dt, t, player);
       REFL.time.value = t;
       G.hemi.intensity = G.hemi.userData.base + fl * 4;
       R.final.uniforms.uFlash.value = fl * 1.5;
@@ -1076,7 +1106,7 @@ function loop() {
       G.lensWet = THREE.MathUtils.clamp((G.lensWet || 0) + (exposed ? 0.06 : -0.25) * realDt, 0, 0.6);
       R.final.uniforms.uLensWet.value = G.lensWet;
     }
-    ambient.update(running ? dt : 0, t, effects);
+    ambient.update(adt, t, effects);
   }
   audio.updateListener();
   audio.updateSpace(realDt);
@@ -1115,4 +1145,4 @@ weapon.root.visible = false;
 if (!noLoop) loop();
 
 // debug / screenshot hooks
-window.__game = { radio, props, emp, fireEMP, stats, showEnd, G, walkers, REFL, rain: G.rain, hazards, pickups: G.pickups, music: G.music, boss, switchWeapon, weapons, get weapon() { return weapon; }, ambient, updateHUD, score, grenades, setLocked: (v) => { locked = v; }, loop, start: () => { started = true; waves.start(); }, FOG, sun: G.sun, THREE, scene, camera, player, enemies, effects, level, R, waves, renderer, togglePhoto, shoot, input };
+window.__game = { setMenuT: (v) => { menuT = v; }, radio, props, emp, fireEMP, stats, showEnd, G, walkers, REFL, rain: G.rain, hazards, pickups: G.pickups, music: G.music, boss, switchWeapon, weapons, get weapon() { return weapon; }, ambient, updateHUD, score, grenades, setLocked: (v) => { locked = v; }, loop, start: () => { started = true; waves.start(); }, FOG, sun: G.sun, THREE, scene, camera, player, enemies, effects, level, R, waves, renderer, togglePhoto, shoot, input };
