@@ -41,6 +41,9 @@ void main(){
   gl_FragColor = vec4(vColor.rgb, a);
 }`;
 
+// upload only the live part of an instanced attribute, not its whole capacity
+function touch(attr, n) { if (n <= 0) return; attr.clearUpdateRanges(); attr.addUpdateRange(0, n * attr.itemSize); attr.needsUpdate = true; }
+
 class ParticleSystem {
   constructor(scene, cap, material) {
     this.cap = cap;
@@ -100,7 +103,7 @@ class ParticleSystem {
       this.aPar.setXYZ(i, THREE.MathUtils.lerp(q.s0, q.s1, t), q.rot, q.stretch);
     }
     this.mesh.geometry.instanceCount = w;
-    this.aPos.needsUpdate = this.aVel.needsUpdate = this.aCol.needsUpdate = this.aPar.needsUpdate = true;
+    for (const a of [this.aPos, this.aVel, this.aCol, this.aPar]) touch(a, w);
   }
 }
 
@@ -174,7 +177,7 @@ class FireSystem {
       this.aPar.setXYZW(i, q.size * (0.55 + Math.sqrt(a) * 0.9), a, q.seed, q.heat);
     }
     this.mesh.geometry.instanceCount = w;
-    this.aPos.needsUpdate = this.aPar.needsUpdate = true;
+    touch(this.aPos, w); touch(this.aPar, w);
   }
 }
 
