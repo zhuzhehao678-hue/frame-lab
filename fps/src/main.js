@@ -4,7 +4,7 @@ import { Renderer, QUALITY, createSky } from './render.js';
 import { buildMaterials } from './materials.js';
 import { Level } from './level.js';
 import { Player } from './player.js';
-import { Weapon, Pistol } from './weapon.js';
+import { Weapon, Pistol, DMR } from './weapon.js';
 import { Effects } from './effects.js';
 import { Enemies } from './enemies.js';
 import { Audio } from './audio.js';
@@ -102,8 +102,9 @@ async function boot() {
   const player = new Player(camera, level);
   const weapon = new Weapon(camera, lib, effects);
   const pistol = new Pistol(camera, lib, effects);
-  weapon.baseFov = pistol.baseFov = settings.fov;
-  pistol.root.visible = false;
+  const dmr = new DMR(camera, lib, effects);
+  weapon.baseFov = pistol.baseFov = dmr.baseFov = settings.fov;
+  pistol.root.visible = false; dmr.root.visible = false;
   // tactical flashlight: always present (intensity 0 when off) so toggling never recompiles shaders
   const flashlight = new THREE.SpotLight(new THREE.Color(1.0, 0.96, 0.9), 0, 40, 0.38, 0.55, 1.6);
   flashlight.position.set(0.06, -0.06, -0.85); // ahead of the muzzle so it doesn't bleach the viewmodel
@@ -130,7 +131,7 @@ async function boot() {
   if (R.bloom) R.bloom.strength = TOD.bloom;
   if (R.god) { R.god.uniforms.uWeight.value = TOD.godWeight; R.god.enabled = TOD.godWeight > 0; }
   if (R.refl) {
-    R.refl.hidden.push(weapon.root, pistol.root);
+    R.refl.hidden.push(weapon.root, pistol.root, dmr.root);
     scene.traverse((o) => { if (o.name === 'static_ground') R.refl.hidden.push(o); });
   }
 
@@ -148,7 +149,7 @@ async function boot() {
   scene.remove(warm); warmLegs.forEach((o) => scene.remove(o));
   await progress(1, '就绪');
 
-  return { flashlight, lensGlow, lib, level, effects, audio, player, weapon, pistol, enemies, grenades, ambient, boss, music, pickups, hazards, rain, hemi, walkers, sun };
+  return { flashlight, lensGlow, lib, level, effects, audio, player, weapon, pistol, dmr, enemies, grenades, ambient, boss, music, pickups, hazards, rain, hemi, walkers, sun };
 }
 
 const G = await boot();
@@ -160,7 +161,7 @@ function applyDifficulty() {
 applyDifficulty();
 R.motionBlur = settings.mblur;
 // ------------------------------------------------------------------ loadout
-const weapons = [G.weapon, G.pistol];
+const weapons = [G.weapon, G.pistol, G.dmr];
 let weaponIdx = 0;
 let weapon = weapons[0];
 function switchWeapon(i) {
@@ -187,6 +188,7 @@ addEventListener('keydown', (e) => {
   if (e.code === 'Space') { input.jump = true; e.preventDefault(); }
   if (e.code === 'Digit1' && locked) switchWeapon(0);
   if (e.code === 'Digit2' && locked) switchWeapon(1);
+  if (e.code === 'Digit3' && locked) switchWeapon(2);
   if (e.code === 'KeyR' && locked && !photo) { if (weapon.startReload()) audio.click(1200, 0.3); }
   if (e.code === 'KeyG' && locked && !photo && !player.dead && grenades.canThrow(weapon)) { grenades.throw(camera, player.vel); weapon.throwT = 0; }
   if (e.code === 'KeyT' && locked && !photo) {
@@ -212,7 +214,7 @@ addEventListener('contextmenu', (e) => e.preventDefault());
 addEventListener('mousemove', (e) => {
   if (!locked) return;
   // ADS: only the user's ADS multiplier applies (no extra FOV slow-down)
-  const s = 0.0021 * settings.sens * THREE.MathUtils.lerp(1, settings.adsSens, weapon.ads);
+  const s = 0.0021 * settings.sens * THREE.MathUtils.lerp(1, settings.adsSens, weapon.ads) * (weapon.kind === 'dmr' ? THREE.MathUtils.lerp(1, 0.4, weapon.ads) : 1); // slower through the 4x optic
   if (photo) { photoCam.yaw -= e.movementX * s; photoCam.pitch = THREE.MathUtils.clamp(photoCam.pitch - e.movementY * s, -1.5, 1.5); return; }
   player.look(e.movementX, e.movementY, s);
   mouse.x += e.movementX; mouse.y += e.movementY;
@@ -433,8 +435,9 @@ const waves = {
       this.index++;
       G.weapon.reserve = Math.min(G.weapon.reserve + 90, 270);
       G.pistol.reserve = Math.min(G.pistol.reserve + 30, 90);
+      G.dmr.reserve = Math.min(G.dmr.reserve + 20, 100);
       grenades.count = Math.min(grenades.max, grenades.count + 2);
-      hint('弹药已补给 · 步枪 +90 · 手枪 +30 · 手雷 +2', 2.5);
+      hint('弹药已补给 · 步枪 +90 · 手枪 +30 · 射手步枪 +20 · 手雷 +2', 2.5);
       this.begin(6);
     }
   },
@@ -467,7 +470,7 @@ function restart() {
   enemies.clear(); grenades.clear(); boss.clear(); pickups.reset(); hazards.reset(); walkers.clear();
   player.pos.copy(level.playerStart); player.vel.set(0, 0, 0); player.yaw = level.playerYaw; player.pitch = 0;
   player.health = 100; player.dead = false;
-  G.weapon.ammo = 30; G.weapon.reserve = 180; G.pistol.ammo = 15; G.pistol.reserve = 60;
+  G.weapon.ammo = 30; G.weapon.reserve = 180; G.pistol.ammo = 15; G.pistol.reserve = 60; G.dmr.ammo = 20; G.dmr.reserve = 80;
   for (const w of weapons) { w.reloading = false; w.equipT = 0; }
   if (weaponIdx !== 0) { started = true; weapon.root.visible = false; weaponIdx = 0; weapon = weapons[0]; weapon.root.visible = true; buildPips(); $('wname').textContent = weapon.label; }
   Object.assign(stats, { shots: 0, hits: 0, kills: 0, dmgTaken: 0 }); score.total = 0; score.combo = 0;
@@ -640,8 +643,8 @@ function loop() {
       }
       const W = G.weapon, P = G.pistol;
       if (W.reserve >= 270 && P.reserve >= 90 && grenades.count >= grenades.max) return false;
-      W.reserve = Math.min(270, W.reserve + 60); P.reserve = Math.min(90, P.reserve + 15); grenades.count = Math.min(grenades.max, grenades.count + 1);
-      feed('弹药箱  步枪 +60 · 手枪 +15 · 手雷 +1'); return true;
+      W.reserve = Math.min(270, W.reserve + 60); P.reserve = Math.min(90, P.reserve + 15); G.dmr.reserve = Math.min(100, G.dmr.reserve + 10); grenades.count = Math.min(grenades.max, grenades.count + 1);
+      feed('弹药箱  步枪 +60 · 手枪 +15 · 射手步枪 +10 · 手雷 +1'); return true;
     });
     for (const e of enemies.list) audio.updateHum(e.hum, e.vel.length());
     if (player.dead && !gameOver) defeat();
@@ -669,6 +672,7 @@ function loop() {
   f.uADS.value = weapon.ads;
   if (R.mblur) R.mblur.uniforms.uADS.value = weapon.ads * (weapon.kind === 'pistol' ? 1 : 0.7);
   killPulse = Math.max(0, killPulse - realDt * 2.2); f.uKill.value = killPulse;
+  if (weapon.kind === 'dmr') weapon.renderScope(renderer, scene, weapons.map((w) => w.root));
   const now = performance.now();
   if (running && !noLoop) R.adapt(now - (loop.last || now));
   loop.last = now;

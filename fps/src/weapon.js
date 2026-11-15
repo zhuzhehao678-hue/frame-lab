@@ -527,3 +527,128 @@ export class Pistol extends Weapon {
     this.slide.position.z = this.slideOff * 0.034;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Designated marksman rifle with a real magnified optic: a second camera
+// renders the world at 4x into a texture shown only inside the scope lens
+// (picture-in-picture), so the view around the scope is not magnified.
+export class DMR extends Weapon {
+  constructor(camera, lib, effects) {
+    super(camera, lib, effects);
+    this.kind = 'dmr'; this.label = 'SR-25 DMR · 7.62 · 4x'; this.auto = false;
+    this.magSize = 20; this.ammo = 20; this.reserve = 80;
+    this.rate = 0.2; this.damage = [64, 72]; this.recoilMul = 1.7; this.climb = 2.4;
+    this.reloadTimes = [2.4, 2.9]; this.equipSpeed = 1.4; this.baseSpread = 0.03;
+    this.hipPos = new THREE.Vector3(0.135, -0.18, -0.37);
+    this.hipRot = new THREE.Euler(0.035, 0.05, -0.06);
+    this.adsPos = new THREE.Vector3(0, -this.sightY, -0.235); // eyepiece ~10 cm in front of the eye
+    this.zoom = 4;
+  }
+
+  buildGun() {
+    const { metal, tan, poly, rubber, steel, dark } = this.mat;
+    const A = (g, m, x, y, z, rx, ry, rz, p) => this.add(g, m, x, y, z, rx, ry, rz, p);
+    A(uvScale(RB(0.032, 0.045, 0.21, 0.005), 1.5), tan, 0, 0.036, -0.02);
+    A(uvScale(RB(0.03, 0.038, 0.17, 0.006), 1.5), tan, 0, -0.002, 0.0);
+    A(uvScale(RB(0.032, 0.05, 0.08, 0.006), 1.5), tan, 0, -0.03, -0.062);
+    A(RB(0.003, 0.018, 0.06, 0.001), dark, 0.0162, 0.037, -0.006);
+    A(RB(0.052, 0.008, 0.02, 0.003), metal, 0, 0.058, 0.08);
+    A(RB(0.010, 0.005, 0.064, 0.002), metal, 0, -0.036, 0.006);
+    A(RB(0.005, 0.022, 0.006, 0.002), steel, 0, -0.026, 0.008, -0.3);
+    A(uvScale(RB(0.028, 0.105, 0.042, 0.009), 2), poly, 0, -0.07, 0.048, 0.33);
+    // precision stock with adjustable cheek riser
+    A(new THREE.CylinderGeometry(0.016, 0.016, 0.21, 24).rotateX(Math.PI / 2), metal, 0, 0.03, 0.18);
+    A(uvScale(RB(0.044, 0.08, 0.2, 0.012), 2), poly, 0, 0.018, 0.255);
+    A(uvScale(RB(0.03, 0.03, 0.14, 0.01), 2), poly, 0, 0.068, 0.25);
+    A(RB(0.046, 0.13, 0.024, 0.008), rubber, 0, -0.002, 0.36);
+    // long free-float handguard and heavy barrel with suppressor
+    A(uvScale(RB(0.046, 0.05, 0.42, 0.01), 3), tan, 0, 0.032, -0.33);
+    for (const s of [-1, 1]) for (let i = 0; i < 7; i++) A(RB(0.003, 0.012, 0.034, 0.0014), dark, s * 0.0222, 0.028, -0.17 - i * 0.05);
+    A(new THREE.CylinderGeometry(0.0105, 0.0105, 0.16, 20).rotateX(Math.PI / 2), dark, 0, 0.033, -0.62);
+    A(uvScale(new THREE.CylinderGeometry(0.019, 0.019, 0.17, 28).rotateX(Math.PI / 2), 2), metal, 0, 0.033, -0.78);
+    A(new THREE.CircleGeometry(0.019, 28), dark, 0, 0.033, -0.866, 0, Math.PI);
+    this.muzzle = new THREE.Object3D(); this.muzzle.position.set(0, 0.033, -0.87); this.gun.add(this.muzzle);
+    this.ejectPort = new THREE.Object3D(); this.ejectPort.position.set(0.02, 0.037, -0.006); this.gun.add(this.ejectPort);
+    // top rail
+    {
+      const parts = [];
+      const base = RB(0.022, 0.007, 0.6, 0.0015).toNonIndexed(); base.translate(0, 0.062, -0.2); parts.push(base);
+      for (let i = 0; i < 38; i++) { const t = new THREE.BoxGeometry(0.0235, 0.0045, 0.0062).toNonIndexed(); t.translate(0, 0.067, 0.09 - i * 0.0158); parts.push(t); }
+      for (const p of parts) for (const k of Object.keys(p.attributes)) if (!['position', 'normal', 'uv'].includes(k)) p.deleteAttribute(k);
+      A(mergeGeometries(parts), metal, 0, 0, 0);
+    }
+    // scope: rings, tube, objective bell, eyepiece, turrets
+    this.sightY = 0.112;
+    const Y = this.sightY;
+    for (const z of [-0.06, 0.04]) { A(RB(0.03, 0.03, 0.02, 0.004), metal, 0, 0.083, z); A(new THREE.TorusGeometry(0.0195, 0.004, 8, 24), metal, 0, Y, z); }
+    A(uvScale(new THREE.CylinderGeometry(0.0155, 0.0155, 0.16, 28, 1, true).rotateX(Math.PI / 2), 2), metal, 0, Y, -0.01);
+    A(new THREE.CylinderGeometry(0.0255, 0.0155, 0.05, 28, 1, true).rotateX(Math.PI / 2), metal, 0, Y, -0.115);
+    A(new THREE.CylinderGeometry(0.0255, 0.0255, 0.05, 28, 1, true).rotateX(Math.PI / 2), metal, 0, Y, -0.165);
+    A(new THREE.RingGeometry(0.021, 0.0258, 28), metal, 0, Y, -0.19, 0, Math.PI);
+    A(new THREE.CylinderGeometry(0.0195, 0.0155, 0.04, 28, 1, true).rotateX(-Math.PI / 2), metal, 0, Y, 0.09);
+    A(new THREE.CylinderGeometry(0.0205, 0.0205, 0.03, 28, 1, true).rotateX(Math.PI / 2), rubber, 0, Y, 0.124);
+    A(new THREE.CylinderGeometry(0.01, 0.01, 0.018, 20), metal, 0, Y + 0.022, -0.01);
+    A(new THREE.CylinderGeometry(0.01, 0.01, 0.018, 20).rotateZ(Math.PI / 2), metal, 0.022, Y, -0.01);
+    // objective glass (reflective, outward-facing)
+    A(new THREE.CircleGeometry(0.021, 28), this.mat.glass, 0, Y, -0.189, 0, Math.PI);
+    // eyepiece lens shows the PIP render
+    this.scopeRT = new THREE.WebGLRenderTarget(512, 512, { type: THREE.HalfFloatType });
+    this.scopeMat = viewmodelMaterial(new THREE.ShaderMaterial({
+      uniforms: { tScope: { value: this.scopeRT.texture }, uAlign: { value: 0 } },
+      vertexShader: 'varying vec2 vUv;\nvoid main(){ vUv = uv;\n#include <begin_vertex>\n#include <project_vertex>\n}',
+      fragmentShader: `uniform sampler2D tScope; uniform float uAlign; varying vec2 vUv;
+        void main(){
+          vec2 c = vUv - 0.5; float r = length(c) * 2.0;
+          vec3 col = vec3(0.0);
+          col.r = texture2D(tScope, 0.5 + c * 0.985).r; col.g = texture2D(tScope, vUv).g; col.b = texture2D(tScope, 0.5 + c * 1.015).b;
+          // reticle: thick outer posts, fine centre cross, stadia dots, lit centre dot
+          float fine = step(abs(c.x), 0.0016) * step(abs(c.y), 0.2) + step(abs(c.y), 0.0016) * step(abs(c.x), 0.2);
+          float thick = step(abs(c.x), 0.006) * step(0.2, abs(c.y)) + step(abs(c.y), 0.006) * step(0.2, abs(c.x));
+          float dots = 0.0; for (int i = 1; i <= 4; i++) { float o = float(i) * 0.045; dots += step(length(vec2(c.x, abs(c.y) - o)), 0.004) + step(length(vec2(abs(c.x) - o, c.y)), 0.004); }
+          col *= 1.0 - clamp(fine + thick + dots, 0.0, 1.0) * 0.95;
+          col += vec3(3.0, 0.15, 0.05) * smoothstep(0.005, 0.0015, length(c));
+          // eye-box: dark edge ring, closes in when not aligned
+          float edge = 1.0 - smoothstep(0.86 - (1.0 - uAlign) * 0.6, 0.98, r);
+          col *= edge * uAlign;
+          gl_FragColor = vec4(col, 1.0);
+        }`,
+    }));
+    // material clone() deep-copies texture uniforms: re-bind the live render target
+    this.scopeMat.uniforms.tScope.value = this.scopeRT.texture;
+    this.scopeLens = A(new THREE.CircleGeometry(0.0175, 40), this.scopeMat, 0, Y, 0.1395);
+    this.reticle = new THREE.Object3D();
+    this.scopeCam = new THREE.PerspectiveCamera(15, 1, 0.1, 4500);
+    // 20-round straight magazine
+    this.mag = new THREE.Group(); this.mag.position.set(0, -0.055, -0.064); this.gun.add(this.mag);
+    this.magHome = this.mag.position.clone();
+    this.add(uvScale(RB(0.026, 0.13, 0.078, 0.004), 2), poly, 0, -0.06, -0.006, -0.08, 0, 0, this.mag);
+    this.add(RB(0.03, 0.012, 0.084, 0.004), poly, 0, -0.13, -0.012, -0.08, 0, 0, this.mag);
+  }
+
+  // render the magnified view (called by the game before the main render)
+  renderScope(renderer, scene, hide) {
+    if (!this.root.visible || this.ads < 0.15) return;
+    const cam = this.camera, sc = this.scopeCam;
+    cam.updateMatrixWorld();
+    sc.position.setFromMatrixPosition(cam.matrixWorld);
+    sc.quaternion.setFromRotationMatrix(cam.matrixWorld);
+    sc.fov = (this.baseFov || 74) / this.zoom; sc.aspect = 1; sc.updateProjectionMatrix();
+    sc.updateMatrixWorld();
+    const vis = hide.map((o) => o.visible); hide.forEach((o) => { o.visible = false; });
+    const prev = renderer.getRenderTarget(); const prevShadow = renderer.shadowMap.autoUpdate;
+    renderer.shadowMap.autoUpdate = false;
+    renderer.setRenderTarget(this.scopeRT); renderer.clear(); renderer.render(scene, sc);
+    renderer.setRenderTarget(prev); renderer.shadowMap.autoUpdate = prevShadow;
+    hide.forEach((o, i) => { o.visible = vis[i]; });
+    this.scopeMat.uniforms.uAlign.value = THREE.MathUtils.smoothstep(this.ads, 0.55, 0.95);
+  }
+
+  update(dt, t, player, input, mouse) {
+    super.update(dt, t, player, input, mouse);
+    // the main view zooms only slightly; the magnification lives inside the scope
+    const baseFov = this.baseFov || 74;
+    this.camera.fov = THREE.MathUtils.lerp(baseFov, baseFov * 0.85, this.ads) + this.sprint * 4 + (this.slideK || 0) * 7;
+    this.camera.updateProjectionMatrix();
+    if (this.ads < 0.15) this.scopeMat.uniforms.uAlign.value = 0;
+  }
+}
