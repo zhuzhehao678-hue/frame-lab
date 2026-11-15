@@ -92,20 +92,34 @@ export class Enemies {
     if (kind === true) kind = 'heavy'; if (!kind) kind = 'normal';
     const heavy = kind === 'heavy', kami = kind === 'kamikaze';
     const m = this.buildDrone(heavy);
+    const sniper = kind === 'sniper';
     if (kami) {
       m.group.scale.setScalar(1.3);
       m.group.traverse((o) => { if (o.isMesh && o.material === this.accent) o.material = this.kamiMat; });
+    }
+    if (sniper) {
+      // long rail-gun barrel + dark livery
+      const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.028, 0.9, 12).rotateX(Math.PI / 2), this.lib.M.darkSteel);
+      barrel.position.set(0, -0.13, -0.55); m.group.add(barrel);
+      const brake = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.08, 12).rotateX(Math.PI / 2), this.lib.M.darkSteel);
+      brake.position.set(0, -0.13, -1.0); m.group.add(brake);
+      m.group.traverse((o) => { if (o.isMesh && o.material === this.accent) o.material = this.lib.M.paintRed; });
+      m.group.scale.setScalar(1.45);
+      if (!this.laserGeo) {
+        this.laserGeo = new THREE.CylinderGeometry(1, 1, 1, 6, 1, true).rotateX(Math.PI / 2).translate(0, 0, 0.5);
+        this.laserMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(9, 0.4, 0.2), transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+      }
     }
     m.group.position.copy(pos);
     this.scene.add(m.group);
     const e = {
       ...m, pos: m.group.position, vel: new THREE.Vector3(), heavy,
-      kami, kind, beepT: 0, armed: -1, stagger: 0,
+      kami, kind, beepT: 0, armed: -1, stagger: 0, aimT: 0,
       role: kami ? 'kami' : (heavy ? 'suppress' : ['flank', 'harass', 'suppress'][this.roleIdx = ((this.roleIdx || 0) + 1) % 3]),
-      hp: (heavy ? 260 : (kami ? 45 : 100)) * (this.hpMult || 1), maxHp: (heavy ? 260 : (kami ? 45 : 100)) * (this.hpMult || 1), radius: heavy ? 1.0 : (kami ? 0.62 : 0.76),
+      hp: (heavy ? 260 : (kami ? 45 : (sniper ? 90 : 100))) * (this.hpMult || 1), maxHp: (heavy ? 260 : (kami ? 45 : (sniper ? 90 : 100))) * (this.hpMult || 1), radius: heavy ? 1.0 : (kami ? 0.62 : 0.76),
       fireCD: 1.5 + Math.random() * 2, charge: 0, burst: 0,
       orbit: Math.random() * Math.PI * 2, orbitDir: Math.random() < 0.5 ? -1 : 1,
-      pref: (heavy ? 13 : 10) + Math.random() * 5, alt: 3.2 + Math.random() * 3,
+      pref: sniper ? 22 + Math.random() * 5 : (heavy ? 13 : 10) + Math.random() * 5, alt: sniper ? 8 + Math.random() * 2.5 : 3.2 + Math.random() * 3,
       hitFlash: 0, alive: true, seen: false, lostT: 0, id: Math.random(),
       wob: Math.random() * 10,
     };
@@ -128,6 +142,36 @@ export class Enemies {
       if (t > 0 && t < maxT && (!best || t < best.t)) best = { enemy: e, t, point: o.clone().addScaledVector(d, t) };
     }
     return best;
+  }
+
+  // sniper: visible laser tracks the player with lag, then one heavy round
+  sniperLogic(e, dt, player, los) {
+    const eye = e.eye.getWorldPosition(new THREE.Vector3());
+    const tgt = player.camera.position.clone().add(new THREE.Vector3(0, -0.15, 0));
+    e.fireCD -= dt;
+    if (!e.laser) { e.laser = new THREE.Mesh(this.laserGeo, this.laserMat); e.laser.userData.noAO = true; e.laser.frustumCulled = false; e.laser.renderOrder = 12; this.scene.add(e.laser); e.laser.visible = false; }
+    if (player.dead || !los || e.stagger > 0) {
+      if (e.aimT > 0 && !los) { e.aimT = 0; e.fireCD = 1.2; }
+      e.laser.visible = false; e.lasering = false; return;
+    }
+    if (e.fireCD <= 0 && e.aimT <= 0) { e.aimT = 0.0001; e.aimPt = tgt.clone().add(new THREE.Vector3((Math.random() - 0.5) * 4, -1, (Math.random() - 0.5) * 4)); this.audio.charge(e.pos); }
+    if (e.aimT > 0) {
+      e.aimT += dt;
+      e.aimPt.lerp(tgt, 1 - Math.exp(-2.2 * dt));
+      const dir = e.aimPt.clone().sub(eye); const L = dir.length(); dir.normalize();
+      e.laser.visible = true; e.laser.position.copy(eye); e.laser.lookAt(eye.clone().add(dir));
+      const w = 0.005 + (e.aimT > 1.8 ? 0.007 : 0);
+      e.laser.scale.set(w, w, L + 30);
+      this.laserMat.opacity = 0.35 + 0.4 * (e.aimT / 2.2);
+      e.lasering = e.aimPt.distanceTo(tgt) < 0.6;
+      if (e.aimT >= 2.2) {
+        e.aimT = 0; e.laser.visible = false; e.lasering = false;
+        e.fireCD = (3.5 + Math.random() * 2) * (this.fireMult || 1);
+        const muzzle = new THREE.Vector3(0, -0.13, -1.05).multiplyScalar(e.group.scale.x).applyQuaternion(e.group.quaternion).add(e.pos);
+        this.fireBoltFrom(muzzle, player, { dmg: 34, speed: 95, spread: 0.12, heavy: true, from: e.pos });
+        this.effects.flash(muzzle, new THREE.Color(1, 0.2, 0.1), 40, 0.15, 12);
+      }
+    }
   }
 
   // was this hit on one of the rotors? -> knock the drone off balance
@@ -175,6 +219,7 @@ export class Enemies {
 
   kill(e, dir) {
     e.alive = false;
+    if (e.laser) { this.scene.remove(e.laser); e.laser = null; }
     if (this.onKill) this.onKill(e);
     if (e.kami) { this.explodeNow(e, dir); this.blast(e.pos.clone(), 4.6, 36, 160); return; }
     // lose control: spiral down trailing fire/smoke, explode on impact
@@ -351,6 +396,7 @@ export class Enemies {
         if (e.armed >= 0) { e.armed -= dt; if (e.armed <= 0) this.kill(e, new THREE.Vector3(0, 1, 0)); }
         continue;
       }
+      if (e.kind === 'sniper') { this.sniperLogic(e, dt, player, los); continue; }
       // attack logic
       if (player.dead) continue;
       e.fireCD -= dt;
@@ -414,7 +460,7 @@ export class Enemies {
   }
 
   clear() {
-    for (const e of this.list.concat(this.falling)) { this.scene.remove(e.group); this.audio.stopHum(e.hum); }
+    for (const e of this.list.concat(this.falling)) { this.scene.remove(e.group); if (e.laser) this.scene.remove(e.laser); this.audio.stopHum(e.hum); }
     this.falling = [];
     for (const b of this.bolts) this.scene.remove(b.mesh);
     this.list = []; this.bolts = [];

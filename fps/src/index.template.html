@@ -84,6 +84,8 @@
   #boss .bar { margin-top: 8px; height: 6px; background: rgba(255,255,255,0.12); position: relative; }
   #boss .bar i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, #ff3b2a, #ff8a3a); transition: width .2s; }
   #boss .st { margin-top: 6px; font-size: 11px; letter-spacing: 0.25em; color: var(--dim); }
+  #lockwarn { position: absolute; left: 50%; top: 150px; transform: translateX(-50%); padding: 6px 14px; border: 1px solid var(--red); color: var(--red); font-size: 12px; letter-spacing: 0.4em; opacity: 0; }
+  #lockwarn.on { opacity: 1; animation: blink .25s infinite alternate; }
   #banner { position: absolute; left: 0; right: 0; top: 30%; text-align: center; opacity: 0; transition: opacity .6s; }
   #banner .k { font-size: 12px; letter-spacing: 0.6em; color: var(--accent); }
   #banner .t { margin-top: 14px; font-size: 40px; font-weight: 200; letter-spacing: 0.3em; }
@@ -126,6 +128,7 @@
   <div id="scorebox" style="position:absolute;left:56px;top:40px;font-size:11px;letter-spacing:.3em;color:var(--dim)">得分<b id="score" style="display:block;margin-top:6px;font-size:22px;font-weight:300;letter-spacing:.05em;color:var(--hud);font-variant-numeric:tabular-nums">0</b></div>
   <div id="feed"></div>
   <div id="boss"><div class="nm">母舰 · WARDEN</div><div class="bar"><i id="bossfill"></i></div><div class="st" id="bossst"></div></div>
+  <div id="lockwarn">⚠ 被狙击锁定</div>
   <div id="banner"><div class="k" id="bk"></div><div class="t" id="bt"></div><div class="s" id="bs"></div></div>
   <div id="hint"></div>
   <div id="health"><div class="lbl"><span>生命</span><span id="hpn">100</span></div><div class="bar"><i id="hpb"></i></div></div>
