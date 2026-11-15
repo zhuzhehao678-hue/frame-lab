@@ -16,6 +16,7 @@ import { Boss } from './boss.js';
 import { Music } from './music.js';
 import { Pickups } from './pickups.js';
 import { Hazards } from './hazards.js';
+import { Rain } from './rain.js';
 
 installFog();
 
@@ -74,12 +75,21 @@ async function boot() {
   S.bias = -0.0003; S.normalBias = 0.035; S.radius = 2.5; S.blurSamples = 12;
   scene.add(sun, sun.target);
   const hemi = new THREE.HemisphereLight(TOD.hemiSky, TOD.hemiGround, TOD.hemiIntensity);
+  hemi.userData.base = TOD.hemiIntensity;
   scene.add(hemi);
 
   const level = new Level(scene, lib);
   for (const l of level.lights) { l.intensity *= TOD.lamps; l.visible = TOD.lamps > 0; }
   lib.M.lampLens.emissiveIntensity *= Math.max(TOD.lamps, 0.02);
   lib.M.windowLit.emissiveIntensity *= TOD.windows;
+  if (TOD.rain) {
+    // soaked surfaces: darker and glossier
+    for (const [k, m] of Object.entries(lib.M)) {
+      if (!m.isMeshStandardMaterial || m.transparent || k === 'ground' || k === 'water' || k.startsWith('lamp') || k === 'windowLit') continue;
+      m.roughness *= 0.55; if (m.color) m.color.multiplyScalar(0.82);
+    }
+    REFL.rain.value = 1;
+  }
   for (const m of level.rayMeshes) if (m.name === 'static_chainlink') m.userData.noAO = true;
   scene.traverse((o) => { if (o.name === 'static_chainlink') o.userData.noAO = true; });
 
@@ -99,6 +109,7 @@ async function boot() {
   const music = new Music(audio);
   const pickups = new Pickups(scene, lib, audio);
   const hazards = new Hazards(scene, lib, level, effects, audio);
+  const rain = TOD.rain ? new Rain(scene, camera, effects, audio) : null;
   enemies.hazards = hazards;
 
   R.setup(scene, camera, sunDir);
@@ -123,7 +134,7 @@ async function boot() {
   scene.remove(warm);
   await progress(1, '就绪');
 
-  return { lib, level, effects, audio, player, weapon, pistol, enemies, grenades, ambient, boss, music, pickups, hazards, sun };
+  return { lib, level, effects, audio, player, weapon, pistol, enemies, grenades, ambient, boss, music, pickups, hazards, rain, hemi, sun };
 }
 
 const G = await boot();
@@ -208,6 +219,7 @@ $('tod').onchange = (e) => {
 $('play').onclick = () => {
   audio.init();
   music.setVolume(settings.music); music.start();
+  if (G.rain) G.rain.startAudio();
   $('view').requestPointerLock();
   if (!started) { started = true; waves.start(); weapon.root.visible = true; weapon.equipT = 0; }
 };
@@ -572,7 +584,13 @@ function loop() {
   }
   if (running || photo) {
     effects.update(running ? dt : 0, level);
-    if (running) motes(dt);
+    if (running && !G.rain) motes(dt);
+    if (G.rain) {
+      const fl = G.rain.update(dt, t, player);
+      REFL.time.value = t;
+      G.hemi.intensity = G.hemi.userData.base + fl * 4;
+      R.final.uniforms.uFlash.value = fl * 1.5;
+    }
     ambient.update(running ? dt : 0, t, effects);
   }
   audio.updateListener();
@@ -601,4 +619,4 @@ weapon.root.visible = false;
 if (!noLoop) loop();
 
 // debug / screenshot hooks
-window.__game = { hazards, pickups: G.pickups, music: G.music, boss, switchWeapon, weapons, get weapon() { return weapon; }, ambient, updateHUD, score, grenades, setLocked: (v) => { locked = v; }, loop, start: () => { started = true; waves.start(); }, FOG, sun: G.sun, THREE, scene, camera, player, enemies, effects, level, R, waves, renderer, togglePhoto, shoot, input };
+window.__game = { REFL, rain: G.rain, hazards, pickups: G.pickups, music: G.music, boss, switchWeapon, weapons, get weapon() { return weapon; }, ambient, updateHUD, score, grenades, setLocked: (v) => { locked = v; }, loop, start: () => { started = true; waves.start(); }, FOG, sun: G.sun, THREE, scene, camera, player, enemies, effects, level, R, waves, renderer, togglePhoto, shoot, input };

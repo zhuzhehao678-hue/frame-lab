@@ -28,6 +28,17 @@ export const TIMES = {
     exposure: 0.56, bloom: 0.06, godWeight: 0.0, lamps: 0.35, windows: 0.7,
     smokeTint: c(0.7, 0.6, 0.5),
   },
+  // overcast storm: soft light, mist, everything wet, lights on
+  rain: {
+    label: '雨天', rain: true,
+    sunDir: v(0.35, 0.9, 0.25), sunColor: c(0.75, 0.8, 0.9), sunIntensity: 0.9,
+    hemiSky: c(0.55, 0.6, 0.68), hemiGround: c(0.22, 0.22, 0.22), hemiIntensity: 0.45,
+    sky: { turbidity: 14, rayleigh: 0.5, mie: 0.004, mieG: 0.6, clouds: 1.0, cloudDensity: 1.0, noSun: true, overcast: true },
+    env: 0.32, envGround: c(0.08, 0.08, 0.085), wet: 1, grade: c(0.94, 0.99, 1.06),
+    fog: { color: c(0.30, 0.33, 0.37), sun: c(0.05, 0.05, 0.05), density: 0.011, falloff: 0.05 },
+    exposure: 0.64, bloom: 0.2, godWeight: 0.0, lamps: 1, windows: 1,
+    smokeTint: c(0.5, 0.52, 0.55),
+  },
   // the original low sunset, with the glare reined in
   sunset: {
     label: '日落',

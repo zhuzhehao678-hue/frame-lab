@@ -110,7 +110,7 @@ const FinalShader = {
       ghost += max(texture2D(tDiffuse, uv + hv).rgb - 60.0, 0.0) * pow(1.0 - length(vec2(0.5) - fract(uv + hv)) / 0.7071, 5.0) * vec3(1.0, 0.8, 0.6) * 0.6;
       col += min(ghost * 0.0006, vec3(0.12));
       col *= uExposure * uGrade;
-      col += uFlash * vec3(1.0, 0.85, 0.6) * 0.15;
+      col += uFlash * vec3(0.8, 0.9, 1.1) * 0.15;
 
       // colour grade in linear (pre-tonemap): warm highlights, cool shadows
       float L = luma(col);
@@ -314,7 +314,43 @@ export class Renderer {
 }
 
 // Procedural sky + matching PMREM environment
+// Overcast dome for the storm preset: grey gradient + slow cloud banding.
+function overcastSky(T) {
+  const mat = new THREE.ShaderMaterial({
+    side: THREE.BackSide, depthWrite: false,
+    uniforms: { time: { value: 0 }, sunPosition: { value: new THREE.Vector3() }, cloudCoverage: { value: 1 }, showSunDisc: { value: 0 } },
+    vertexShader: 'varying vec3 vDir; void main(){ vDir = normalize((modelMatrix * vec4(position, 1.0)).xyz - cameraPosition); vec4 p = projectionMatrix * modelViewMatrix * vec4(position, 1.0); gl_Position = p.xyww; }',
+    fragmentShader: `uniform float time; varying vec3 vDir;
+      float h(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float n(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f); return mix(mix(h(i), h(i+vec2(1,0)), f.x), mix(h(i+vec2(0,1)), h(i+vec2(1,1)), f.x), f.y); }
+      float fbm(vec2 p){ float s = 0.0, a = 0.5; for (int i = 0; i < 6; i++){ s += a * n(p); p *= 2.07; a *= 0.5; } return s; }
+      void main(){
+        vec3 d = normalize(vDir);
+        float y = max(d.y, 0.0);
+        vec3 horizon = vec3(0.62, 0.65, 0.70), zenith = vec3(0.40, 0.43, 0.48);
+        vec3 col = mix(horizon, zenith, pow(y, 0.6));
+        vec2 uv = d.xz / (y + 0.12) * 0.6 + vec2(time * 0.004, time * 0.0015);
+        float c = fbm(uv);
+        col *= mix(0.72, 1.12, c);
+        col = mix(col, horizon * 0.9, smoothstep(0.12, 0.0, y));
+        if (d.y < 0.0) col = horizon * 0.55;
+        gl_FragColor = vec4(col * 1.25, 1.0);
+      }`,
+  });
+  const m = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 16), mat);
+  m.material.uniforms.sunPosition.value.set(0, 1, 0);
+  return m;
+}
+
 export function createSky(renderer, scene, sunDir, T) {
+  if (T.sky.overcast) {
+    const sky = overcastSky(T); sky.scale.setScalar(3000); sky.userData.noAO = true; sky.frustumCulled = false; scene.add(sky);
+    const envScene = new THREE.Scene(); const s2 = overcastSky(T); s2.scale.setScalar(900); envScene.add(s2);
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    scene.environment = pmrem.fromScene(envScene, 0.04, 0.1, 2000).texture; pmrem.dispose();
+    scene.environmentIntensity = T.env;
+    return sky;
+  }
   const sky = new Sky();
   sky.scale.setScalar(4000);
   sky.userData.noAO = true;
@@ -326,6 +362,7 @@ export function createSky(renderer, scene, sunDir, T) {
   u.mieDirectionalG.value = T.sky.mieG;
   u.sunPosition.value.copy(sunDir).multiplyScalar(1000);
   u.cloudCoverage.value = T.sky.clouds;
+  if (T.sky.noSun) u.showSunDisc.value = 0;
   u.cloudDensity.value = T.sky.cloudDensity;
   u.cloudElevation.value = 0.55;
   u.cloudScale.value = 0.00018;

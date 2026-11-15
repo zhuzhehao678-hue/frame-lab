@@ -9,6 +9,8 @@ export const REFL = {
   mat: { value: new THREE.Matrix4() },
   on: { value: 0 },
   wet: { value: 1 },
+  rain: { value: 0 },
+  time: { value: 0 },
 };
 
 export class PlanarReflection {

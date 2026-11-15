@@ -59,7 +59,7 @@ export async function buildMaterials(renderer, quality, progress) {
   M.ground = pbr(tex.ground, { envMapIntensity: 1.0 });
   // break up tiling: world-space macro variation (dirt, sun-bleaching, tyre-worn lanes)
   M.ground.onBeforeCompile = (sh) => {
-    sh.uniforms.uReflTex = REFL.tex; sh.uniforms.uReflMat = REFL.mat; sh.uniforms.uReflOn = REFL.on; sh.uniforms.uWet = REFL.wet;
+    sh.uniforms.uReflTex = REFL.tex; sh.uniforms.uReflMat = REFL.mat; sh.uniforms.uReflOn = REFL.on; sh.uniforms.uWet = REFL.wet; sh.uniforms.uRain = REFL.rain; sh.uniforms.uRainTime = REFL.time;
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vGW;')
       .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvGW = (modelMatrix * vec4(transformed, 1.0)).xyz;');
     sh.fragmentShader = sh.fragmentShader.replace('#include <lights_fragment_maps>', `#include <lights_fragment_maps>
@@ -76,7 +76,7 @@ export async function buildMaterials(renderer, quality, progress) {
         radiance = mix(radiance, rc, wetM);
       }
       #endif`).replace('#include <common>', `#include <common>
-uniform sampler2D uReflTex; uniform mat4 uReflMat; uniform float uReflOn; uniform float uWet;
+uniform sampler2D uReflTex; uniform mat4 uReflMat; uniform float uReflOn; uniform float uWet; uniform float uRain; uniform float uRainTime;
 varying vec3 vGW;
 float gh(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float gn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f);
@@ -91,7 +91,23 @@ float gfbm(vec2 p){ float s = 0.0, a = 0.5; for(int i=0;i<5;i++){ s += a*gn(p); 
       diffuseColor.rgb *= 1.0 - lane * 0.22 * smoothstep(0.3, 0.7, gn(vGW.xz * vec2(2.0, 0.15)));
       float grime = smoothstep(0.55, 0.8, gfbm(vGW.xz * 0.09 + 3.0));
       diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(0.55, 0.5, 0.44), grime * 0.6);`)
-      .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
+      .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+      if (uRain > 0.0) {
+        // raindrop ripples on standing water
+        vec2 rp = vGW.xz * 2.2; vec2 cell = floor(rp); vec2 fr = fract(rp);
+        vec2 grad = vec2(0.0);
+        for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) {
+          vec2 c = cell + vec2(float(i), float(j));
+          float h = fract(sin(dot(c, vec2(12.9898, 78.233))) * 43758.5453);
+          float tt = fract(uRainTime * 1.1 + h);
+          vec2 d = fr - (vec2(float(i), float(j)) + vec2(fract(h * 7.13), fract(h * 13.71)));
+          float r = length(d), front = tt * 0.7;
+          float wave = sin((r - front) * 45.0) * (1.0 - tt) * smoothstep(front + 0.06, front, r) * smoothstep(front - 0.18, front, r);
+          grad += d / max(r, 1e-3) * wave;
+        }
+        float wetM = smoothstep(0.32, 0.08, roughnessFactor);
+        normal = normalize(normal + (viewMatrix * vec4(grad.x, 0.0, grad.y, 0.0)).xyz * 0.35 * wetM * uRain);
+      }`).replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
       roughnessFactor = clamp(roughnessFactor * mix(0.75, 1.1, macro2), 0.03, 1.0);
       // drier ground for brighter times of day: only the deepest puddles stay glossy
       roughnessFactor = mix(max(roughnessFactor, mix(0.8, 0.05, smoothstep(0.08, 0.04, roughnessFactor))), roughnessFactor, uWet);`);
