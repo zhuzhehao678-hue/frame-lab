@@ -121,6 +121,16 @@
   .lb .r { display: grid; grid-template-columns: 22px 1fr 28px 64px; gap: 8px; padding: 5px 0; border-top: 1px solid rgba(255,255,255,.08); font-variant-numeric: tabular-nums; }
   .lb .r b { color: var(--hud); font-weight: 400; text-align: right; }
   .lb .r.me { color: #ffd27a; } .lb .r.me b { color: #ffd27a; }
+  #bindbtn { position: absolute; right: 5vw; top: calc(34vh - 44px); padding: 6px 14px; font-size: 11px; letter-spacing: .25em; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.2); color: var(--hud); cursor: pointer; }
+  #binds { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; background: rgba(5,4,3,.82); pointer-events: auto; cursor: default; }
+  #binds .panel { width: min(560px, 92vw); color: var(--hud); }
+  #binds h3 { font-weight: 300; letter-spacing: .3em; margin: 0 0 6px; } #binds p { font-size: 11px; color: var(--dim); margin: 0 0 14px; }
+  #bindlist { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 26px; }
+  #bindlist .b { display: flex; justify-content: space-between; align-items: center; font-size: 12px; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,.07); }
+  #bindlist button { min-width: 88px; padding: 4px 10px; font: 12px monospace; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.25); color: var(--hud); cursor: pointer; }
+  #bindlist button.wait { border-color: #ffd27a; color: #ffd27a; }
+  #binds .btns { margin-top: 18px; display: flex; gap: 12px; justify-content: flex-end; }
+  #binds .btns button { padding: 8px 18px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.25); color: var(--hud); cursor: pointer; letter-spacing: .2em; }
   #mlb { position: absolute; right: 5vw; top: 34vh; width: 380px; }
   .lb .r span:nth-child(2) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   #elb { margin: 20px auto 0; max-width: 460px; text-align: left; }
@@ -173,6 +183,7 @@
     <div id="paused" class="hidden">已暂停</div>
     <button id="play">开始作战</button>
     <div id="mlb" class="lb"></div>
+    <button id="bindbtn" class="small">按键设置</button>
     <div class="opts">
       <label>难度 <select id="diff"><option value="easy">简单</option><option value="normal">普通</option><option value="hard">困难</option></select></label>
       <label>时段 <select id="tod"><option value="day">白天</option><option value="golden">黄昏</option><option value="sunset">日落</option><option value="rain">雨天</option><option value="night">夜晚</option></select></label>
@@ -194,6 +205,7 @@
     </div>
   </div>
 </div>
+<div id="binds" class="hidden"><div class="panel"><h3>按键设置</h3><p>点击按钮后按下新按键（Esc 取消，冲突的按键会互换）</p><div id="bindlist"></div><div class="btns"><button id="bindreset">恢复默认</button><button id="bindclose">完成</button></div></div></div>
 <div id="photo" class="hidden"><h3>照片模式</h3>
   <label>曝光 <input id="ph_ev" type="range" min="-2" max="2" step="0.05" value="0"></label>
   <label>焦点距离 <input id="ph_focus" type="range" min="0.5" max="60" step="0.1" value="8"></label>

@@ -35,7 +35,7 @@ const TOD = TIMES[todName];
 const DIFF = { easy: { dmg: 0.42, hp: 0.8, fire: 1.35, score: 0.8 }, normal: { dmg: 0.62, hp: 1, fire: 1, score: 1 }, hard: { dmg: 0.85, hp: 1.25, fire: 0.78, score: 1.35 } };
 const settings = { xhStyle: saved.xhStyle || 'both', xhColor: saved.xhColor || '#f0ece4', mblur: saved.mblur ?? true, diff: DIFF[saved.diff] ? saved.diff : 'normal', sens: saved.sens ?? 1, fov: saved.fov ?? 74, adsSens: saved.adsSens ?? 0.9, music: saved.music ?? 0.5, optic: saved.optic || 'reddot', muzzle: saved.muzzle || 'brake' };
 $('diff').value = settings.diff; $('xhstyle').value = settings.xhStyle; $('xhcolor').value = settings.xhColor; $('mblur').checked = settings.mblur; $('quality').value = qualityName; $('tod').value = todName; $('sens').value = settings.sens; $('adssens').value = settings.adsSens; $('music').value = settings.music; $('fov').value = settings.fov; $('optic').value = settings.optic; $('muzzle').value = settings.muzzle;
-const persist = () => LS.setItem('afterglow', JSON.stringify({ quality: qualityName, tod: todName, ...settings, best: saved.best || 0, bestWave: saved.bestWave || 0, tutorialDone: !!saved.tutorialDone }));
+const persist = () => LS.setItem('afterglow', JSON.stringify({ quality: qualityName, tod: todName, ...settings, binds: saved.binds, best: saved.best || 0, bestWave: saved.bestWave || 0, tutorialDone: !!saved.tutorialDone }));
 
 const frame = () => new Promise((r) => requestAnimationFrame(() => r()));
 async function progress(f, label) {
@@ -189,6 +189,44 @@ const input = { f: false, b: false, l: false, r: false, sprint: false, crouch: f
 const mouse = { x: 0, y: 0 };
 let locked = false, started = false, photo = false, gameOver = false;
 
+// --- key rebinding: user keys are translated to the default codes the
+// handlers below listen for, so every handler stays unchanged
+const BIND_ACTIONS = [['f', '前进', 'KeyW'], ['b', '后退', 'KeyS'], ['l', '左移', 'KeyA'], ['r', '右移', 'KeyD'], ['jump', '跳跃', 'Space'], ['sprint', '冲刺', 'ShiftLeft'], ['crouch', '蹲下 / 滑铲', 'KeyC'],
+  ['leanL', '左探头', 'KeyQ'], ['leanR', '右探头', 'KeyE'], ['reload', '换弹', 'KeyR'], ['grenade', '手雷', 'KeyG'], ['melee', '近战', 'KeyV'], ['light', '手电', 'KeyT'], ['inspect', '检视', 'KeyI'], ['emp', 'EMP', 'KeyX']];
+const binds = Object.assign(Object.fromEntries(BIND_ACTIONS.map(([a, , d]) => [a, d])), saved.binds || {});
+let bindFrom = {}, bindAway = new Set();
+function rebuildBinds() {
+  bindFrom = {}; bindAway = new Set();
+  for (const [a, , d] of BIND_ACTIONS) { bindFrom[binds[a]] = d; if (binds[a] !== d) bindAway.add(d); }
+  for (const c of Object.keys(bindFrom)) bindAway.delete(c);
+}
+rebuildBinds();
+const keyLabel = (c) => ({ Space: '空格', ShiftLeft: 'L-Shift', ShiftRight: 'R-Shift', ControlLeft: 'L-Ctrl', ControlRight: 'R-Ctrl', AltLeft: 'L-Alt', CapsLock: 'Caps', Tab: 'Tab', Backquote: '`' }[c] || c.replace(/^Key|^Digit/, '').replace(/^Numpad/, 'Num '));
+let bindCapture = null;
+for (const type of ['keydown', 'keyup']) addEventListener(type, (e) => {
+  if (e._remapped) return;
+  if (bindCapture && type === 'keydown') { e.preventDefault(); e.stopImmediatePropagation(); if (e.code !== 'Escape') bindCapture(e.code); else bindCapture(null); return; }
+  const def = bindFrom[e.code];
+  if (def === undefined) { if (bindAway.has(e.code)) e.stopImmediatePropagation(); return; }
+  if (def === e.code) return;
+  e.stopImmediatePropagation(); if (def === 'Space' || e.code === 'Space') e.preventDefault();
+  const ev = new KeyboardEvent(type, { code: def, repeat: e.repeat }); ev._remapped = true; dispatchEvent(ev);
+}, true);
+function renderBinds() {
+  $('bindlist').innerHTML = BIND_ACTIONS.map(([a, n]) => `<div class="b"><span>${n}</span><button data-a="${a}">${keyLabel(binds[a])}</button></div>`).join('');
+  for (const b of $('bindlist').querySelectorAll('button')) b.onclick = () => {
+    b.textContent = '按任意键…'; b.classList.add('wait');
+    bindCapture = (code) => {
+      bindCapture = null;
+      if (code) {
+        const a = b.dataset.a;
+        for (const [o] of BIND_ACTIONS) if (o !== a && binds[o] === code) binds[o] = binds[a]; // swap on conflict
+        binds[a] = code; saved.binds = { ...binds }; rebuildBinds(); persist();
+      }
+      renderBinds();
+    };
+  };
+}
 const keymap = { KeyQ: 'leanL', KeyE: 'leanR', KeyW: 'f', KeyS: 'b', KeyA: 'l', KeyD: 'r', ShiftLeft: 'sprint', ShiftRight: 'sprint', KeyC: 'crouch', ControlLeft: 'crouch' };
 addEventListener('keydown', (e) => {
   if (keymap[e.code]) input[keymap[e.code]] = true;
@@ -615,6 +653,9 @@ function recordLB(grade, reached, win) {
   return { list, id };
 }
 renderLB($('mlb'), loadLB());
+$('bindbtn').onclick = () => { renderBinds(); $('binds').classList.remove('hidden'); };
+$('bindclose').onclick = () => { $('binds').classList.add('hidden'); bindCapture = null; };
+$('bindreset').onclick = () => { for (const [a, , d] of BIND_ACTIONS) binds[a] = d; saved.binds = { ...binds }; rebuildBinds(); persist(); renderBinds(); };
 
 function showEnd(win, bonus = 0) {
   const secs = (performance.now() - stats.t0) / 1000;
