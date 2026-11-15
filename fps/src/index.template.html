@@ -106,6 +106,8 @@
   #feed { position: absolute; right: 56px; top: 40px; display: flex; flex-direction: column; gap: 6px; align-items: flex-end; font-size: 12px; letter-spacing: 0.15em; }
   #feed div { padding: 5px 10px; background: rgba(0,0,0,0.25); border-right: 2px solid var(--accent); animation: feed 3.2s forwards; }
   @keyframes feed { 0% { opacity: 0; transform: translateX(20px); } 8% { opacity: 1; transform: none; } 85% { opacity: 1; } 100% { opacity: 0; } }
+  #blitz { position: absolute; left: 50%; top: 84px; transform: translateX(-50%); font: 300 26px/1 'Inter', Arial, sans-serif; letter-spacing: .12em; color: var(--hud); font-variant-numeric: tabular-nums; }
+  #blitz.low { color: #ff6a4a; animation: empb .6s infinite; }
   #toasts { position: absolute; right: 28px; top: 38%; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
   #toasts .toast { display: flex; gap: 12px; align-items: center; padding: 10px 16px 10px 12px; background: rgba(10,8,6,.62); border-right: 2px solid #ffd27a; color: var(--hud); font-size: 14px; letter-spacing: .12em; transform: translateX(30px); opacity: 0; transition: transform .45s cubic-bezier(.2,.8,.2,1), opacity .45s; }
   #toasts .toast.on { transform: none; opacity: 1; }
@@ -186,6 +188,7 @@
   <div id="dmgnums"></div>
   <div id="killcam"></div>
   <div id="toasts"></div>
+  <div id="blitz" class="hidden">3:00</div>
   <div id="radio"><span class="who"></span><span class="txt"></span></div>
   <div id="health"><div class="lbl"><span>生命</span><span id="hpn">100</span></div><div class="bar"><i id="hpb"></i></div></div>
   <div id="ammo"><div class="n"><span id="mag">30</span><small>/ <span id="res">180</span></small></div><div class="pips" id="pips"></div><div class="w" id="wname">MK-18 CQBR · 5.56</div><div class="w">手雷 <span id="gren" style="letter-spacing:0.15em;color:var(--hud)"></span> <kbd style="font-size:10px;border:1px solid rgba(255,255,255,.3);padding:0 4px;border-radius:2px">G</kbd></div><div class="w" id="emp">EMP <b><i></i></b> <kbd style="font-size:10px;border:1px solid rgba(255,255,255,.3);padding:0 4px;border-radius:2px">X</kbd></div></div>
@@ -204,6 +207,7 @@
     <div id="mlb" class="lb"></div>
     <button id="bindbtn" class="small">按键设置</button>
     <div class="opts">
+      <label>模式 <select id="mode"><option value="campaign">战役</option><option value="blitz">限时突击</option></select></label>
       <label>难度 <select id="diff"><option value="easy">简单</option><option value="normal">普通</option><option value="hard">困难</option><option value="hardcore">硬核</option></select></label>
       <label>时段 <select id="tod"><option value="day">白天</option><option value="golden">黄昏</option><option value="sunset">日落</option><option value="rain">雨天</option><option value="night">夜晚</option></select></label>
       <label>画质 <select id="quality"><option value="low">低</option><option value="medium">中</option><option value="high">高</option><option value="ultra">极致</option></select></label>

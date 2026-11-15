@@ -35,8 +35,8 @@ let todName = params.get('t') || saved.tod || 'golden';
 if (!TIMES[todName]) todName = 'golden';
 const TOD = TIMES[todName];
 const DIFF = { easy: { dmg: 0.42, hp: 0.8, fire: 1.35, score: 0.8 }, normal: { dmg: 0.62, hp: 1, fire: 1, score: 1 }, hard: { dmg: 0.85, hp: 1.25, fire: 0.78, score: 1.35 }, hardcore: { dmg: 1.1, hp: 1.25, fire: 0.78, score: 1.8, hc: true } };
-const settings = { xhStyle: saved.xhStyle || 'both', xhColor: saved.xhColor || '#f0ece4', mblur: saved.mblur ?? true, diff: DIFF[saved.diff] ? saved.diff : 'normal', sens: saved.sens ?? 1, fov: saved.fov ?? 74, adsSens: saved.adsSens ?? 0.9, music: saved.music ?? 0.5, optic: saved.optic || 'reddot', muzzle: saved.muzzle || 'brake', dmgNums: saved.dmgNums ?? false, cb: saved.cb || 0, hudScale: saved.hudScale ?? 1, finish: saved.finish || 'black' };
-$('diff').value = settings.diff; $('xhstyle').value = settings.xhStyle; $('xhcolor').value = settings.xhColor; $('mblur').checked = settings.mblur; $('quality').value = qualityName; $('tod').value = todName; $('sens').value = settings.sens; $('adssens').value = settings.adsSens; $('music').value = settings.music; $('fov').value = settings.fov; $('optic').value = settings.optic; $('dmgnum').checked = settings.dmgNums; $('cb').value = settings.cb; $('finish').value = settings.finish; $('hudscale').value = settings.hudScale; $('muzzle').value = settings.muzzle;
+const settings = { xhStyle: saved.xhStyle || 'both', xhColor: saved.xhColor || '#f0ece4', mblur: saved.mblur ?? true, diff: DIFF[saved.diff] ? saved.diff : 'normal', sens: saved.sens ?? 1, fov: saved.fov ?? 74, adsSens: saved.adsSens ?? 0.9, music: saved.music ?? 0.5, optic: saved.optic || 'reddot', muzzle: saved.muzzle || 'brake', dmgNums: saved.dmgNums ?? false, cb: saved.cb || 0, hudScale: saved.hudScale ?? 1, finish: saved.finish || 'black', mode: saved.mode || 'campaign' };
+$('diff').value = settings.diff; $('xhstyle').value = settings.xhStyle; $('xhcolor').value = settings.xhColor; $('mblur').checked = settings.mblur; $('quality').value = qualityName; $('tod').value = todName; $('sens').value = settings.sens; $('adssens').value = settings.adsSens; $('music').value = settings.music; $('fov').value = settings.fov; $('optic').value = settings.optic; $('dmgnum').checked = settings.dmgNums; $('cb').value = settings.cb; $('finish').value = settings.finish; $('mode').value = settings.mode; $('hudscale').value = settings.hudScale; $('muzzle').value = settings.muzzle;
 const persist = () => LS.setItem('afterglow', JSON.stringify({ quality: qualityName, tod: todName, ...settings, binds: saved.binds, best: saved.best || 0, bestWave: saved.bestWave || 0, tutorialDone: !!saved.tutorialDone, seenV2: !!saved.seenV2 }));
 
 const frame = () => new Promise((r) => requestAnimationFrame(() => r()));
@@ -301,6 +301,7 @@ $('music').oninput = (e) => { settings.music = +e.target.value; music.setVolume(
 $('adssens').oninput = (e) => { settings.adsSens = +e.target.value; persist(); };
 $('optic').onchange = (e) => { settings.optic = e.target.value; G.weapon.setOptic(settings.optic); persist(); };
 const applyAccess = () => { if (R.final) R.final.uniforms.uCB.value = +settings.cb; document.documentElement.style.setProperty('--hs', settings.hudScale); };
+$('mode').onchange = (e) => { settings.mode = e.target.value; persist(); };
 $('finish').onchange = (e) => { settings.finish = e.target.value; for (const w of weapons) w.setFinish(settings.finish, G.lib); persist(); };
 $('cb').onchange = (e) => { settings.cb = +e.target.value; applyAccess(); persist(); };
 $('hudscale').oninput = (e) => { settings.hudScale = +e.target.value; applyAccess(); persist(); };
@@ -545,6 +546,7 @@ enemies.onKill = (e) => {
   score.total += pts;
   feed(`${NAMES[e.kind]} 已摧毁  +${pts}${score.combo > 1 ? `  ×${score.combo} 连杀` : ''}`);
   audio.hitmarker(true);
+  if (waves.blitz) waves.blitzT = Math.min(waves.blitzT + 1, 240);
   if (!emp.ready && killSource.type !== 'emp') {
     emp.charge++;
     if (emp.charge >= EMP_KILLS) { emp.ready = true; audio.empReady(); feed('EMP 脉冲已就绪 · 按 X 释放'); radio(RADIO.emp[0]); }
@@ -574,12 +576,17 @@ const WALKER_SPAWNS = [[-9, -20], [13, -0.5], [0, 17.5], [6, -20.5], [-8, 1.5]];
 const CN = ['一', '二', '三', '四', '五'];
 const waves = {
   index: 0, active: false, queue: [], timer: 0, spawnT: 0, done: false,
-  start() { this.index = 0; this.endless = false; this.begin(2.5); stats.t0 = performance.now(); sunset.startT = simTime; },
+  start() {
+    this.blitz = settings.mode === 'blitz';
+    this.index = this.blitz ? WAVES.length + 1 : 0; this.endless = this.blitz; this.blitzT = 180;
+    this.begin(2.5); stats.t0 = performance.now(); sunset.startT = simTime;
+    $('blitz').classList.toggle('hidden', !this.blitz);
+  },
   // campaign waves, then procedurally escalating endless waves (boss every 5th)
   wave(i) {
     if (i < WAVES.length && !this.endless) return WAVES[i];
     const e = i - WAVES.length + 1;
-    return [Math.min(3 + Math.floor(e * 0.6), 7), Math.min(1 + Math.floor(e / 2), 4), Math.min(2 + Math.floor(e / 1.5), 7), e % 5 === 0 ? 'boss' : null, Math.min(1 + Math.floor(e / 3), 3), Math.min(1 + Math.floor(e / 2), 3), Math.min(1 + Math.floor(e / 3), 2), Math.min(Math.floor(e / 2), 2), Math.min(1 + Math.floor(e / 3), 3)];
+    return [Math.min(3 + Math.floor(e * 0.6), 7), Math.min(1 + Math.floor(e / 2), 4), Math.min(2 + Math.floor(e / 1.5), 7), e % 5 === 0 && !this.blitz ? 'boss' : null, Math.min(1 + Math.floor(e / 3), 3), Math.min(1 + Math.floor(e / 2), 3), Math.min(1 + Math.floor(e / 3), 2), Math.min(Math.floor(e / 2), 2), Math.min(1 + Math.floor(e / 3), 3)];
   },
   goEndless() {
     this.endless = true; this.done = false; gameOver = false;
@@ -604,13 +611,20 @@ const waves = {
     for (let i = q.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [q[i], q[j]] = [q[j], q[i]]; }
     this.queue = q;
     const parts = [`哨兵 ×${n}`]; if (h) parts.push(`重型哨兵 ×${h}`); if (k) parts.push(`自爆蜂 ×${k}`); if (wk) parts.push(`四足机甲 ×${wk}`); if (sn) parts.push(`狙击无人机 ×${sn}`); if (md) parts.push(`维修无人机 ×${md}`); if (mn) parts.push(`布雷无人机 ×${mn}`); if (sd) parts.push(`盾卫无人机 ×${sd}`);
-    if (this.endless) banner(`ENDLESS · ${this.index + 1}`, `无尽 · 第 ${this.index + 1} 波`, (special === 'boss' ? '母舰来袭  ·  ' : '') + parts.join('  ·  '), 3.2);
+    if (this.blitz) banner(`BLITZ · ${this.index - WAVES.length}`, '限时突击', parts.join('  ·  '), 2.2);
+    else if (this.endless) banner(`ENDLESS · ${this.index + 1}`, `无尽 · 第 ${this.index + 1} 波`, (special === 'boss' ? '母舰来袭  ·  ' : '') + parts.join('  ·  '), 3.2);
     else if (special === 'boss') banner('FINAL WAVE', '母舰 · WARDEN', '摧毁四个旋翼舱使护盾失效，然后攻击核心 · 激光可被掩体阻挡', 5);
     else banner(`WAVE ${this.index + 1} / ${WAVES.length}`, `第 ${CN[this.index]} 波`, parts.join('  ·  '), 3.2);
     if (k && this.index === 1) setTimeout(() => hint('自爆蜂会直冲过来引爆 · 在远处击落它', 4), 3500);
   },
   update(dt) {
     if (this.done) return;
+    if (this.blitz && !gameOver) {
+      this.blitzT -= dt;
+      const bt = Math.max(0, this.blitzT), el = $('blitz');
+      el.textContent = `${Math.floor(bt / 60)}:${String(Math.floor(bt % 60)).padStart(2, '0')}`; el.classList.toggle('low', bt < 20);
+      if (this.blitzT <= 0) { gameOver = true; radio('时间到。停火——统计战果。'); setTimeout(() => showEnd(true, 0), 1800); return; }
+    }
     if (!this.active) {
       this.timer -= dt;
       if (this.timer <= 0) { this.active = true; this.spawnT = 0; audio.waveHorn(); }
@@ -642,8 +656,8 @@ const waves = {
       this.index++;
       this.refill();
       hint('弹药已补给 · 步枪 +90 · 手枪 +30 · 射手步枪 +20 · 霰弹 +10 · 手雷 +2 · 烟雾弹 +1', 2.5);
-      radio(pick(RADIO.clear));
-      this.begin(6);
+      if (!this.blitz) radio(pick(RADIO.clear));
+      this.begin(this.blitz ? 3 : 6);
     }
   },
 };
@@ -681,12 +695,12 @@ const LB_KEY = 'afterglow_lb';
 const loadLB = () => { try { return JSON.parse(LS.getItem(LB_KEY) || '[]'); } catch (e) { return []; } };
 function renderLB(el, list, meId) {
   const DN = { easy: '简单', normal: '普通', hard: '困难', hardcore: '硬核' };
-  el.innerHTML = '<h4>本机排行榜 · TOP 5</h4>' + (list.length ? list.map((r, i) => `<div class="r ${r.id === meId ? 'me' : ''}"><span>${i + 1}</span><span>${r.date} · ${DN[r.d] || ''} · ${r.endless ? '无尽 ' + r.w + ' 波' : (r.win ? '通关' : '第 ' + r.w + ' 波')}</span><span>${r.g}</span><b>${r.s}</b></div>`).join('') : '<div class="r"><span></span><span>还没有记录</span></div>');
+  el.innerHTML = '<h4>本机排行榜 · TOP 5</h4>' + (list.length ? list.map((r, i) => `<div class="r ${r.id === meId ? 'me' : ''}"><span>${i + 1}</span><span>${r.date} · ${DN[r.d] || ''} · ${r.blitz ? '限时突击' : r.endless ? '无尽 ' + r.w + ' 波' : (r.win ? '通关' : '第 ' + r.w + ' 波')}</span><span>${r.g}</span><b>${r.s}</b></div>`).join('') : '<div class="r"><span></span><span>还没有记录</span></div>');
 }
 function recordLB(grade, reached, win) {
   const id = Date.now() + Math.random();
   const d = new Date(); const date = `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-  const list = loadLB(); list.push({ id, s: score.total, w: reached, d: settings.diff, g: grade, win, endless: waves.endless, date });
+  const list = loadLB(); list.push({ id, s: score.total, w: reached, d: settings.diff, g: grade, win, endless: waves.endless && !waves.blitz, blitz: !!waves.blitz, date });
   list.sort((a, b) => b.s - a.s); list.length = Math.min(list.length, 5);
   LS.setItem(LB_KEY, JSON.stringify(list));
   return { list, id };
@@ -709,11 +723,13 @@ function showEnd(win, bonus = 0) {
   if (win) grade = (acc >= 45 && stats.dmgTaken < 260) ? 'S' : 'A';
   else if (waves.endless) grade = reached >= 15 ? 'S' : reached >= 10 ? 'A' : 'B';
   else if (reached >= 4) grade = 'B';
+  if (waves.blitz) grade = score.total >= 25000 ? 'S' : score.total >= 15000 ? 'A' : score.total >= 8000 ? 'B' : 'C';
   const bestLine = saveBest();
   const lb = recordLB(grade, reached, win); renderLB($('elb'), lb.list, lb.id); renderLB($('mlb'), lb.list);
   if (waves.endless) { const bw = Math.max(saved.bestWave || 0, reached); saved.bestWave = bw; LS.setItem('afterglow', JSON.stringify({ ...JSON.parse(LS.getItem('afterglow') || '{}'), bestWave: bw })); }
-  $('ek').textContent = win ? 'MISSION COMPLETE' : (waves.endless ? `ENDLESS · WAVE ${reached}` : 'MISSION FAILED');
-  $('et').textContent = win ? '堆场已肃清' : '阵亡';
+  $('ek').textContent = waves.blitz ? (win ? 'BLITZ · TIME UP' : 'BLITZ · KIA') : win ? 'MISSION COMPLETE' : (waves.endless ? `ENDLESS · WAVE ${reached}` : 'MISSION FAILED');
+  $('et').textContent = waves.blitz ? (win ? '限时突击结束' : '突击中阵亡') : win ? '堆场已肃清' : '阵亡';
+  $('endless').classList.toggle('hidden', !win || !!waves.blitz);
   $('eg').textContent = grade;
   $('escore').textContent = bestLine + (bonus ? `（含时间与生命奖励 +${bonus}）` : '') + (waves.endless ? ` · 无尽最高第 ${saved.bestWave} 波` : '');
   const bk = stats.byKind;
@@ -721,7 +737,6 @@ function showEnd(win, bonus = 0) {
   $('es').innerHTML = cell('用时', `${Math.floor(secs / 60)}:${String(Math.floor(secs % 60)).padStart(2, '0')}`) + cell('命中率', acc + '%') + cell('弱点命中', stats.crits) + cell('承受伤害', Math.round(stats.dmgTaken)) + cell('最高连杀', '×' + stats.bestCombo)
     + cell('哨兵', (bk.normal || 0) + (bk.heavy || 0)) + cell('自爆蜂', bk.kamikaze || 0) + cell('四足机甲', bk.walker || 0) + cell('到达波次', reached);
   $('em').innerHTML = MEDALS.map(([n, d, f]) => `<div class="medal ${f(stats) ? 'got' : ''}"><span class="i">${f(stats) ? '★' : '☆'}</span><div class="n">${n}</div><div class="d">${d}</div></div>`).join('');
-  $('endless').classList.toggle('hidden', !win);
   $('overlay').classList.add('hidden'); $('hud').classList.remove('on');
   $('end').classList.remove('hidden'); document.exitPointerLock();
 }
