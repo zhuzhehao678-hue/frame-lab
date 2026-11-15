@@ -106,6 +106,12 @@
   #feed { position: absolute; right: 56px; top: 40px; display: flex; flex-direction: column; gap: 6px; align-items: flex-end; font-size: 12px; letter-spacing: 0.15em; }
   #feed div { padding: 5px 10px; background: rgba(0,0,0,0.25); border-right: 2px solid var(--accent); animation: feed 3.2s forwards; }
   @keyframes feed { 0% { opacity: 0; transform: translateX(20px); } 8% { opacity: 1; transform: none; } 85% { opacity: 1; } 100% { opacity: 0; } }
+  #toasts { position: absolute; right: 28px; top: 38%; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+  #toasts .toast { display: flex; gap: 12px; align-items: center; padding: 10px 16px 10px 12px; background: rgba(10,8,6,.62); border-right: 2px solid #ffd27a; color: var(--hud); font-size: 14px; letter-spacing: .12em; transform: translateX(30px); opacity: 0; transition: transform .45s cubic-bezier(.2,.8,.2,1), opacity .45s; }
+  #toasts .toast.on { transform: none; opacity: 1; }
+  #toasts .toast span { font-size: 22px; color: #ffd27a; }
+  #toasts small { display: block; font-size: 9px; letter-spacing: .4em; color: #ffd27a; margin-bottom: 2px; }
+  #toasts em { display: block; font-style: normal; font-size: 10px; color: var(--dim); margin-top: 2px; letter-spacing: .08em; }
   #killcam { position: absolute; left: 50%; top: 64%; transform: translateX(-50%); text-align: center; font-size: 22px; letter-spacing: .25em; color: #ff8a6a; opacity: 0; transition: opacity .6s .9s; text-shadow: 0 2px 10px rgba(0,0,0,.8); }
   #killcam small { display: block; font-size: 10px; letter-spacing: .4em; color: var(--dim); margin: 4px 0; }
   #killcam.on { opacity: 1; }
@@ -179,6 +185,7 @@
   <div id="hint"></div>
   <div id="dmgnums"></div>
   <div id="killcam"></div>
+  <div id="toasts"></div>
   <div id="radio"><span class="who"></span><span class="txt"></span></div>
   <div id="health"><div class="lbl"><span>生命</span><span id="hpn">100</span></div><div class="bar"><i id="hpb"></i></div></div>
   <div id="ammo"><div class="n"><span id="mag">30</span><small>/ <span id="res">180</span></small></div><div class="pips" id="pips"></div><div class="w" id="wname">MK-18 CQBR · 5.56</div><div class="w">手雷 <span id="gren" style="letter-spacing:0.15em;color:var(--hud)"></span> <kbd style="font-size:10px;border:1px solid rgba(255,255,255,.3);padding:0 4px;border-radius:2px">G</kbd></div><div class="w" id="emp">EMP <b><i></i></b> <kbd style="font-size:10px;border:1px solid rgba(255,255,255,.3);padding:0 4px;border-radius:2px">X</kbd></div></div>

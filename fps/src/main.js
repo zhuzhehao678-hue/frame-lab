@@ -659,6 +659,19 @@ const MEDALS = [
   ['屠龙者', '击落母舰 WARDEN', (s) => s.bossKilled],
   ['弱点专家', '命中无人机传感器 10 次', (s) => s.crits >= 10],
 ];
+// live medal unlocks (accuracy is only judged at the end)
+const medalShown = new Set(); let medalAcc = 0;
+function checkMedals(dt) {
+  medalAcc += dt; if (medalAcc < 0.5) return; medalAcc = 0;
+  for (const [n, d, f] of MEDALS) {
+    if (n === '神射手' || medalShown.has(n) || !f(stats)) continue;
+    medalShown.add(n);
+    const el = document.createElement('div'); el.className = 'toast'; el.innerHTML = `<span>★</span><div><small>勋章解锁</small>${n}<em>${d}</em></div>`;
+    $('toasts').appendChild(el); requestAnimationFrame(() => el.classList.add('on'));
+    audio.empReady();
+    setTimeout(() => { el.classList.remove('on'); setTimeout(() => el.remove(), 600); }, 4200);
+  }
+}
 // local leaderboard: best 5 runs on this machine
 const LB_KEY = 'afterglow_lb';
 const loadLB = () => { try { return JSON.parse(LS.getItem(LB_KEY) || '[]'); } catch (e) { return []; } };
@@ -735,7 +748,7 @@ function defeat() {
   setTimeout(() => showEnd(false), 4200);
 }
 function restart() {
-  enemies.clear(); grenades.clear(); boss.clear(); pickups.reset(); hazards.reset(); walkers.clear(); props.reset(); G.heli.reset(); G.crash.reset(); G.killcam = null; $('killcam').classList.remove('on');
+  enemies.clear(); grenades.clear(); boss.clear(); pickups.reset(); hazards.reset(); walkers.clear(); props.reset(); G.heli.reset(); G.crash.reset(); G.killcam = null; $('killcam').classList.remove('on'); medalShown.clear();
   player.pos.copy(level.playerStart); player.vel.set(0, 0, 0); player.yaw = level.playerYaw; player.pitch = 0;
   player.health = 100; player.dead = false;
   G.weapon.ammo = 30; G.weapon.reserve = 180; G.pistol.ammo = 15; G.pistol.reserve = 60; G.dmr.ammo = 20; G.dmr.reserve = 80; G.shotgun.ammo = 6; G.shotgun.reserve = 30;
@@ -1142,6 +1155,7 @@ function loop() {
     hazards.update(dt, { enemies, player, t, onPlayerHit: enemies.onPlayerHit, boss, walkers });
     props.update(dt, player);
     updateFlare(dt, t);
+    checkMedals(dt);
     G.heli.update(dt);
     G.crash.update(dt);
     updateSunset(dt);
