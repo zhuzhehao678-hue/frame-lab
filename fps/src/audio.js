@@ -178,6 +178,13 @@ export class Audio {
     this.noise(d, t + dur, 0.05, { type: 'bandpass', f: 2600, q: 1.5, gain: 0.6 });
   }
   // distant gull cries: falling squawks with a rough edge
+  // flare: mortar-like thump, rising whistle, then a soft pop high up
+  flare() {
+    if (!this.enabled) return; const t = this.ctx.currentTime; const d = this.out(null, { verb: 1.2, gain: 0.5 });
+    this.tone(d, t, 0.25, { f: 70, f1: 35, gain: 0.8, curve: 3 }); this.noise(d, t, 0.15, { type: 'lowpass', f: 900, gain: 0.6 });
+    this.tone(d, t + 0.1, 2.2, { f: 600, f1: 1900, gain: 0.05, attack: 0.3, curve: 1.5 });
+    this.noise(d, t + 2.4, 0.3, { type: 'bandpass', f: 1200, q: 0.8, gain: 0.25 });
+  }
   gulls(n) {
     if (!this.enabled) return; const t0 = this.ctx.currentTime;
     for (let i = 0; i < Math.min(n, 5); i++) {

@@ -155,7 +155,12 @@ async function boot() {
   scene.remove(warm); warmLegs.forEach((o) => scene.remove(o));
   await progress(1, '就绪');
 
-  return { flashlight, lensGlow, lib, level, effects, audio, player, weapon, pistol, dmr, shotgun, enemies, grenades, ambient, boss, music, pickups, hazards, props, rain, hemi, walkers, sun };
+  // illumination flare (night): one permanent light so toggling never recompiles shaders
+  const flareLight = new THREE.PointLight(new THREE.Color(1.0, 0.86, 0.72), 0, 0, 1.7);
+  flareLight.castShadow = false; scene.add(flareLight);
+  const flareCore = new THREE.Mesh(new THREE.SphereGeometry(0.18, 10, 8), new THREE.MeshBasicMaterial({ color: new THREE.Color(40, 34, 26), fog: false }));
+  flareCore.visible = false; flareCore.userData.noAO = true; scene.add(flareCore);
+  return { flareLight, flareCore, flashlight, lensGlow, lib, level, effects, audio, player, weapon, pistol, dmr, shotgun, enemies, grenades, ambient, boss, music, pickups, hazards, props, rain, hemi, walkers, sun };
 }
 
 const G = await boot();
@@ -706,6 +711,30 @@ function restart() {
 
 // ------------------------------------------------------------------ shooting
 const RIFLE_PATTERN = [0, 0.15, -0.1, 0.25, 0.4, 0.3, 0.05, -0.25, -0.45, -0.35, -0.1, 0.2, 0.45, 0.5, 0.3, 0, -0.3, -0.5, -0.4, -0.1, 0.25, 0.4, 0.3, 0.1, -0.2, -0.4, -0.3, 0, 0.2, 0.3];
+// night: command fires illumination flares over the yard each wave
+const flare = { t: -1, pos: new THREE.Vector3(), vel: new THREE.Vector3(), next: 0 };
+function launchFlare() {
+  if (!TOD.night) return;
+  flare.t = 0; flare.pos.set(-8 + Math.random() * 16, 48, -14 + Math.random() * 26);
+  flare.vel.set((Math.random() - 0.5) * 0.6, -1.25, (Math.random() - 0.5) * 0.6);
+  audio.flare && audio.flare();
+  setTimeout(() => radio('照明弹升空——趁亮找到它们。'), 600);
+}
+function updateFlare(dt, t) {
+  if (!TOD.night) return;
+  if (waves.active && flare.t < 0) { flare.next -= dt; if (flare.next <= 0) { flare.next = 38; launchFlare(); } }
+  const L = G.flareLight, C = G.flareCore;
+  if (flare.t < 0) { L.intensity = 0; C.visible = false; return; }
+  flare.t += dt;
+  const sway = Math.sin(flare.t * 0.7) * 0.6;
+  flare.pos.addScaledVector(flare.vel, dt); flare.pos.x += sway * dt;
+  const life = 34, k = flare.t < 0.6 ? flare.t / 0.6 : flare.t > life - 4 ? Math.max(0, (life - flare.t) / 4) : 1;
+  const flick = 0.85 + Math.sin(t * 31) * 0.06 + Math.sin(t * 13.7) * 0.06 + Math.random() * 0.05;
+  L.position.copy(flare.pos); L.intensity = 1600 * k * flick;
+  C.visible = k > 0.02; C.position.copy(flare.pos); C.scale.setScalar(0.6 + k * 0.6);
+  if (Math.random() < dt * 20) effects.smoke.emit({ pos: flare.pos.clone().add(new THREE.Vector3(0, 0.2, 0)), vel: new THREE.Vector3((Math.random() - 0.5) * 0.3, 0.4, (Math.random() - 0.5) * 0.3), life: 9, size: 0.4, size1: 3.5, color: new THREE.Color(0.55, 0.5, 0.46).multiplyScalar(0.35 + 0.65 * k), alpha: 0.35, alpha1: 0, drag: 0.6, gravity: -0.05, rotVel: (Math.random() - 0.5) * 0.4 });
+  if (flare.t > life || flare.pos.y < 3) { flare.t = -1; }
+}
 function scareGulls(pos, k) {
   const n = ambient.scare(pos, k);
   if (n >= 2 && simTime - (G.gullT ?? -99) > 6) { G.gullT = simTime; audio.gulls(n); }
@@ -984,6 +1013,7 @@ function loop() {
     grenades.update(dt, { enemies, player, t, onPlayerHit: enemies.onPlayerHit, boss, hazards, walkers });
     hazards.update(dt, { enemies, player, t, onPlayerHit: enemies.onPlayerHit, boss, walkers });
     props.update(dt, player);
+    updateFlare(dt, t);
     killSource = { type: 'other' };
     walkers.update(dt, t, player);
     boss.update(dt, t, player);
