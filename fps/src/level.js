@@ -853,8 +853,8 @@ export class Level {
     const SX = X0 + 7;
     this.box(11, 13, B - 2, 'cabinWhite', SX, 6.6, ZC, 0, { uvScale: 3, collide: false, noShadow: true });
     this.box(9, 3, B + 1.5, 'cabinWhite', SX + 0.5, 19.6, ZC, 0, { uvScale: 3, collide: false, noShadow: true });
-    this.box(0.1, 1.3, B + 1.2, 'glassDark', SX + 5.03, 20.6, ZC, 0, { collide: false, noShadow: true });
-    for (let f = 0; f < 4; f++) for (const sz of [-1, 1]) this.box(8, 0.8, 0.1, 'glassDark', SX, 8.2 + f * 3, ZC + sz * (B / 2 - 0.97), 0, { collide: false, noShadow: true });
+    this.box(0.1, 1.3, B + 1.2, 'windowLit', SX + 5.03, 20.6, ZC, 0, { collide: false, noShadow: true });
+    for (let f = 0; f < 4; f++) for (const sz of [-1, 1]) this.box(8, 0.8, 0.1, (f + (sz > 0 ? 1 : 0)) % 2 ? 'windowLit' : 'glassDark', SX, 8.2 + f * 3, ZC + sz * (B / 2 - 0.97), 0, { collide: false, noShadow: true });
     this.box(0.1, 0.8, B - 4, 'glassDark', SX + 5.53, 17.2, ZC, 0, { collide: false, noShadow: true });
     this.put(new THREE.CylinderGeometry(1.5, 1.8, 7, 16), 'paintRed', SX - 3, 25.6, ZC, 0, { noShadow: true });
     this.put(new THREE.CylinderGeometry(1.55, 1.55, 1.4, 16), 'darkSteel', SX - 3, 29.7, ZC, 0, { noShadow: true });
