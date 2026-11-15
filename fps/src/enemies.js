@@ -1,6 +1,7 @@
 // Sentinel drones: quad-rotor hunter units with plasma emitters.
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 function rayBox(o, d, b, maxT) {
   let tmin = 0, tmax = maxT;
@@ -162,6 +163,7 @@ export class Enemies {
         this.laserMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(9, 0.4, 0.2), transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
       }
     }
+    m.partsSrc = this.mergeDrone(m);
     m.group.position.copy(pos);
     this.scene.add(m.group);
     const e = {
@@ -199,6 +201,29 @@ export class Enemies {
       if (t > 0 && t < maxT && (!best || t < best.t)) best = { mine: m, t, point: o.clone().addScaledVector(d, t) };
     }
     return best;
+  }
+
+  // collapse the drone's static parts into one mesh per material (~40 -> ~8 draws
+  // per pass); the loose parts are kept, detached, to break apart on death
+  mergeDrone(m) {
+    const keep = new Set([m.eye, m.lid, m.core, m.shield, ...m.rotors]);
+    const g = m.group, groups = new Map(), parts = [];
+    for (const c of g.children.slice()) {
+      if (!c.isMesh || keep.has(c) || c.material === this.rotorMat) continue;
+      c.updateMatrix();
+      const geo = (c.geometry.index ? c.geometry.toNonIndexed() : c.geometry.clone()).applyMatrix4(c.matrix);
+      for (const k of Object.keys(geo.attributes)) if (!['position', 'normal', 'uv'].includes(k)) geo.deleteAttribute(k);
+      if (!geo.attributes.uv || !geo.attributes.normal) continue;
+      if (!groups.has(c.material)) groups.set(c.material, []);
+      groups.get(c.material).push(geo);
+      g.remove(c); parts.push(c);
+    }
+    for (const [mat, list] of groups) {
+      const merged = new THREE.Mesh(mergeGeometries(list, false), mat);
+      merged.castShadow = true; merged.receiveShadow = true; merged.userData.merged = true;
+      g.add(merged);
+    }
+    return parts;
   }
 
   // shield: true if a shot travelling along dir is caught by the frontal shield
@@ -375,11 +400,12 @@ export class Enemies {
     this.audio.explosion(e.pos);
     this.effects.explosion(e.pos.clone(), e.heavy ? 1.4 : 1.0);
     // break apart into debris: re-parent several meshes
-    const parts = e.group.children.slice();
+    e.group.updateMatrixWorld(true);
+    const parts = (e.partsSrc || []).concat(e.group.children.filter((c) => c.isMesh && !c.userData.merged));
     const worldQ = e.group.quaternion.clone();
     for (const p of parts) {
-      if (Math.random() < 0.45 || p.material === this.rotorMat) continue;
-      const wp = new THREE.Vector3(); p.getWorldPosition(wp);
+      if (Math.random() < 0.45 || p.material === this.rotorMat || p === e.shield || !p.visible) continue;
+      const wp = p.parent === e.group ? p.getWorldPosition(new THREE.Vector3()) : p.position.clone().applyMatrix4(e.group.matrixWorld);
       const m = p.clone(); m.scale.multiplyScalar(e.group.scale.x); m.quaternion.premultiply(worldQ);
       const v = wp.clone().sub(e.pos).normalize().multiplyScalar(2 + Math.random() * 4).addScaledVector(dir, 2).add(new THREE.Vector3(0, 2.5, 0));
       this.effects.spawnDebris(m, wp, v, Math.random() < 0.4);

@@ -331,6 +331,7 @@ export class Audio {
     return { p, g, oscs: [n, lfo, whine], obj };
   }
   heliUpdate(h, obj) {
+    h._n = (h._n || 0) + 1; if (h._n % 3) return;
     const t = this.ctx.currentTime, pos = obj.position;
     h.p.positionX.setTargetAtTime(pos.x, t, 0.05); h.p.positionY.setTargetAtTime(pos.y, t, 0.05); h.p.positionZ.setTargetAtTime(pos.z, t, 0.05);
   }
@@ -364,7 +365,9 @@ export class Audio {
   }
 
   updateHum(h, speed) {
-    if (!h) return; const t = this.ctx.currentTime; const pos = h.obj.position;
+    if (!h) return;
+    // every third frame is plenty: each call queues automation events on the audio thread
+    h._n = (h._n || 0) + 1; if (h._n % 3) return; const t = this.ctx.currentTime; const pos = h.obj.position;
     if (h.occ) h.occ.frequency.setTargetAtTime(this.isOccluded(pos) ? 700 : 20000, t, 0.15);
     h.p.positionX.setTargetAtTime(pos.x, t, 0.02); h.p.positionY.setTargetAtTime(pos.y, t, 0.02); h.p.positionZ.setTargetAtTime(pos.z, t, 0.02);
     h.oscs[0].frequency.setTargetAtTime(h.base * (1 + speed * 0.04), t, 0.1);

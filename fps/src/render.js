@@ -353,8 +353,18 @@ export class Renderer {
     this.adaptT += frameMs;
     if (this.adaptT < 1500) return;
     this.adaptT = 0;
-    if (this.ema > 21 && this.scale > 0.55) this.setScale(Math.max(0.55, +(this.scale - 0.1).toFixed(2)));
-    else if (this.ema < 13.5 && this.scale < 1) this.setScale(Math.min(1, +(this.scale + 0.1).toFixed(2)));
+    // resizing every target is itself a hitch: step down promptly, step up rarely,
+    // and back off further each time an upscale had to be undone
+    this.upHold = Math.max(0, (this.upHold ?? 0) - 1.5);
+    const now = performance.now();
+    if (this.ema > 21 && this.scale > 0.55) {
+      if (this.lastUp && now - this.lastUp < 8000) this.upPenalty = Math.min(120, (this.upPenalty || 10) * 2);
+      this.setScale(Math.max(0.55, +(this.scale - 0.1).toFixed(2)));
+      this.upHold = this.upPenalty || 10;
+    } else if (this.ema < 12.5 && this.scale < 1 && this.upHold <= 0) {
+      this.setScale(Math.min(1, +(this.scale + 0.1).toFixed(2)));
+      this.lastUp = now;
+    }
   }
 
   render(dt, t) {

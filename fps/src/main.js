@@ -147,6 +147,11 @@ async function boot() {
 
   // pre-compile all shaders (incl. drone + explosion materials) to avoid hitches
   await progress(0.92, '预编译着色器');
+  // illumination flare (night): one permanent light so toggling never recompiles shaders
+  const flareLight = new THREE.PointLight(new THREE.Color(1.0, 0.86, 0.72), 0, 0, 1.7);
+  flareLight.castShadow = false; scene.add(flareLight);
+  const flareCore = new THREE.Mesh(new THREE.SphereGeometry(0.18, 10, 8), new THREE.MeshBasicMaterial({ color: new THREE.Color(40, 34, 26), fog: false }));
+  flareCore.visible = false; flareCore.userData.noAO = true; scene.add(flareCore);
   const warm = enemies.buildDrone(false).group; warm.position.set(0, -50, 0); scene.add(warm);
   const warmG = grenades.proto.clone(); warmG.position.set(0, -50, 0); warm.add(warmG);
   const warmB = boss.build(); warmB.position.set(0, -10, 0); warm.add(warmB);
@@ -154,16 +159,28 @@ async function boot() {
   const warmLegs = warmW.legs.flatMap((L) => [L.upper, L.lower, L.knee, L.foot]); warmLegs.forEach((o) => o.position.set(0, -60, 0));
   effects.flash(new THREE.Vector3(0, -50, 0), new THREE.Color(1, 1, 1), 0.001, 0.01);
   player.updateCamera(0.016, 0);
+  // every enemy kind, its beams, mines, shield and effect materials, so nothing compiles mid-fight
+  const W0 = new THREE.Vector3(0, -40, 0);
+  const warmKinds = ['normal', 'heavy', 'kamikaze', 'sniper', 'medic', 'miner', 'shield'].map((k, i) => enemies.spawn(W0.clone().add(new THREE.Vector3(i * 3, 0, 0)), k));
+  for (const e of warmKinds) { e.fireCD = 99; }
+  enemies.sniperLogic(warmKinds[3], 0.016, player, true); warmKinds[3].aimT = 0.5; warmKinds[3].laser && (warmKinds[3].laser.visible = true);
+  enemies.medicLogic(warmKinds[4], 0.016); if (warmKinds[4].beam) warmKinds[4].beam.visible = true;
+  warmKinds[6].fireCD = 99;
+  enemies.dropMine(W0.clone().add(new THREE.Vector3(0, 0, 4)), new THREE.Vector3());
+  const warmS = grenades.smokeProto.clone(); warmS.position.copy(W0); warm.add(warmS);
+  heli.g.visible = true; heli.g.position.set(0, -60, 0); crash.g.visible = true; crash.g.position.set(0, -60, 10);
+  effects.explosion(W0.clone(), 1); effects.empPulse(W0.clone());
+  effects.fire.emit(W0.clone(), new THREE.Vector3(), 1, 0.5, 1);
+  const wasFlare = flareCore.visible; flareCore.visible = true;
   await renderer.compileAsync(scene, camera);
   R.render(0.016, 0);
+  flareCore.visible = wasFlare;
+  enemies.clear(); heli.g.visible = false; crash.g.visible = false;
+  for (const r of effects.rings) scene.remove(r.mesh); effects.rings.length = 0;
+  effects.add.p.length = 0; effects.smoke.p.length = 0; effects.fire.p.length = 0;
   scene.remove(warm); warmLegs.forEach((o) => scene.remove(o));
   await progress(1, '就绪');
 
-  // illumination flare (night): one permanent light so toggling never recompiles shaders
-  const flareLight = new THREE.PointLight(new THREE.Color(1.0, 0.86, 0.72), 0, 0, 1.7);
-  flareLight.castShadow = false; scene.add(flareLight);
-  const flareCore = new THREE.Mesh(new THREE.SphereGeometry(0.18, 10, 8), new THREE.MeshBasicMaterial({ color: new THREE.Color(40, 34, 26), fog: false }));
-  flareCore.visible = false; flareCore.userData.noAO = true; scene.add(flareCore);
   return { skyMesh, flareLight, flareCore, flashlight, lensGlow, lib, level, effects, audio, player, weapon, pistol, dmr, shotgun, enemies, grenades, ambient, boss, music, pickups, hazards, props, heli, crash, rain, hemi, walkers, sun };
 }
 

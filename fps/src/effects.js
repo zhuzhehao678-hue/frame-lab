@@ -323,7 +323,7 @@ export class Effects {
     }
     // shockwave ring hugging the ground
     if (pos.y < 3.5) {
-      const ring = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), this.ringMat.clone());
+      const ring = new THREE.Mesh(this.ringGeo || (this.ringGeo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2)), this.ringMat.clone());
       ring.position.set(pos.x, 0.05, pos.z); ring.userData.noAO = true; ring.renderOrder = 12;
       this.scene.add(ring); this.rings.push({ mesh: ring, t: 0, s: scale, dur: 0.45 });
     }
@@ -342,7 +342,7 @@ export class Effects {
   empPulse(pos) {
     this.flash(pos.clone().setY(pos.y + 0.5), new THREE.Color(0.4, 0.7, 1.6), 60, 0.6, 30);
     for (const [y, sc, dur] of [[0.06, 3.2, 0.9], [pos.y - 0.2, 2.6, 0.7]]) {
-      const ring = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), this.ringMat.clone());
+      const ring = new THREE.Mesh(this.ringGeo || (this.ringGeo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2)), this.ringMat.clone());
       ring.material.uniforms.uC.value = new THREE.Color(0.5, 1.2, 3.2);
       ring.position.set(pos.x, y, pos.z); ring.userData.noAO = true; ring.renderOrder = 12;
       this.scene.add(ring); this.rings.push({ mesh: ring, t: 0, s: sc, dur });
@@ -360,7 +360,14 @@ export class Effects {
   }
 
   spawnDebris(mesh, pos, vel, smoke = true) {
+    // budget: every piece is drawn in the shadow, reflection, AO and main passes
+    if (this.debris.length >= 42) { const old = this.debris.shift(); this.scene.remove(old.mesh); }
     mesh.position.copy(pos);
+    if (mesh.geometry) {
+      if (!mesh.geometry.boundingSphere) mesh.geometry.computeBoundingSphere();
+      mesh.castShadow = mesh.geometry.boundingSphere.radius * mesh.scale.x > 0.25;
+      mesh.receiveShadow = false;
+    }
     this.scene.add(mesh);
     this.debris.push({ mesh, vel: vel.clone(), spin: new THREE.Vector3((Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12), life: 0, smoke, rest: false });
   }
@@ -370,7 +377,7 @@ export class Effects {
     for (let i = this.rings.length - 1; i >= 0; i--) {
       const r = this.rings[i]; r.t += dt;
       const k = r.t / r.dur;
-      if (k >= 1) { this.scene.remove(r.mesh); this.rings.splice(i, 1); continue; }
+      if (k >= 1) { this.scene.remove(r.mesh); r.mesh.material.dispose(); this.rings.splice(i, 1); continue; }
       const sz = (1 + k * 11) * r.s; r.mesh.scale.set(sz, 1, sz); r.mesh.material.uniforms.uA.value = (1 - k) * 1.2;
     }
     for (const L of this.lights) {
@@ -417,7 +424,7 @@ export class Effects {
     for (let i = this.debris.length - 1; i >= 0; i--) {
       const d = this.debris[i];
       d.life += dt;
-      if (d.life > 14) { this.scene.remove(d.mesh); this.debris.splice(i, 1); continue; }
+      if (d.life > 10) { this.scene.remove(d.mesh); this.debris.splice(i, 1); continue; }
       if (d.smoke && d.life < 4 && Math.random() < dt * 14) {
         const c = new THREE.Color(0.12, 0.11, 0.1).multiply(this.ambient).multiplyScalar(2);
         this.smoke.emit({ pos: d.mesh.position, vel: new THREE.Vector3(0, 0.8, 0), life: 1.6, size: 0.12, size1: 0.8, color: c, alpha: 0.4 * (1 - d.life / 4), alpha1: 0, drag: 1, gravity: -0.6, fadeIn: 0.1 });
