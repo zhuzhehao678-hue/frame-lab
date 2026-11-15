@@ -1331,6 +1331,15 @@ function loop() {
 
   // dynamic resolution already at its floor and still slow: suggest a lower tier once
   if (running && R.scale <= 0.56 && R.ema > 26 && qualityName !== 'low') { G.slowT = (G.slowT || 0) + realDt; if (G.slowT > 10 && !G.slowHinted) { G.slowHinted = true; hint('帧率偏低 · 可在菜单（Esc）把画质调到「' + (qualityName === 'medium' ? '低' : '中') + '」', 5); } } else G.slowT = 0;
+  // ?dev: warn whenever a shader compiles mid-game (that is a visible hitch on real GPUs)
+  if (params.has('dev') && started) {
+    const np = renderer.info.programs.length;
+    if (G.progN !== undefined && np > G.progN) {
+      const props = renderer.properties, fresh = renderer.info.programs.slice(G.progN);
+      scene.traverse((o) => { const m = o.material; if (m && !Array.isArray(m) && fresh.includes(props.get(m).currentProgram)) console.warn('[dev] shader compiled mid-game:', o.name || o.type, m.type, o); });
+    }
+    G.progN = np;
+  }
   fpsAcc += dt; fpsN++;
   if (fpsAcc > 0.5) { $('fps').textContent = `${Math.round(fpsN / fpsAcc)} fps · ${renderer.info.render.calls} calls · ${(renderer.info.render.triangles / 1000).toFixed(0)}k tris · ${R.q.label} · 渲染 ${Math.round(R.scale * 100)}%`; fpsAcc = 0; fpsN = 0; }
 }
