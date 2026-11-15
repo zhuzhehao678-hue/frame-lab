@@ -586,7 +586,9 @@ function shoot(t) {
   } else if (eh) {
     end = eh.point; killSource.dist = eh.t;
     stats.hits++; hitT = 0.12;
-    const killed = enemies.damage(eh.enemy, THREE.MathUtils.randFloat(weapon.damage[0], weapon.damage[1]), eh.point, dir);
+    const rotor = enemies.rotorHit(eh.enemy, eh.point);
+    if (rotor && !eh.enemy.staggerHinted) { eh.enemy.staggerHinted = true; feed('击中旋翼 · 目标失衡'); }
+    const killed = enemies.damage(eh.enemy, THREE.MathUtils.randFloat(weapon.damage[0], weapon.damage[1]) * (rotor ? 1.3 : 1), eh.point, dir);
     if (!killed) audio.hitmarker(false);
     const n = eh.point.clone().sub(eh.enemy.pos).normalize();
     for (let i = 0; i < 10; i++) effects.add.emit({ pos: eh.point, vel: n.clone().multiplyScalar(2 + Math.random() * 4).add(new THREE.Vector3((Math.random() - 0.5) * 5, Math.random() * 3, (Math.random() - 0.5) * 5)), life: 0.3 + Math.random() * 0.3, size: 0.012, color: new THREE.Color(8, 5, 2), gravity: 9.8, stretch: 0.035, bounce: true });

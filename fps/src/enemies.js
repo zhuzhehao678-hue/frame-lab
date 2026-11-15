@@ -100,7 +100,8 @@ export class Enemies {
     this.scene.add(m.group);
     const e = {
       ...m, pos: m.group.position, vel: new THREE.Vector3(), heavy,
-      kami, kind, beepT: 0, armed: -1,
+      kami, kind, beepT: 0, armed: -1, stagger: 0,
+      role: kami ? 'kami' : (heavy ? 'suppress' : ['flank', 'harass', 'suppress'][this.roleIdx = ((this.roleIdx || 0) + 1) % 3]),
       hp: (heavy ? 260 : (kami ? 45 : 100)) * (this.hpMult || 1), maxHp: (heavy ? 260 : (kami ? 45 : 100)) * (this.hpMult || 1), radius: heavy ? 1.0 : (kami ? 0.62 : 0.76),
       fireCD: 1.5 + Math.random() * 2, charge: 0, burst: 0,
       orbit: Math.random() * Math.PI * 2, orbitDir: Math.random() < 0.5 ? -1 : 1,
@@ -127,6 +128,20 @@ export class Enemies {
       if (t > 0 && t < maxT && (!best || t < best.t)) best = { enemy: e, t, point: o.clone().addScaledVector(d, t) };
     }
     return best;
+  }
+
+  // was this hit on one of the rotors? -> knock the drone off balance
+  rotorHit(e, point) {
+    if (e.kami || !e.rotors) return false;
+    for (const r of e.rotors) {
+      const rp = r.getWorldPosition(new THREE.Vector3());
+      if (rp.distanceTo(point) < 0.2 * e.group.scale.x + 0.08) {
+        e.stagger = e.heavy ? 0.8 : 1.4; e.charge = 0; e.burst = 0; e.fireCD = Math.max(e.fireCD, 1.6);
+        this.audio.impact && this.audio.impact(point, 'metal');
+        return true;
+      }
+    }
+    return false;
   }
 
   damage(e, amount, point, dir) {
@@ -261,7 +276,17 @@ export class Enemies {
       // desired position: orbit around the player at a preferred range
       e.orbit += dt * 0.22 * e.orbitDir * (e.heavy ? 0.6 : 1);
       if (Math.random() < dt * 0.15) e.orbitDir *= -1;
-      const desired = new THREE.Vector3(target.x + Math.cos(e.orbit) * e.pref, e.alt + Math.sin(e.wob * 0.7) * 0.6, target.z + Math.sin(e.orbit) * e.pref);
+      let ang = e.orbit, range = e.pref;
+      if (e.role === 'flank') {
+        // work around to the side the player isn't looking at
+        const pf = new THREE.Vector3(); player.camera.getWorldDirection(pf);
+        const facing = Math.atan2(pf.z, pf.x);
+        const goal = facing + Math.PI * (0.62 + 0.18 * Math.sin(e.wob * 0.3)) * e.orbitDir;
+        e.flankAng = e.flankAng === undefined ? ang : e.flankAng + Math.atan2(Math.sin(goal - e.flankAng), Math.cos(goal - e.flankAng)) * Math.min(1, dt * 0.6);
+        ang = e.flankAng; range = e.pref * 0.85;
+      } else if (e.role === 'suppress') range = e.pref + 4;
+      else if (e.role === 'harass') range = e.pref * 0.7;
+      const desired = new THREE.Vector3(target.x + Math.cos(ang) * range, e.alt + Math.sin(e.wob * 0.7) * 0.6, target.z + Math.sin(ang) * range);
       // if no LOS for a while, swing closer & higher
       if (e.lostT > 2) { desired.lerp(target, 0.35); desired.y = e.alt + 2.5; }
       desired.x = THREE.MathUtils.clamp(desired.x, -16, 15.5);
@@ -295,6 +320,13 @@ export class Enemies {
       const localVel = e.vel.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), -yaw);
       const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(pitch - localVel.z * 0.05 + Math.sin(e.wob * 2.1) * 0.03, yaw, -localVel.x * 0.07 + Math.sin(e.wob * 1.7) * 0.04, 'YXZ'));
       e.group.quaternion.slerp(q, 1 - Math.exp(-6 * dt));
+      if (e.stagger > 0) {
+        // broken rotor: lurch, sink and spin until it recovers
+        e.stagger -= dt;
+        e.vel.add(new THREE.Vector3((Math.random() - 0.5) * 14 * dt, -5 * dt, (Math.random() - 0.5) * 14 * dt));
+        e.group.rotateY(dt * 9 * e.stagger); e.group.rotateZ(Math.sin(e.wob * 18) * 0.05);
+        if (Math.random() < dt * 25) this.effects.add.emit({ pos: e.pos, vel: new THREE.Vector3((Math.random() - 0.5) * 4, Math.random() * 2, (Math.random() - 0.5) * 4), life: 0.3, size: 0.012, color: new THREE.Color(8, 5, 2), gravity: 9.8, stretch: 0.04 });
+      }
       for (const r of e.rotors) r.rotation.y += dt * 90;
 
       // eye: charge glow & hit flash
@@ -322,7 +354,9 @@ export class Enemies {
       // attack logic
       if (player.dead) continue;
       e.fireCD -= dt;
-      if (los && e.fireCD <= 0 && e.charge <= 0) { e.charge = 0.0001; this.audio.charge(e.pos); }
+      const charging = this.list.reduce((n, o) => n + (o.charge > 0 ? 1 : 0), 0);
+      if (los && e.fireCD <= 0 && e.charge <= 0 && e.stagger <= 0 && charging < 2) { e.charge = 0.0001; this.audio.charge(e.pos); }
+      else if (los && e.fireCD <= 0 && charging >= 2) e.fireCD = 0.3 + Math.random() * 0.5; // wait for a firing slot
       if (e.charge > 0) {
         e.charge += dt / 0.65;
         if (e.charge >= 1) {
