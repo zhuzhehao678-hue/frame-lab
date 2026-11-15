@@ -34,7 +34,7 @@ const TOD = TIMES[todName];
 const DIFF = { easy: { dmg: 0.42, hp: 0.8, fire: 1.35, score: 0.8 }, normal: { dmg: 0.62, hp: 1, fire: 1, score: 1 }, hard: { dmg: 0.85, hp: 1.25, fire: 0.78, score: 1.35 } };
 const settings = { mblur: saved.mblur ?? true, diff: DIFF[saved.diff] ? saved.diff : 'normal', sens: saved.sens ?? 1, fov: saved.fov ?? 74, adsSens: saved.adsSens ?? 0.9, music: saved.music ?? 0.5 };
 $('diff').value = settings.diff; $('mblur').checked = settings.mblur; $('quality').value = qualityName; $('tod').value = todName; $('sens').value = settings.sens; $('adssens').value = settings.adsSens; $('music').value = settings.music; $('fov').value = settings.fov;
-const persist = () => LS.setItem('afterglow', JSON.stringify({ quality: qualityName, tod: todName, ...settings, best: saved.best || 0 }));
+const persist = () => LS.setItem('afterglow', JSON.stringify({ quality: qualityName, tod: todName, ...settings, best: saved.best || 0, bestWave: saved.bestWave || 0, tutorialDone: !!saved.tutorialDone }));
 
 const frame = () => new Promise((r) => requestAnimationFrame(() => r()));
 async function progress(f, label) {
@@ -248,7 +248,15 @@ $('play').onclick = () => {
   music.setVolume(settings.music); music.start();
   if (G.rain) G.rain.startAudio();
   $('view').requestPointerLock();
-  if (!started) { started = true; waves.start(); weapon.root.visible = true; weapon.equipT = 0; if (TOD.night) setTimeout(() => hint('夜间作战 · 按 T 开启战术手电', 4), 3500); }
+  if (!started) {
+    started = true; waves.start(); weapon.root.visible = true; weapon.equipT = 0;
+    if (!saved.tutorialDone) {
+      // first run: walk through the essentials during the opening countdown
+      const tips = ['WASD 移动 · Shift 冲刺 · 空格 跳跃/翻越', '右键 开镜 · 左键 射击 · R 换弹', '1/2/3 切枪 · G 手雷 · V 近战', 'Q/E 探头 · C 蹲下（冲刺中滑铲）', '顶部罗盘标出敌人方位 · 场上有补给箱'];
+      tips.forEach((tx, i) => setTimeout(() => hint(tx, 2.6), 400 + i * 2800));
+      saved.tutorialDone = true; persist();
+    } else if (TOD.night) setTimeout(() => hint('夜间作战 · 按 T 开启战术手电', 4), 3500);
+  }
 };
 $('again').onclick = () => { restart(); $('end').classList.add('hidden'); $('view').requestPointerLock(); };
 $('endless').onclick = () => { $('end').classList.add('hidden'); waves.goEndless(); $('view').requestPointerLock(); };
@@ -259,6 +267,10 @@ function showMenu(paused) {
   $('loadwrap').classList.add('hidden');
   $('menu').classList.remove('hidden');
   $('paused').classList.toggle('hidden', !paused || !started);
+  if (paused && started) {
+    const secs = (performance.now() - stats.t0) / 1000;
+    $('paused').textContent = `已暂停  ·  ${waves.endless ? '无尽 ' : ''}第 ${waves.index + 1} 波  ·  得分 ${score.total}  ·  ${Math.floor(secs / 60)}:${String(Math.floor(secs % 60)).padStart(2, '0')}`;
+  }
   $('play').textContent = started ? '继续' : '开始作战';
   $('hud').classList.remove('on');
 }
@@ -732,7 +744,16 @@ function loop() {
   killPulse = Math.max(0, killPulse - realDt * 2.2); f.uKill.value = killPulse;
   if (weapon.kind === 'dmr') weapon.renderScope(renderer, scene, weapons.map((w) => w.root));
   const now = performance.now();
-  if (running && !noLoop) R.adapt(now - (loop.last || now));
+  if (running && !noLoop) {
+    R.adapt(now - (loop.last || now));
+    // one-time performance check after ~10 s of play
+    loop.perfT = (loop.perfT || 0) + realDt; loop.perfN = (loop.perfN || 0) + 1;
+    if (!loop.perfDone && loop.perfT > 10) {
+      loop.perfDone = true;
+      const fps = loop.perfN / loop.perfT;
+      if (fps < 35 && R.scale <= 0.6 && qualityName !== 'low') hint(`帧率约 ${Math.round(fps)} · 建议在菜单（Esc）把画质调低一档`, 6);
+    }
+  }
   loop.last = now;
   R.render(dt, now / 1000);
 
