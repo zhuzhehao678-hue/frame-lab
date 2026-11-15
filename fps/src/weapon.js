@@ -80,6 +80,7 @@ export class Weapon {
     this.kind = 'rifle'; this.label = 'MK-18 CQBR · 5.56'; this.auto = true;
     this.damage = [26, 32]; this.recoilMul = 1; this.reloadTimes = [2.25, 2.75]; this.equipSpeed = 1.6;
     this.climb = 1; this.baseSpread = 0.022;
+    if (this.optics) this.setOptic('reddot');
   }
 
   // collapse the gun's static parts (direct children of this.gun) into one
@@ -171,10 +172,12 @@ export class Weapon {
     A(new THREE.CylinderGeometry(0.0115, 0.0115, 0.085, 20).rotateX(Math.PI / 2), metal, 0.034, 0.04, -0.42);
     A(new THREE.CylinderGeometry(0.014, 0.0115, 0.02, 20).rotateX(Math.PI / 2), metal, 0.034, 0.04, -0.47);
     A(new THREE.CircleGeometry(0.012, 20), glass, 0.034, 0.04, -0.4805);
-    // optic (tube red-dot) on riser mount
+    // optic riser mount (shared by all optics)
     this.sightY = 0.1055;
     A(RB(0.027, 0.02, 0.045, 0.003), metal, 0, 0.0755, -0.01);
     A(RB(0.032, 0.008, 0.016, 0.002), metal, 0.004, 0.073, -0.01); // QD lever
+    // optic 1: tube red-dot
+    const nOptic0 = this.gun.children.length;
     const tube = new THREE.CylinderGeometry(0.0185, 0.0185, 0.1, 32, 1, true).rotateX(Math.PI / 2);
     A(uvScale(tube, 2), metal, 0, this.sightY, -0.01);
     A(new THREE.CylinderGeometry(0.021, 0.021, 0.022, 32, 1, true).rotateX(Math.PI / 2), metal, 0, this.sightY, -0.065);
@@ -197,6 +200,11 @@ export class Weapon {
     const dotMat = viewmodelMaterial(new THREE.MeshBasicMaterial({ map: dotTex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, color: new THREE.Color(4, 1, 1), fog: false }));
     this.reticle = A(new THREE.PlaneGeometry(0.0042, 0.0042), dotMat, 0, this.sightY, -0.07);
     this.reticle.renderOrder = 20;
+    // gather the red dot parts into a swappable group
+    this.optics = {};
+    const grab = (n0) => { const g = new THREE.Group(); for (const c of this.gun.children.slice(n0)) { this.gun.remove(c); g.add(c); } this.gun.add(g); return g; };
+    this.optics.reddot = { group: grab(nOptic0), reticle: this.reticle, sightY: 0.1055, zoom: 0.72, sens: 1, label: '红点' };
+    this.buildHolo(); this.buildPrism();
 
     // magazine (group so it can be animated)
     this.mag = new THREE.Group(); this.mag.position.set(0, -0.055, -0.064); this.gun.add(this.mag);
@@ -269,6 +277,75 @@ export class Weapon {
     }
     H.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = true; o.frustumCulled = false; } });
     return H;
+  }
+
+  // optic 2: holographic sight — open window, 65 MOA ring + centre dot
+  buildHolo() {
+    const { metal, dark, glass, rubber } = this.mat;
+    const n0 = this.gun.children.length;
+    const A = (g, m, x, y, z, rx, ry, rz) => this.add(g, m, x, y, z, rx, ry, rz);
+    const Y = 0.104;
+    A(RB(0.034, 0.012, 0.085, 0.003), metal, 0, 0.0905, -0.012);              // base
+    A(RB(0.034, 0.012, 0.03, 0.004), dark, 0, 0.0905, 0.042);                 // battery / buttons
+    A(RB(0.004, 0.034, 0.07, 0.0015), metal, 0.0175, Y + 0.004, -0.02);        // side walls
+    A(RB(0.004, 0.034, 0.07, 0.0015), metal, -0.0175, Y + 0.004, -0.02);
+    A(RB(0.039, 0.004, 0.072, 0.0015), metal, 0, Y + 0.022, -0.02);            // hood
+    A(RB(0.008, 0.006, 0.01, 0.001), rubber, 0.012, 0.099, 0.05);              // buttons
+    A(RB(0.008, 0.006, 0.01, 0.001), rubber, -0.004, 0.099, 0.05);
+    A(new THREE.PlaneGeometry(0.031, 0.024), glass, 0, Y + 0.006, -0.05);       // windows
+    A(new THREE.PlaneGeometry(0.031, 0.024), glass, 0, Y + 0.006, 0.008);
+    const tex = canvasTex(128, (g, s) => {
+      g.strokeStyle = 'rgba(255,60,40,1)'; g.lineWidth = s * 0.03; g.shadowColor = 'rgba(255,0,0,1)'; g.shadowBlur = s * 0.03;
+      g.beginPath(); g.arc(s / 2, s / 2, s * 0.4, 0, Math.PI * 2); g.stroke();
+      g.fillStyle = 'rgba(255,220,210,1)'; g.beginPath(); g.arc(s / 2, s / 2, s * 0.035, 0, Math.PI * 2); g.fill();
+      for (const a of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) { g.beginPath(); g.moveTo(s / 2 + Math.cos(a) * s * 0.4, s / 2 + Math.sin(a) * s * 0.4); g.lineTo(s / 2 + Math.cos(a) * s * 0.46, s / 2 + Math.sin(a) * s * 0.46); g.stroke(); }
+    });
+    const m = viewmodelMaterial(new THREE.MeshBasicMaterial({ map: tex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, color: new THREE.Color(3.5, 1, 0.9), fog: false }));
+    const ret = A(new THREE.PlaneGeometry(0.016, 0.016), m, 0, Y + 0.006, -0.048); ret.renderOrder = 20;
+    const g = new THREE.Group(); for (const c of this.gun.children.slice(n0)) { this.gun.remove(c); g.add(c); } this.gun.add(g);
+    this.optics.holo = { group: g, reticle: ret, sightY: Y + 0.006, zoom: 0.72, sens: 1, label: '全息' };
+  }
+
+  // optic 3: compact 2x prism — magnifies by narrowing the main view;
+  // the housing and eyepiece frame the image like a real low-power optic
+  buildPrism() {
+    const { metal, dark, glass, rubber } = this.mat;
+    const n0 = this.gun.children.length;
+    const A = (g, m, x, y, z, rx, ry, rz) => this.add(g, m, x, y, z, rx, ry, rz);
+    const Y = 0.1075;
+    // prism housing: hollow along the sight line so the eye sees through it
+    A(RB(0.031, 0.008, 0.075, 0.003), metal, 0, Y - 0.0185, -0.01);
+    A(RB(0.031, 0.005, 0.075, 0.002), metal, 0, Y + 0.0175, -0.01);
+    A(RB(0.004, 0.032, 0.075, 0.0015), metal, 0.0165, Y, -0.01);
+    A(RB(0.004, 0.032, 0.075, 0.0015), metal, -0.0165, Y, -0.01);
+    A(new THREE.CylinderGeometry(0.019, 0.017, 0.035, 32, 1, true).rotateX(Math.PI / 2), metal, 0, Y, -0.064); // objective bell
+    A(new THREE.CylinderGeometry(0.017, 0.016, 0.03, 32, 1, true).rotateX(Math.PI / 2), dark, 0, Y, 0.042);     // eyepiece
+    A(new THREE.CylinderGeometry(0.0175, 0.0175, 0.008, 32, 1, true).rotateX(Math.PI / 2), rubber, 0, Y, 0.059);
+    A(new THREE.RingGeometry(0.0155, 0.019, 32), metal, 0, Y, -0.0815, 0, Math.PI);
+    A(new THREE.RingGeometry(0.0145, 0.0176, 32), rubber, 0, Y, 0.063);
+    A(RB(0.014, 0.012, 0.016, 0.003), metal, 0, Y + 0.022, -0.01);                // elevation turret
+    A(RB(0.012, 0.014, 0.016, 0.003), metal, 0.019, Y - 0.004, -0.01);           // windage turret
+    A(new THREE.CylinderGeometry(0.0035, 0.0035, 0.03, 10).rotateX(Math.PI / 2), dark, 0, Y + 0.022, -0.045); // fibre-optic tube
+    A(new THREE.CircleGeometry(0.0158, 32), glass, 0, Y, -0.08, 0, Math.PI);
+    A(new THREE.CircleGeometry(0.0145, 32), glass, 0, Y, 0.056);
+    const tex = canvasTex(128, (g, s) => {
+      g.strokeStyle = 'rgba(255,70,30,1)'; g.fillStyle = 'rgba(255,70,30,1)'; g.lineWidth = s * 0.028; g.shadowColor = 'rgba(255,0,0,1)'; g.shadowBlur = s * 0.02;
+      g.beginPath(); g.moveTo(s * 0.4, s * 0.58); g.lineTo(s * 0.5, s * 0.5); g.lineTo(s * 0.6, s * 0.58); g.stroke();   // chevron
+      g.fillRect(s * 0.493, s * 0.5, s * 0.014, s * 0.28);                                                        // post
+      for (let i = 1; i <= 3; i++) g.fillRect(s * (0.5 - 0.05 / i), s * (0.6 + i * 0.06), s * 0.1 / i, s * 0.01); // drop marks
+    });
+    const m = viewmodelMaterial(new THREE.MeshBasicMaterial({ map: tex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, color: new THREE.Color(3, 1, 0.8), fog: false }));
+    const ret = A(new THREE.PlaneGeometry(0.02, 0.02), m, 0, Y, -0.075); ret.renderOrder = 20;
+    const g = new THREE.Group(); for (const c of this.gun.children.slice(n0)) { this.gun.remove(c); g.add(c); } this.gun.add(g);
+    this.optics.x2 = { group: g, reticle: ret, sightY: Y, zoom: 0.5, sens: 0.6, label: '2 倍镜' };
+  }
+
+  setOptic(name) {
+    if (!this.optics || !this.optics[name]) return;
+    for (const [k, o] of Object.entries(this.optics)) { o.group.visible = k === name; o.reticle.visible = false; }
+    const o = this.optics[name];
+    this.optic = name; this.reticle = o.reticle; this.sightY = o.sightY; this.adsZoom = o.zoom; this.opticSens = o.sens;
+    this.adsPos.y = -o.sightY;
   }
 
   buildHands() {
@@ -526,7 +603,7 @@ export class Weapon {
     // FOV
     const baseFov = this.baseFov || 74;
     this.slideK = THREE.MathUtils.damp(this.slideK || 0, player.slideT > 0 ? 1 : 0, 10, dt);
-    this.camera.fov = THREE.MathUtils.lerp(baseFov, baseFov * 0.72, this.ads) + this.sprint * 4 + this.slideK * 7;
+    this.camera.fov = THREE.MathUtils.lerp(baseFov, baseFov * (this.adsZoom || 0.72), this.ads) + this.sprint * 4 + this.slideK * 7;
     this.camera.updateProjectionMatrix();
     const vfov = THREE.MathUtils.lerp(VM.fov, VM.fov * 0.86, this.ads);
     const top = 0.01 * Math.tan(THREE.MathUtils.degToRad(vfov / 2)), h = 2 * top, w = h * this.camera.aspect;

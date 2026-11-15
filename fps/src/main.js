@@ -32,8 +32,8 @@ let todName = params.get('t') || saved.tod || 'golden';
 if (!TIMES[todName]) todName = 'golden';
 const TOD = TIMES[todName];
 const DIFF = { easy: { dmg: 0.42, hp: 0.8, fire: 1.35, score: 0.8 }, normal: { dmg: 0.62, hp: 1, fire: 1, score: 1 }, hard: { dmg: 0.85, hp: 1.25, fire: 0.78, score: 1.35 } };
-const settings = { xhStyle: saved.xhStyle || 'both', xhColor: saved.xhColor || '#f0ece4', mblur: saved.mblur ?? true, diff: DIFF[saved.diff] ? saved.diff : 'normal', sens: saved.sens ?? 1, fov: saved.fov ?? 74, adsSens: saved.adsSens ?? 0.9, music: saved.music ?? 0.5 };
-$('diff').value = settings.diff; $('xhstyle').value = settings.xhStyle; $('xhcolor').value = settings.xhColor; $('mblur').checked = settings.mblur; $('quality').value = qualityName; $('tod').value = todName; $('sens').value = settings.sens; $('adssens').value = settings.adsSens; $('music').value = settings.music; $('fov').value = settings.fov;
+const settings = { xhStyle: saved.xhStyle || 'both', xhColor: saved.xhColor || '#f0ece4', mblur: saved.mblur ?? true, diff: DIFF[saved.diff] ? saved.diff : 'normal', sens: saved.sens ?? 1, fov: saved.fov ?? 74, adsSens: saved.adsSens ?? 0.9, music: saved.music ?? 0.5, optic: saved.optic || 'reddot' };
+$('diff').value = settings.diff; $('xhstyle').value = settings.xhStyle; $('xhcolor').value = settings.xhColor; $('mblur').checked = settings.mblur; $('quality').value = qualityName; $('tod').value = todName; $('sens').value = settings.sens; $('adssens').value = settings.adsSens; $('music').value = settings.music; $('fov').value = settings.fov; $('optic').value = settings.optic;
 const persist = () => LS.setItem('afterglow', JSON.stringify({ quality: qualityName, tod: todName, ...settings, best: saved.best || 0, bestWave: saved.bestWave || 0, tutorialDone: !!saved.tutorialDone }));
 
 const frame = () => new Promise((r) => requestAnimationFrame(() => r()));
@@ -106,6 +106,7 @@ async function boot() {
   const pistol = new Pistol(camera, lib, effects);
   const dmr = new DMR(camera, lib, effects);
   weapon.baseFov = pistol.baseFov = dmr.baseFov = settings.fov;
+  weapon.setOptic(settings.optic);
   pistol.root.visible = false; dmr.root.visible = false;
   // tactical flashlight: always present (intensity 0 when off) so toggling never recompiles shaders
   const flashlight = new THREE.SpotLight(new THREE.Color(1.0, 0.96, 0.9), 0, 40, 0.38, 0.55, 1.6);
@@ -221,7 +222,7 @@ addEventListener('contextmenu', (e) => e.preventDefault());
 addEventListener('mousemove', (e) => {
   if (!locked) return;
   // ADS: only the user's ADS multiplier applies (no extra FOV slow-down)
-  const s = 0.0021 * settings.sens * THREE.MathUtils.lerp(1, settings.adsSens, weapon.ads) * (weapon.kind === 'dmr' ? THREE.MathUtils.lerp(1, 0.4, weapon.ads) : 1); // slower through the 4x optic
+  const s = 0.0021 * settings.sens * THREE.MathUtils.lerp(1, settings.adsSens, weapon.ads) * THREE.MathUtils.lerp(1, weapon.kind === 'dmr' ? 0.4 : (weapon.opticSens || 1), weapon.ads); // slower through the 4x optic
   if (photo) { photoCam.yaw -= e.movementX * s; photoCam.pitch = THREE.MathUtils.clamp(photoCam.pitch - e.movementY * s, -1.5, 1.5); return; }
   player.look(e.movementX, e.movementY, s);
   mouse.x += e.movementX; mouse.y += e.movementY;
@@ -244,6 +245,7 @@ $('mblur').onchange = (e) => { settings.mblur = e.target.checked; R.motionBlur =
 $('diff').onchange = (e) => { settings.diff = e.target.value; applyDifficulty(); persist(); };
 $('music').oninput = (e) => { settings.music = +e.target.value; music.setVolume(settings.music); persist(); };
 $('adssens').oninput = (e) => { settings.adsSens = +e.target.value; persist(); };
+$('optic').onchange = (e) => { settings.optic = e.target.value; G.weapon.setOptic(settings.optic); persist(); };
 $('fov').oninput = (e) => { settings.fov = +e.target.value; for (const w of weapons) w.baseFov = settings.fov; persist(); };
 $('quality').onchange = (e) => {
   qualityName = e.target.value; persist();
@@ -738,7 +740,7 @@ function pollGamepad(dt) {
     const to = e.pos.clone().sub(camera.position); const d = to.length();
     if (fwd.dot(to.normalize()) > Math.cos(Math.max(0.03, 1.2 / d))) { assist = 0.55; break; }
   }
-  const rate = 3.1 * settings.sens * THREE.MathUtils.lerp(1, settings.adsSens * 0.8, weapon.ads) * (weapon.kind === 'dmr' ? THREE.MathUtils.lerp(1, 0.4, weapon.ads) : 1) * assist;
+  const rate = 3.1 * settings.sens * THREE.MathUtils.lerp(1, settings.adsSens * 0.8, weapon.ads) * THREE.MathUtils.lerp(1, weapon.kind === 'dmr' ? 0.4 : (weapon.opticSens || 1), weapon.ads) * assist;
   const cx = Math.sign(rx) * rx * rx, cy = Math.sign(ry) * ry * ry;
   player.yaw -= cx * rate * dt; player.pitch = THREE.MathUtils.clamp(player.pitch - cy * rate * 0.75 * dt, -1.5, 1.5);
   mouse.x += cx * 600 * dt; mouse.y += cy * 600 * dt;
