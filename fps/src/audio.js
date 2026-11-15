@@ -177,6 +177,16 @@ export class Audio {
     this.tone(d, t + dur, 0.08, { type: 'square', f: 900, f1: 1400, gain: 0.05 });
     this.noise(d, t + dur, 0.05, { type: 'bandpass', f: 2600, q: 1.5, gain: 0.6 });
   }
+  // distant gull cries: falling squawks with a rough edge
+  gulls(n) {
+    if (!this.enabled) return; const t0 = this.ctx.currentTime;
+    for (let i = 0; i < Math.min(n, 5); i++) {
+      const t = t0 + 0.15 + i * (0.12 + Math.random() * 0.2); const d = this.out(null, { verb: 0.8, gain: 0.12 });
+      const f = 1400 + Math.random() * 500;
+      this.tone(d, t, 0.22, { type: 'sawtooth', f, f1: f * 0.55, gain: 0.25, attack: 0.02, curve: 2 });
+      this.tone(d, t + 0.26, 0.16, { type: 'sawtooth', f: f * 0.9, f1: f * 0.6, gain: 0.18, attack: 0.02, curve: 2 });
+    }
+  }
   crit() {
     if (!this.enabled) return; const t = this.ctx.currentTime; const d = this.out(null, { verb: 0.05, gain: 0.55 });
     this.tone(d, t, 0.06, { type: 'triangle', f: 2600, gain: 0.3 }); this.tone(d, t + 0.035, 0.09, { type: 'sine', f: 3400, gain: 0.2 });

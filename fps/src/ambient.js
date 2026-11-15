@@ -31,6 +31,7 @@ export class Ambient {
         cx: -10 + Math.random() * 30, cz: -40 - Math.random() * 30, r: 14 + Math.random() * 22,
         a: Math.random() * 6.28, speed: (0.12 + Math.random() * 0.1) * (Math.random() < 0.5 ? 1 : -1),
         h: 12 + Math.random() * 14, phase: Math.random() * 10, flapT: Math.random() * 5,
+        fear: 0, off: new THREE.Vector3(), fv: new THREE.Vector3(),
       });
     }
     this._m = new THREE.Matrix4(); this._q = new THREE.Quaternion(); this._e = new THREE.Euler();
@@ -70,6 +71,21 @@ export class Ambient {
     this.smokeT = 0;
   }
 
+  // gunfire / blasts: gulls within range scatter up and away, then drift back
+  scare(pos, strength = 1) {
+    let n = 0;
+    for (const b of this.gulls) {
+      const p = new THREE.Vector3(b.cx + Math.cos(b.a) * b.r, b.h, b.cz + Math.sin(b.a) * b.r).add(b.off);
+      const d = p.distanceTo(pos); if (d > 90 * strength) continue;
+      const k = (1 - d / (90 * strength)) * 0.6 + 0.4;
+      if (b.fear < 0.3) n++;
+      b.fear = Math.min(1, b.fear + k);
+      const away = p.clone().sub(pos).setY(0).normalize().multiplyScalar(9 + Math.random() * 6);
+      b.fv.copy(away).add(new THREE.Vector3((Math.random() - 0.5) * 4, 5 + Math.random() * 4, (Math.random() - 0.5) * 4));
+    }
+    return n;
+  }
+
   update(dt, t, effects) {
     // gulls: circling glide, occasional flapping bursts
     const m = this._m, q = this._q, e = this._e;
@@ -79,11 +95,20 @@ export class Ambient {
       b.a += b.speed * dt;
       b.flapT -= dt;
       if (b.flapT < -1.6) b.flapT = 2 + Math.random() * 5;
-      const flapping = b.flapT < 0;
-      const flap = flapping ? Math.sin(t * 14 + b.phase) * 0.7 : 0.12 + Math.sin(t * 1.3 + b.phase) * 0.05;
-      const p = new THREE.Vector3(b.cx + Math.cos(b.a) * b.r, b.h + Math.sin(t * 0.4 + b.phase) * 1.5, b.cz + Math.sin(b.a) * b.r);
-      const heading = Math.atan2(-Math.sin(b.a) * Math.sign(b.speed), Math.cos(b.a) * Math.sign(b.speed));
-      const bank = -0.35 * Math.sign(b.speed);
+      // fear: fly off along fv (decaying), then the offset relaxes back home
+      if (b.fear > 0) {
+        b.fear = Math.max(0, b.fear - dt * 0.07);
+        b.off.addScaledVector(b.fv, dt * Math.min(1, b.fear * 2));
+        b.fv.multiplyScalar(1 - dt * 0.15);
+      }
+      if (b.fear < 0.5) b.off.multiplyScalar(1 - dt * 0.12 * (1 - b.fear * 2));
+      const panicked = b.fear > 0.45;
+      const flapping = b.flapT < 0 || panicked;
+      const flap = flapping ? Math.sin(t * (panicked ? 19 : 14) + b.phase) * 0.75 : 0.12 + Math.sin(t * 1.3 + b.phase) * 0.05;
+      const p = new THREE.Vector3(b.cx + Math.cos(b.a) * b.r, b.h + Math.sin(t * 0.4 + b.phase) * 1.5, b.cz + Math.sin(b.a) * b.r).add(b.off);
+      let heading = Math.atan2(-Math.sin(b.a) * Math.sign(b.speed), Math.cos(b.a) * Math.sign(b.speed));
+      let bank = -0.35 * Math.sign(b.speed);
+      if (panicked && b.fv.lengthSq() > 1) { heading = Math.atan2(-b.fv.x, -b.fv.z); bank = Math.sin(t * 3 + b.phase) * 0.3; }
       e.set(0, heading, bank, 'YXZ'); q.setFromEuler(e);
       m.compose(p, q, s); this.gBody.setMatrixAt(i, m);
       const ql = q.clone().multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), flap));

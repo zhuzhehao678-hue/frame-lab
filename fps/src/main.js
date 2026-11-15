@@ -706,6 +706,11 @@ function restart() {
 
 // ------------------------------------------------------------------ shooting
 const RIFLE_PATTERN = [0, 0.15, -0.1, 0.25, 0.4, 0.3, 0.05, -0.25, -0.45, -0.35, -0.1, 0.2, 0.45, 0.5, 0.3, 0, -0.3, -0.5, -0.4, -0.1, 0.25, 0.4, 0.3, 0.1, -0.2, -0.4, -0.3, 0, 0.2, 0.3];
+function scareGulls(pos, k) {
+  const n = ambient.scare(pos, k);
+  if (n >= 2 && simTime - (G.gullT ?? -99) > 6) { G.gullT = simTime; audio.gulls(n); }
+}
+{ const ex = audio.explosion.bind(audio); audio.explosion = (p) => { ex(p); scareGulls(p, 1.3); }; }
 const fwdFlash = () => camera.getWorldDirection(new THREE.Vector3());
 const raycaster = new THREE.Raycaster();
 raycaster.firstHitOnly = true;
@@ -715,7 +720,7 @@ function shoot(t) {
   const muzzle = weapon.fire();
   stats.shots++;
   audio.gunshot(weapon.ads > 0.5, weapon.suppressed ? 'suppressed' : weapon.kind);
-  if (!weapon.suppressed) enemies.noiseT = 2.5; // loud shots keep every drone on its toes
+  if (!weapon.suppressed) { enemies.noiseT = 2.5; scareGulls(camera.position, 0.8); } // loud shots keep every drone (and gull) on its toes
   if (pad.active) rumble(weapon.kind === 'dmr' || weapon.kind === 'shotgun' ? 0.7 : 0.25, 0.4, 70);
   effects.flash(muzzle.clone().addScaledVector(fwdFlash(), 0.9), new THREE.Color(1, 0.72, 0.4), weapon.suppressed ? 2 : 12, 0.05, weapon.suppressed ? 4 : 10);
   weapon.ejectBrass();
