@@ -102,7 +102,31 @@ export class Level {
     this.colliders.push(new THREE.Box3(new THREE.Vector3(minx, miny, minz), new THREE.Vector3(maxx, maxy, maxz)));
   }
 
+  // window panes as two instanced meshes (lit / dark) for breakable glass
+  buildPanes() {
+    if (!this.paneList) return;
+    const geo = new THREE.PlaneGeometry(0.78, 0.66).rotateY(Math.PI / 2);
+    this.paneMeshes = {};
+    for (const kind of ['lit', 'dark']) {
+      const list = this.paneList.filter((p) => p.lit === (kind === 'lit'));
+      const m = new THREE.InstancedMesh(geo, kind === 'lit' ? this.M.windowLit : this.M.glassDark, list.length);
+      list.forEach((p, i) => { m.setMatrixAt(i, new THREE.Matrix4().makeTranslation(p.pos.x, p.pos.y, p.pos.z)); p.mesh = m; p.index = i; p.broken = false; });
+      m.userData.surf = 'glass'; m.userData.panes = list; m.receiveShadow = true;
+      this.scene.add(m); this.rayMeshes.push(m); this.paneMeshes[kind] = m;
+    }
+  }
+
+  breakPane(mesh, index) {
+    const p = mesh.userData.panes && mesh.userData.panes[index];
+    if (!p || p.broken) return null;
+    p.broken = true;
+    mesh.setMatrixAt(index, new THREE.Matrix4().makeScale(0, 0, 0)); mesh.instanceMatrix.needsUpdate = true;
+    mesh.computeBoundingSphere();
+    return p;
+  }
+
   flush() {
+    this.buildPanes();
     for (const [key, list] of this.batches) {
       const [matName, flag] = key.split(':');
       const geo = mergeGeometries(list, false);
@@ -114,7 +138,7 @@ export class Level {
       mesh.userData.surf = surfOf(matName);
       mesh.name = 'static_' + matName;
       this.scene.add(mesh);
-      if (!['water', 'lineYellow', 'lineWhite', 'silhouette', 'lampLens'].includes(matName)) this.rayMeshes.push(mesh);
+      if (!['water', 'lineYellow', 'lineWhite', 'silhouette', 'lampLens', 'chainlink'].includes(matName)) this.rayMeshes.push(mesh); // bullets pass through chain-link
     }
     this.batches.clear();
   }
@@ -124,10 +148,11 @@ export class Level {
     const M = this.M;
     // Ground slab: 8 m per texture repeat (4 m slabs)
     {
-      const W = 64, D = 64;
+      // yard slab ends at the quay edge (z = -27); beyond that is open water
+      const W = 64, D = 57;
       const g = new THREE.PlaneGeometry(W, D, 1, 1).rotateX(-Math.PI / 2);
       const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * W / 8, uv.getY(i) * D / 8);
-      this.put(g, 'ground', 0, 0, -4 + 0);
+      this.put(g, 'ground', 0, 0, 1.5);
       this.collider(-40, -2, -27, 40, 0, 30);
     }
     this.buildWarehouse();
@@ -199,10 +224,9 @@ export class Level {
       if (Math.abs(wz - dz) < 3.2) continue;
       const lit = [1, 2, 4, 6, 7].includes(i);
       this.box(0.12, 1.5, 2.6, 'darkSteel', x0 + 0.06, 6.0, wz, 0, { collide: false });
-      // pane grid
+      // pane grid (individual instances so each pane can be shot out)
       for (let gy = 0; gy < 2; gy++) for (let gz = 0; gz < 3; gz++) {
-        const g = new THREE.PlaneGeometry(0.78, 0.66).rotateY(Math.PI / 2);
-        this.put(g, lit && !(gy === 1 && gz === (i % 3)) ? 'windowLit' : 'glassDark', x0 + 0.13, 6.0 + 0.37 + gy * 0.72, wz - 0.84 + gz * 0.84);
+        (this.paneList = this.paneList || []).push({ lit: lit && !(gy === 1 && gz === (i % 3)), pos: new THREE.Vector3(x0 + 0.13, 6.0 + 0.37 + gy * 0.72, wz - 0.84 + gz * 0.84) });
       }
     }
     // downpipes

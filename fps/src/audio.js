@@ -193,6 +193,15 @@ export class Audio {
     this.tone(d, t, 0.15, { f: 120, f1: 50, gain: 0.8 }); this.noise(d, t, 0.1, { type: 'lowpass', f: 1800, gain: 0.9 });
     this.tone(d, t, 0.3, { type: 'triangle', f: 1600 + Math.random() * 600, gain: 0.12, curve: 5 });
   }
+  glass(pos) {
+    if (!this.enabled) return; const t = this.ctx.currentTime; const d = this.out(pos, { verb: 0.4, gain: 0.9 });
+    this.noise(d, t, 0.25, { type: 'highpass', f: 4000, gain: 0.8, curve: 3 });
+    for (let i = 0; i < 9; i++) this.tone(d, t + Math.random() * 0.5, 0.12, { type: 'triangle', f: 3000 + Math.random() * 4000, gain: 0.06, curve: 5 });
+  }
+  splash(pos) {
+    if (!this.enabled) return; const t = this.ctx.currentTime; const d = this.out(pos, { verb: 0.3, gain: 0.7 });
+    this.noise(d, t, 0.3, { type: 'bandpass', f: 1200, f1: 400, q: 1, gain: 0.6, curve: 3 }); this.tone(d, t, 0.08, { f: 900, f1: 300, gain: 0.1 });
+  }
   heartbeat() {
     if (!this.enabled) return; const t = this.ctx.currentTime; const d = this.out(null, { verb: 0, gain: 0.9 });
     this.tone(d, t, 0.12, { f: 62, f1: 40, gain: 0.7, curve: 3 }); this.tone(d, t + 0.17, 0.12, { f: 55, f1: 38, gain: 0.5, curve: 3 });

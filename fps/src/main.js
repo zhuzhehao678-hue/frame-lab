@@ -610,10 +610,28 @@ function shoot(t) {
     end = wh.point;
     const n = wh.face.normal.clone();
     if (n.dot(dir) > 0) n.negate();
-    effects.impact(wh.point, n, wh.object.userData.surf);
+    if (wh.object.userData.surf === 'glass') {
+      const pane = level.breakPane(wh.object, wh.instanceId);
+      if (pane) {
+        for (let i = 0; i < 40; i++) effects.smoke.emit({ pos: pane.pos.clone().add(new THREE.Vector3(0, (Math.random() - 0.5) * 0.6, (Math.random() - 0.5) * 0.7)), vel: new THREE.Vector3(0.5 + Math.random() * 2, Math.random() * 1.5, (Math.random() - 0.5) * 2).addScaledVector(dir, 2), life: 1.2 + Math.random(), size: 0.02 + Math.random() * 0.04, color: new THREE.Color(0.75, 0.8, 0.85), alpha: 0.9, alpha1: 0.6, gravity: 9.8, drag: 0.2, rotVel: (Math.random() - 0.5) * 25, bounce: true });
+        for (let i = 0; i < 16; i++) effects.add.emit({ pos: pane.pos, vel: new THREE.Vector3(Math.random() * 3, Math.random() * 2, (Math.random() - 0.5) * 3), life: 0.6, size: 0.01, color: new THREE.Color(3, 3, 3.3), gravity: 9.8, stretch: 0.02, bounce: true });
+        audio.glass && audio.glass(pane.pos);
+      }
+    } else effects.impact(wh.point, n, wh.object.userData.surf);
     if (wh.object.userData.drum) hazards.damage(wh.object.userData.drum, THREE.MathUtils.randFloat(weapon.damage[0], weapon.damage[1]), wh.point.clone().addScaledVector(n, 0.03));
     audio.impact(wh.point, wh.object.userData.surf);
   } else end = origin.clone().addScaledVector(dir, 400);
+  // rounds that reach the harbour basin kick up a splash
+  if (!eh && dir.y < -0.002) {
+    const tw = (-2.1 - origin.y) / dir.y;
+    const wp = origin.clone().addScaledVector(dir, tw);
+    if (wp.z < -27.2 && (!wh || tw < wh.distance) && tw < 300) {
+      end = wp;
+      for (let i = 0; i < 14; i++) effects.smoke.emit({ pos: wp, vel: new THREE.Vector3((Math.random() - 0.5) * 0.8, 2.5 + Math.random() * 3, (Math.random() - 0.5) * 0.8), life: 0.7, size: 0.05, size1: 0.18, color: new THREE.Color(0.8, 0.85, 0.88), alpha: 0.8, alpha1: 0, gravity: 9.8, drag: 0.5 });
+      effects.puff(wp, new THREE.Vector3(0, 1, 0), new THREE.Color(0.85, 0.88, 0.9), 3, 0.3, 0.8);
+      audio.splash && audio.splash(wp);
+    }
+  }
   if (weapon.kind === 'rifle' && weapon.shotsFired % 3 === 1) effects.tracer(muzzle, end);
 }
 
