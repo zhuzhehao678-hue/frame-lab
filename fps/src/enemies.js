@@ -92,7 +92,13 @@ export class Enemies {
     if (kind === true) kind = 'heavy'; if (!kind) kind = 'normal';
     const heavy = kind === 'heavy', kami = kind === 'kamikaze';
     const m = this.buildDrone(heavy);
-    const sniper = kind === 'sniper';
+    const sniper = kind === 'sniper', medic = kind === 'medic';
+    if (medic) {
+      m.group.scale.setScalar(1.3);
+      if (!this.medicMat) this.medicMat = new THREE.MeshStandardMaterial({ color: 0x002208, emissive: new THREE.Color(0.1, 1, 0.35), emissiveIntensity: 7 });
+      m.group.traverse((o) => { if (o.isMesh && o.material === this.accent) o.material = this.medicMat; });
+      m.eye.material.emissive.setRGB(0.1, 1, 0.4);
+    }
     if (kami) {
       m.group.scale.setScalar(1.3);
       m.group.traverse((o) => { if (o.isMesh && o.material === this.accent) o.material = this.kamiMat; });
@@ -116,7 +122,7 @@ export class Enemies {
       ...m, pos: m.group.position, vel: new THREE.Vector3(), heavy,
       kami, kind, beepT: 0, armed: -1, stagger: 0, aimT: 0,
       role: kami ? 'kami' : (heavy ? 'suppress' : ['flank', 'harass', 'suppress'][this.roleIdx = ((this.roleIdx || 0) + 1) % 3]),
-      hp: (heavy ? 260 : (kami ? 45 : (sniper ? 90 : 100))) * (this.hpMult || 1), maxHp: (heavy ? 260 : (kami ? 45 : (sniper ? 90 : 100))) * (this.hpMult || 1), radius: heavy ? 1.0 : (kami ? 0.62 : 0.76),
+      hp: (heavy ? 260 : (kami ? 45 : (sniper ? 90 : (medic ? 75 : 100)))) * (this.hpMult || 1), maxHp: (heavy ? 260 : (kami ? 45 : (sniper ? 90 : (medic ? 75 : 100)))) * (this.hpMult || 1), radius: heavy ? 1.0 : (kami ? 0.62 : 0.76),
       fireCD: 1.5 + Math.random() * 2, charge: 0, burst: 0,
       orbit: Math.random() * Math.PI * 2, orbitDir: Math.random() < 0.5 ? -1 : 1,
       pref: sniper ? 22 + Math.random() * 5 : (heavy ? 13 : 10) + Math.random() * 5, alt: sniper ? 8 + Math.random() * 2.5 : 3.2 + Math.random() * 3,
@@ -142,6 +148,24 @@ export class Enemies {
       if (t > 0 && t < maxT && (!best || t < best.t)) best = { enemy: e, t, point: o.clone().addScaledVector(d, t) };
     }
     return best;
+  }
+
+  // medic: green repair beam onto a damaged ally in line of sight
+  medicLogic(e, dt) {
+    if (!e.beam) {
+      if (!this.healMat) this.healMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.6, 4, 1.4), transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+      e.beam = new THREE.Mesh(this.laserGeo || (this.laserGeo = new THREE.CylinderGeometry(1, 1, 1, 6, 1, true).rotateX(Math.PI / 2).translate(0, 0, 0.5)), this.healMat);
+      e.beam.userData.noAO = true; e.beam.frustumCulled = false; this.scene.add(e.beam);
+    }
+    const p = e.patient;
+    const ok = p && p.alive && p.pos.distanceTo(e.pos) < 9 && !segmentBlocked(this.level, e.pos, p.pos);
+    e.beam.visible = !!ok;
+    if (!ok) return;
+    p.hp = Math.min(p.maxHp, p.hp + 22 * dt);
+    const d = p.pos.clone().sub(e.pos); const L = d.length();
+    e.beam.position.copy(e.pos); e.beam.lookAt(p.pos);
+    const w = 0.025 + Math.sin(performance.now() * 0.02) * 0.008; e.beam.scale.set(w, w, L);
+    if (Math.random() < dt * 30) this.effects.add.emit({ pos: p.pos, vel: new THREE.Vector3((Math.random() - 0.5) * 2, Math.random() * 1.5, (Math.random() - 0.5) * 2), life: 0.4, size: 0.04, size1: 0.0, color: new THREE.Color(0.6, 4, 1.4), alpha: 1, alpha1: 0 });
   }
 
   // sniper: visible laser tracks the player with lag, then one heavy round
@@ -220,6 +244,7 @@ export class Enemies {
   kill(e, dir) {
     e.alive = false;
     if (e.laser) { this.scene.remove(e.laser); e.laser = null; }
+    if (e.beam) { this.scene.remove(e.beam); e.beam = null; }
     if (this.onKill) this.onKill(e);
     if (e.kami) { this.explodeNow(e, dir); this.blast(e.pos.clone(), 4.6, 36, 160); return; }
     // lose control: spiral down trailing fire/smoke, explode on impact
@@ -338,6 +363,17 @@ export class Enemies {
       desired.z = THREE.MathUtils.clamp(desired.z, -22, 19);
       const distP = target.distanceTo(e.pos);
       if (e.kami) { desired.copy(target); desired.y = distP > 9 ? 3.6 : target.y - 0.25; }
+      if (e.kind === 'medic') {
+        // hang back behind the most damaged ally, away from the player
+        let best = null, worst = 1;
+        for (const o of this.list) { if (o === e || !o.alive || o.kind === 'medic') continue; const f = o.hp / o.maxHp; if (f < worst) { worst = f; best = o; } }
+        if (!best) best = this.list.find((o) => o !== e && o.alive && o.kind !== 'medic');
+        e.patient = best && best.hp < best.maxHp ? best : null;
+        if (best) {
+          const away = best.pos.clone().sub(target).setY(0).normalize();
+          desired.copy(best.pos).addScaledVector(away, 4.5); desired.y = best.pos.y + 1.6;
+        } else { desired.set(target.x + Math.cos(e.orbit) * 17, 7, target.z + Math.sin(e.orbit) * 17); }
+      }
       const acc = desired.sub(e.pos).clampLength(0, 6).multiplyScalar(e.kami ? 3.4 : 1.4);
       // separation
       for (const o of this.list) {
@@ -397,6 +433,7 @@ export class Enemies {
         continue;
       }
       if (e.kind === 'sniper') { this.sniperLogic(e, dt, player, los); continue; }
+      if (e.kind === 'medic') { this.medicLogic(e, dt); continue; }
       // attack logic
       if (player.dead) continue;
       e.fireCD -= dt;
@@ -460,7 +497,7 @@ export class Enemies {
   }
 
   clear() {
-    for (const e of this.list.concat(this.falling)) { this.scene.remove(e.group); if (e.laser) this.scene.remove(e.laser); this.audio.stopHum(e.hum); }
+    for (const e of this.list.concat(this.falling)) { this.scene.remove(e.group); if (e.laser) this.scene.remove(e.laser); if (e.beam) this.scene.remove(e.beam); this.audio.stopHum(e.hum); }
     this.falling = [];
     for (const b of this.bolts) this.scene.remove(b.mesh);
     this.list = []; this.bolts = [];

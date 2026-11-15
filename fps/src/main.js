@@ -340,7 +340,7 @@ function updateCompass() {
   compass.enemies.forEach((el, i) => {
     const e = list[i];
     if (!e) { el.style.display = 'none'; return; }
-    el.className = 'en' + (e.heavy ? ' heavy' : '') + (e.kami ? ' kami' : '') + (e.kind === 'walker' ? ' walker' : '');
+    el.className = 'en' + (e.heavy ? ' heavy' : '') + (e.kami ? ' kami' : '') + (e.kind === 'walker' ? ' walker' : '') + (e.kind === 'medic' ? ' medic' : '');
     place(el, THREE.MathUtils.radToDeg(Math.atan2(e.pos.x - camera.position.x, -(e.pos.z - camera.position.z))));
   });
 }
@@ -403,8 +403,8 @@ for (const w of weapons) {
   w.events.magin = () => audio.magIn();
   w.events.bolt = () => audio.bolt();
 }
-const NAMES = { normal: '哨兵无人机', heavy: '重型哨兵', kamikaze: '自爆蜂', walker: '四足机甲', sniper: '狙击无人机' };
-const POINTS = { normal: 100, heavy: 250, kamikaze: 150, walker: 450, sniper: 220 };
+const NAMES = { normal: '哨兵无人机', heavy: '重型哨兵', kamikaze: '自爆蜂', walker: '四足机甲', sniper: '狙击无人机', medic: '维修无人机' };
+const POINTS = { normal: 100, heavy: 250, kamikaze: 150, walker: 450, sniper: 220, medic: 200 };
 const score = { total: 0, combo: 0, last: -10, best: +(saved.best || 0) };
 enemies.onKill = (e) => {
   stats.kills++; killT = 0.35; killPulse = 1;
@@ -436,7 +436,7 @@ enemies.onPlayerHit = (from, dmg) => {
 };
 
 // each wave: [normal, heavy, kamikaze]
-const WAVES = [[3, 0, 0], [3, 1, 1], [3, 1, 2, null, 1], [3, 2, 3, null, 1, 1], [2, 1, 2, 'boss', 1, 1]];
+const WAVES = [[3, 0, 0], [3, 1, 1], [3, 1, 2, null, 1, 0, 1], [3, 2, 3, null, 1, 1, 1], [2, 1, 2, 'boss', 1, 1, 0]];
 const WALKER_SPAWNS = [[-9, -20], [13, -0.5], [0, 17.5], [6, -20.5], [-8, 1.5]];
 const CN = ['一', '二', '三', '四', '五'];
 const waves = {
@@ -446,7 +446,7 @@ const waves = {
   wave(i) {
     if (i < WAVES.length && !this.endless) return WAVES[i];
     const e = i - WAVES.length + 1;
-    return [Math.min(3 + Math.floor(e * 0.6), 7), Math.min(1 + Math.floor(e / 2), 4), Math.min(2 + Math.floor(e / 1.5), 7), e % 5 === 0 ? 'boss' : null, Math.min(1 + Math.floor(e / 3), 3), Math.min(1 + Math.floor(e / 2), 3)];
+    return [Math.min(3 + Math.floor(e * 0.6), 7), Math.min(1 + Math.floor(e / 2), 4), Math.min(2 + Math.floor(e / 1.5), 7), e % 5 === 0 ? 'boss' : null, Math.min(1 + Math.floor(e / 3), 3), Math.min(1 + Math.floor(e / 2), 3), Math.min(1 + Math.floor(e / 3), 2)];
   },
   goEndless() {
     this.endless = true; this.done = false; gameOver = false;
@@ -461,13 +461,13 @@ const waves = {
   },
   begin(delay) {
     this.active = false; this.timer = delay;
-    const [n, h, k, special, wk = 0, sn = 0] = this.wave(this.index);
+    const [n, h, k, special, wk = 0, sn = 0, md = 0] = this.wave(this.index);
     stats.waveDmg = 0;
     this.bossPending = special === 'boss'; this.bossT = 4;
-    const q = [...Array(n).fill('normal'), ...Array(h).fill('heavy'), ...Array(k).fill('kamikaze'), ...Array(wk).fill('walker'), ...Array(sn).fill('sniper')];
+    const q = [...Array(n).fill('normal'), ...Array(h).fill('heavy'), ...Array(k).fill('kamikaze'), ...Array(wk).fill('walker'), ...Array(sn).fill('sniper'), ...Array(md).fill('medic')];
     for (let i = q.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [q[i], q[j]] = [q[j], q[i]]; }
     this.queue = q;
-    const parts = [`哨兵 ×${n}`]; if (h) parts.push(`重型哨兵 ×${h}`); if (k) parts.push(`自爆蜂 ×${k}`); if (wk) parts.push(`四足机甲 ×${wk}`); if (sn) parts.push(`狙击无人机 ×${sn}`);
+    const parts = [`哨兵 ×${n}`]; if (h) parts.push(`重型哨兵 ×${h}`); if (k) parts.push(`自爆蜂 ×${k}`); if (wk) parts.push(`四足机甲 ×${wk}`); if (sn) parts.push(`狙击无人机 ×${sn}`); if (md) parts.push(`维修无人机 ×${md}`);
     if (this.endless) banner(`ENDLESS · ${this.index + 1}`, `无尽 · 第 ${this.index + 1} 波`, (special === 'boss' ? '母舰来袭  ·  ' : '') + parts.join('  ·  '), 3.2);
     else if (special === 'boss') banner('FINAL WAVE', '母舰 · WARDEN', '摧毁四个旋翼舱使护盾失效，然后攻击核心 · 激光可被掩体阻挡', 5);
     else banner(`WAVE ${this.index + 1} / ${WAVES.length}`, `第 ${CN[this.index]} 波`, parts.join('  ·  '), 3.2);
@@ -494,6 +494,7 @@ const waves = {
       const pts = level.spawnPoints.slice().sort((a, b) => b.distanceTo(player.pos) - a.distanceTo(player.pos));
       const p = pts[Math.floor(Math.random() * 3)].clone().add(new THREE.Vector3((Math.random() - 0.5) * 3, 0, (Math.random() - 0.5) * 3));
       enemies.spawn(p, kind);
+      if (kind === 'medic' && !this.medicHint) { this.medicHint = true; setTimeout(() => hint('维修无人机正在修复敌人 · 优先击落（罗盘绿色标记）', 4.5), 1500); }
       this.spawnT = 1.1;
       }
     }
