@@ -114,8 +114,8 @@ export class Enemies {
       brake.position.set(0, -0.13, -1.0); m.group.add(brake);
       m.group.traverse((o) => { if (o.isMesh && o.material === this.accent) o.material = this.lib.M.paintRed; });
       m.group.scale.setScalar(1.45);
-      if (!this.laserGeo) {
-        this.laserGeo = new THREE.CylinderGeometry(1, 1, 1, 6, 1, true).rotateX(Math.PI / 2).translate(0, 0, 0.5);
+      if (!this.laserMat) {
+        this.laserGeo = this.laserGeo || new THREE.CylinderGeometry(1, 1, 1, 6, 1, true).rotateX(Math.PI / 2).translate(0, 0, 0.5);
         this.laserMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(9, 0.4, 0.2), transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
       }
     }
