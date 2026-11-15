@@ -29,7 +29,20 @@ const params = new URLSearchParams(location.search);
 try { localStorage.getItem('x'); } catch (e) { window.__noLS = true; }
 const LS = window.__noLS ? { getItem: () => null, setItem: () => {} } : localStorage;
 const saved = JSON.parse(LS.getItem('afterglow') || '{}');
-let qualityName = params.get('q') || saved.quality || 'high';
+// first run: pick a quality tier from the GPU instead of assuming a desktop card
+function guessQuality() {
+  try {
+    const gl = document.createElement('canvas').getContext('webgl2');
+    if (!gl) return 'low';
+    const ext = gl.getExtension('WEBGL_debug_renderer_info');
+    const name = (ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)) || '';
+    if (/swiftshader|llvmpipe|software|basic render/i.test(name)) return 'low';
+    if (/mobile|android|iphone|ipad/i.test(navigator.userAgent) || /mali|adreno|powervr/i.test(name)) return 'low';
+    if (/intel|uhd|iris|hd graphics|vega \d+ graphics|radeon\(tm\) graphics|apple gpu/i.test(name)) return 'medium';
+    return 'high';
+  } catch (e) { return 'medium'; }
+}
+let qualityName = params.get('q') || saved.quality || guessQuality();
 if (!QUALITY[qualityName]) qualityName = 'high';
 let todName = params.get('t') || saved.tod || 'golden';
 if (!TIMES[todName]) todName = 'golden';
@@ -1305,6 +1318,8 @@ function loop() {
   loop.last = now;
   R.render(dt, now / 1000);
 
+  // dynamic resolution already at its floor and still slow: suggest a lower tier once
+  if (running && R.scale <= 0.56 && R.ema > 26 && qualityName !== 'low') { G.slowT = (G.slowT || 0) + realDt; if (G.slowT > 10 && !G.slowHinted) { G.slowHinted = true; hint('帧率偏低 · 可在菜单（Esc）把画质调到「' + (qualityName === 'medium' ? '低' : '中') + '」', 5); } } else G.slowT = 0;
   fpsAcc += dt; fpsN++;
   if (fpsAcc > 0.5) { $('fps').textContent = `${Math.round(fpsN / fpsAcc)} fps · ${renderer.info.render.calls} calls · ${(renderer.info.render.triangles / 1000).toFixed(0)}k tris · ${R.q.label} · 渲染 ${Math.round(R.scale * 100)}%`; fpsAcc = 0; fpsN = 0; }
 }
