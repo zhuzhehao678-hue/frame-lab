@@ -139,7 +139,27 @@ export class Level {
       mesh.userData.surf = surfOf(matName);
       mesh.name = 'static_' + matName;
       this.scene.add(mesh);
-      if (!['water', 'lineYellow', 'lineWhite', 'silhouette', 'lampLens', 'chainlink'].includes(matName)) this.rayMeshes.push(mesh); // bullets pass through chain-link
+      // bullets pass through chain-link. Rays test spatially chunked proxies (never
+      // rendered): one merged mesh spanning the yard defeats bounding-sphere culling
+      // and made every shot walk every triangle of that material.
+      if (!['water', 'lineYellow', 'lineWhite', 'silhouette', 'lampLens', 'chainlink'].includes(matName)) {
+        const cells = new Map(), bb = new THREE.Box3(), c = new THREE.Vector3();
+        for (const g of list) {
+          if (!g.boundingBox) g.computeBoundingBox();
+          bb.copy(g.boundingBox).getCenter(c);
+          const k = Math.floor(c.x / 4) + ',' + Math.floor(c.z / 4) + ',' + Math.floor(c.y / 4);
+          if (!cells.has(k)) cells.set(k, []);
+          cells.get(k).push(g);
+        }
+        for (const parts of cells.values()) {
+          const pg = parts.length === 1 ? parts[0] : mergeGeometries(parts, false);
+          pg.computeBoundingSphere();
+          const proxy = new THREE.Mesh(pg, mesh.material);
+          proxy.name = mesh.name; proxy.userData.surf = mesh.userData.surf; proxy.userData.proxy = true;
+          proxy.updateMatrixWorld(true);
+          this.rayMeshes.push(proxy);
+        }
+      }
     }
     this.batches.clear();
   }
