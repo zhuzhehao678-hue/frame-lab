@@ -995,6 +995,39 @@ function shoot(t) {
 }
 
 // ------------------------------------------------------------------ ambient motes
+// sunlight shaft through the warehouse door (golden / day: the door faces the sun)
+const doorShaft = (() => {
+  if (todName !== 'golden' && todName !== 'day') return null;
+  const L = sunDir.clone().negate();                  // light travel direction
+  if (L.x > -0.2) return null;
+  const x = -18.2, z0 = 0.5 - 2.5, z1 = 0.5 + 2.5, y1 = 2.7;
+  const proj = (p) => { const t = p.y / -L.y; const q = p.clone().addScaledVector(L, t); q.x = Math.max(q.x, -30.2); return q; };
+  const A = [new THREE.Vector3(x, 0.02, z0), new THREE.Vector3(x, 0.02, z1), new THREE.Vector3(x, y1, z1), new THREE.Vector3(x, y1, z0)];
+  const B = A.map((p) => (p.y < 0.1 ? p.clone().addScaledVector(L, 0.4) : proj(p)));
+  const pos = [], kk = [];
+  const quad = (a, b, c, d, ka, kb, kc, kd) => { pos.push(...a.toArray(), ...b.toArray(), ...c.toArray(), ...a.toArray(), ...c.toArray(), ...d.toArray()); kk.push(ka, kb, kc, ka, kc, kd); };
+  quad(A[0], A[1], B[1], B[0], 0, 0, 1, 1); quad(A[1], A[2], B[2], B[1], 0, 0, 1, 1); quad(A[2], A[3], B[3], B[2], 0, 0, 1, 1); quad(A[3], A[0], B[0], B[3], 0, 0, 1, 1);
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('k', new THREE.Float32BufferAttribute(kk, 1)); g.computeVertexNormals();
+  const m = new THREE.Mesh(g, new THREE.ShaderMaterial({
+    uniforms: { uCol: { value: TOD.sunColor.clone().multiplyScalar(0.55) }, uTime: { value: 0 } },
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+    vertexShader: 'attribute float k; varying float vK; varying vec3 vN; varying vec3 vV; varying vec3 vW; void main(){ vK = k; vN = normalize(normalMatrix * normal); vec4 mv = modelViewMatrix * vec4(position,1.0); vV = normalize(-mv.xyz); vW = position; gl_Position = projectionMatrix * mv; }',
+    fragmentShader: 'uniform vec3 uCol; uniform float uTime; varying float vK; varying vec3 vN; varying vec3 vV; varying vec3 vW; void main(){ float edge = pow(abs(dot(normalize(vN), normalize(vV))), 1.6); float dust = 0.75 + 0.25 * sin(vW.y * 7.0 + vW.z * 5.0 + uTime * 0.7); float a = edge * (1.0 - vK) * (1.0 - vK * 0.4) * dust * 1.4; gl_FragColor = vec4(uCol * a, a); }',
+  }));
+  m.userData.noAO = true; m.renderOrder = 9; m.frustumCulled = false; scene.add(m);
+  return { m, A, B };
+})();
+function updateDoorShaft(dt, t) {
+  if (!doorShaft) return;
+  doorShaft.m.material.uniforms.uTime.value = t;
+  // sun-lit dust motes drifting inside the beam
+  if (Math.random() < dt * 14) {
+    const u = Math.random(), v = Math.random(), w = Math.random() * 0.85;
+    const a = doorShaft.A[0].clone().lerp(doorShaft.A[1], u).lerp(doorShaft.A[3].clone().lerp(doorShaft.A[2], u), v);
+    const b = doorShaft.B[0].clone().lerp(doorShaft.B[1], u).lerp(doorShaft.B[3].clone().lerp(doorShaft.B[2], u), v);
+    effects.add.emit({ pos: a.lerp(b, w), vel: new THREE.Vector3((Math.random() - 0.5) * 0.05, (Math.random() - 0.3) * 0.04, (Math.random() - 0.5) * 0.05), life: 5, size: 0.006, color: TOD.sunColor.clone().multiplyScalar(1.6), alpha: 0.9, alpha1: 0, fadeIn: 1.2 });
+  }
+}
 function motes(dt) {
   const c = camera.position;
   for (let i = 0; i < 2; i++) {
@@ -1210,6 +1243,7 @@ function loop() {
     const adt = running ? dt : (attract ? realDt : 0);
     effects.update(adt, level);
     if (running && !G.rain) motes(dt);
+    updateDoorShaft(adt, t);
     if (G.rain) {
       const fl = G.rain.update(attract ? realDt : dt, t, player);
       REFL.time.value = t;
