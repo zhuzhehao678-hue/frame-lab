@@ -37,7 +37,7 @@ const TOD = TIMES[todName];
 const DIFF = { easy: { dmg: 0.42, hp: 0.8, fire: 1.35, score: 0.8 }, normal: { dmg: 0.62, hp: 1, fire: 1, score: 1 }, hard: { dmg: 0.85, hp: 1.25, fire: 0.78, score: 1.35 }, hardcore: { dmg: 1.1, hp: 1.25, fire: 0.78, score: 1.8, hc: true } };
 const settings = { xhStyle: saved.xhStyle || 'both', xhColor: saved.xhColor || '#f0ece4', mblur: saved.mblur ?? true, diff: DIFF[saved.diff] ? saved.diff : 'normal', sens: saved.sens ?? 1, fov: saved.fov ?? 74, adsSens: saved.adsSens ?? 0.9, music: saved.music ?? 0.5, optic: saved.optic || 'reddot', muzzle: saved.muzzle || 'brake', dmgNums: saved.dmgNums ?? false, cb: saved.cb || 0, hudScale: saved.hudScale ?? 1, finish: saved.finish || 'black' };
 $('diff').value = settings.diff; $('xhstyle').value = settings.xhStyle; $('xhcolor').value = settings.xhColor; $('mblur').checked = settings.mblur; $('quality').value = qualityName; $('tod').value = todName; $('sens').value = settings.sens; $('adssens').value = settings.adsSens; $('music').value = settings.music; $('fov').value = settings.fov; $('optic').value = settings.optic; $('dmgnum').checked = settings.dmgNums; $('cb').value = settings.cb; $('finish').value = settings.finish; $('hudscale').value = settings.hudScale; $('muzzle').value = settings.muzzle;
-const persist = () => LS.setItem('afterglow', JSON.stringify({ quality: qualityName, tod: todName, ...settings, binds: saved.binds, best: saved.best || 0, bestWave: saved.bestWave || 0, tutorialDone: !!saved.tutorialDone }));
+const persist = () => LS.setItem('afterglow', JSON.stringify({ quality: qualityName, tod: todName, ...settings, binds: saved.binds, best: saved.best || 0, bestWave: saved.bestWave || 0, tutorialDone: !!saved.tutorialDone, seenV2: !!saved.seenV2 }));
 
 const frame = () => new Promise((r) => requestAnimationFrame(() => r()));
 async function progress(f, label) {
@@ -326,9 +326,13 @@ $('play').onclick = () => {
     setTimeout(() => radio(RADIO.start[0]), 1200);
     if (!saved.tutorialDone) {
       // first run: walk through the essentials during the opening countdown
-      const tips = ['WASD 移动 · Shift 冲刺 · 空格 跳跃/翻越', '右键 开镜 · 左键 射击 · R 换弹', '1/2/3 切枪 · G 手雷 · V 近战', 'Q/E 探头 · C 蹲下（冲刺中滑铲）', '顶部罗盘标出敌人方位 · 场上有补给箱'];
+      const tips = ['WASD 移动 · Shift 冲刺 · 空格 跳跃/翻越', '右键 开镜 · 左键 射击 · R 换弹', '1-4 切枪（4 是霰弹枪）· V 近战', 'G 手雷 · B 切换烟雾弹（遮断无人机视线）', 'Q/E 探头 · C 蹲下（冲刺中滑铲）', '打无人机的发光“眼睛”可暴击 · 6 连杀后按 X 释放 EMP', '顶部罗盘标出敌人方位 · 场上有补给箱'];
       tips.forEach((tx, i) => setTimeout(() => hint(tx, 2.6), 400 + i * 2800));
-      saved.tutorialDone = true; persist();
+      saved.tutorialDone = true; saved.seenV2 = true; persist();
+    } else if (!saved.seenV2) {
+      // returning players: point out what's new since their last session
+      ['新内容：4 霰弹枪 · B 烟雾弹 · X EMP', '菜单里可选步枪瞄具、消音器、涂装、硬核难度与按键设置'].forEach((tx, i) => setTimeout(() => hint(tx, 3.2), 3000 + i * 3500));
+      saved.seenV2 = true; LS.setItem('afterglow', JSON.stringify({ ...JSON.parse(LS.getItem('afterglow') || '{}'), seenV2: true }));
     } else if (TOD.night) setTimeout(() => hint('夜间作战 · 按 T 开启战术手电', 4), 3500);
   }
 };
@@ -637,7 +641,7 @@ const waves = {
       if (this.index + 1 >= WAVES.length && !this.endless) { this.done = true; victory(); return; }
       this.index++;
       this.refill();
-      hint('弹药已补给 · 步枪 +90 · 手枪 +30 · 射手步枪 +20 · 霰弹 +10 · 手雷 +2', 2.5);
+      hint('弹药已补给 · 步枪 +90 · 手枪 +30 · 射手步枪 +20 · 霰弹 +10 · 手雷 +2 · 烟雾弹 +1', 2.5);
       radio(pick(RADIO.clear));
       this.begin(6);
     }
