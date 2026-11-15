@@ -19,14 +19,43 @@ export class Grenades {
     this.proto.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
   }
 
-  canThrow(weapon) { return this.count > 0 && this.cool <= 0 && !weapon.reloading; }
-
-  throw(camera, playerVel) {
-    this.count--; this.cool = 1.0;
+  // launch state shared by the preview and the real throw
+  launch(camera, playerVel) {
     const fwd = camera.getWorldDirection(new THREE.Vector3());
     const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
     const pos = camera.position.clone().addScaledVector(fwd, 0.35).addScaledVector(right, -0.12).add(new THREE.Vector3(0, -0.08, 0));
     const vel = fwd.clone().multiplyScalar(15).add(new THREE.Vector3(0, 3.2, 0)).add(playerVel.clone().multiplyScalar(0.8));
+    return { pos, vel };
+  }
+
+  // dotted arc to the first impact + a ring where it lands
+  showPreview(camera, playerVel) {
+    if (!this.dots) {
+      const mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(2.2, 1.5, 0.7), transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+      this.dots = new THREE.InstancedMesh(new THREE.SphereGeometry(0.035, 8, 6), mat, 40);
+      this.dots.frustumCulled = false; this.dots.userData.noAO = true; this.dots.renderOrder = 13; this.scene.add(this.dots);
+      this.ring = new THREE.Mesh(new THREE.RingGeometry(0.55, 0.62, 40).rotateX(-Math.PI / 2), mat.clone()); this.ring.userData.noAO = true; this.scene.add(this.ring);
+    }
+    const { pos, vel } = this.launch(camera, playerVel);
+    const p = pos.clone(), v = vel.clone(), m = new THREE.Matrix4();
+    let n = 0, hit = null; const h = 1 / 60;
+    for (let i = 0; i < 160 && !hit; i++) {
+      v.y -= 9.8 * h; p.addScaledVector(v, h);
+      for (const b of this.level.colliders) if (b.containsPoint(p)) { hit = p.clone(); break; }
+      if (i >= 9 && i % 4 === 0 && n < 40) { m.makeTranslation(p.x, p.y, p.z); this.dots.setMatrixAt(n++, m); } // skip the first ~2 m (would fill the screen)
+    }
+    this.dots.count = n; this.dots.instanceMatrix.needsUpdate = true; this.dots.visible = true;
+    this.ring.visible = !!hit;
+    if (hit) this.ring.position.set(hit.x, hit.y + 0.03, hit.z);
+  }
+  hidePreview() { if (this.dots) { this.dots.visible = false; this.ring.visible = false; } }
+
+  canThrow(weapon) { return this.count > 0 && this.cool <= 0 && !weapon.reloading; }
+
+  throw(camera, playerVel) {
+    this.count--; this.cool = 1.0;
+    this.hidePreview();
+    const { pos, vel } = this.launch(camera, playerVel);
     const mesh = this.proto.clone();
     mesh.position.copy(pos);
     this.scene.add(mesh);

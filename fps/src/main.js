@@ -191,7 +191,7 @@ addEventListener('keydown', (e) => {
   if (e.code === 'Digit2' && locked) switchWeapon(1);
   if (e.code === 'Digit3' && locked) switchWeapon(2);
   if (e.code === 'KeyR' && locked && !photo) { if (weapon.startReload()) audio.click(1200, 0.3); }
-  if (e.code === 'KeyG' && locked && !photo && !player.dead && grenades.canThrow(weapon)) { grenades.throw(camera, player.vel); weapon.throwT = 0; }
+  if (e.code === 'KeyG' && locked && !photo && !player.dead && grenades.canThrow(weapon) && !e.repeat) G.aimingGrenade = true;
   if (e.code === 'KeyT' && locked && !photo) {
     G.flashOn = !G.flashOn;
     G.flashlight.intensity = G.flashOn ? 90 : 0; G.lensGlow.visible = G.flashOn;
@@ -205,7 +205,8 @@ addEventListener('keydown', (e) => {
   if (e.code === 'KeyF') $('fps').classList.toggle('hidden');
   if (e.code === 'KeyP' && locked) togglePhoto();
 });
-addEventListener('keyup', (e) => { if (keymap[e.code]) input[keymap[e.code]] = false; if (e.code === 'Space') input.jump = false; });
+addEventListener('keyup', (e) => {
+  if (e.code === 'KeyG' && G.aimingGrenade) { G.aimingGrenade = false; if (locked && !player.dead && grenades.canThrow(weapon)) { grenades.throw(camera, player.vel); weapon.throwT = 0; } else grenades.hidePreview(); } if (keymap[e.code]) input[keymap[e.code]] = false; if (e.code === 'Space') input.jump = false; });
 addEventListener('mousedown', (e) => {
   if (!locked) return;
   if (e.button === 0) { input.firing = true; input.triggerPulled = true; }
@@ -724,6 +725,7 @@ function loop() {
     killSource = { type: 'other' };
     walkers.update(dt, t, player);
     boss.update(dt, t, player);
+    if (G.aimingGrenade) grenades.showPreview(camera, player.vel); 
     pickups.update(dt, t, player, (kind) => {
       if (kind === 'med') {
         if (player.health >= player.maxHealth - 1) return false;
