@@ -104,11 +104,11 @@ const FinalShader = {
         vec2 suv = fract(uv + gv * (0.42 + k * 0.27));
         float wgt = pow(1.0 - length(vec2(0.5) - suv) / 0.7071, 6.0);
         vec3 tint = vec3(0.9 + 0.1 * sin(k * 1.7), 0.75 + 0.2 * sin(k * 2.3 + 1.0), 0.6 + 0.35 * sin(k * 3.1 + 2.0));
-        ghost += max(texture2D(tDiffuse, suv).rgb - 6.0, 0.0) * wgt * tint;
+        ghost += max(texture2D(tDiffuse, suv).rgb - 60.0, 0.0) * wgt * tint;
       }
       vec2 hv = normalize(gv + 1e-5) * 0.38;
-      ghost += max(texture2D(tDiffuse, uv + hv).rgb - 6.0, 0.0) * pow(1.0 - length(vec2(0.5) - fract(uv + hv)) / 0.7071, 5.0) * vec3(1.0, 0.8, 0.6) * 0.6;
-      col += min(ghost * 0.004, vec3(0.6));
+      ghost += max(texture2D(tDiffuse, uv + hv).rgb - 60.0, 0.0) * pow(1.0 - length(vec2(0.5) - fract(uv + hv)) / 0.7071, 5.0) * vec3(1.0, 0.8, 0.6) * 0.6;
+      col += min(ghost * 0.0006, vec3(0.12));
       col *= uExposure * uGrade;
       col += uFlash * vec3(1.0, 0.85, 0.6) * 0.15;
 
@@ -184,8 +184,18 @@ export class Renderer {
       this.god.uniforms.tDepth.value = this.gtao.depthTexture;
       this.composer.addPass(this.god);
     }
+    // clamp HDR before bloom: the sun disc can exceed half-float range, which
+    // made bloom smear it into a full-screen white veil (and NaN black dots)
+    this.clamp = new ShaderPass({
+      uniforms: { tDiffuse: { value: null }, uMax: { value: 14 } },
+      vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
+      fragmentShader: `uniform sampler2D tDiffuse; uniform float uMax; varying vec2 vUv;
+        void main(){ vec4 c = texture2D(tDiffuse, vUv); c.rgb = clamp(c.rgb, 0.0, uMax);
+          if (any(isnan(c.rgb))) c.rgb = vec3(uMax); gl_FragColor = c; }`,
+    });
+    this.composer.addPass(this.clamp);
     if (q.bloom) {
-      this.bloom = new UnrealBloomPass(new THREE.Vector2(size.x, size.y), 0.2, 0.35, 3.0);
+      this.bloom = new UnrealBloomPass(new THREE.Vector2(size.x, size.y), 0.2, 0.3, 4.0);
       this.composer.addPass(this.bloom);
     }
     this.final = new ShaderPass(FinalShader);

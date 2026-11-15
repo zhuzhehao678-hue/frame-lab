@@ -6,6 +6,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { boxUV } from './materials.js';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { FOG } from './fog.js';
+import { containerSide, containerDoor, warehouseSign, plateSign, floorStencil } from './signage.js';
 
 const SURF = {
   ground: 'concrete', concreteWall: 'concrete', brick: 'concrete',
@@ -48,6 +49,8 @@ export class Level {
     this.lights = [];
     this.spawnPoints = [];
     this.lamps = [];              // flicker targets
+    this.noShadowMats = new Set();
+    this.serial = 0;
     this.playerStart = new THREE.Vector3(0, 0, 15);
     this.playerYaw = 0;
     this.build();
@@ -55,6 +58,18 @@ export class Level {
   }
 
   // ---------------------------------------------------------------- helpers
+  // painted-on decal material (alpha-tested so it needs no sorting)
+  decalMat(key, makeTex, o = {}) {
+    if (!this.M[key]) {
+      this.M[key] = new THREE.MeshStandardMaterial({
+        map: makeTex(), alphaTest: 0.45, roughness: o.rough ?? 0.6, metalness: o.metal ?? 0,
+        polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, ...o.extra,
+      });
+      this.noShadowMats.add(key);
+    }
+    return key;
+  }
+
   put(geo, matName, x = 0, y = 0, z = 0, ry = 0, opts = {}) {
     const g = geo.index ? geo.toNonIndexed() : geo.clone();
     if (!g.attributes.uv) {
@@ -93,7 +108,7 @@ export class Level {
       const geo = mergeGeometries(list, false);
       geo.computeBoundingSphere(); geo.computeBoundingBox();
       const mesh = new THREE.Mesh(geo, this.M[matName]);
-      mesh.castShadow = flag !== 'ns' && !['water', 'lineYellow', 'lineWhite', 'windowLit', 'lampLens', 'reflective'].includes(matName);
+      mesh.castShadow = flag !== 'ns' && !this.noShadowMats.has(matName) && !['water', 'lineYellow', 'lineWhite', 'windowLit', 'lampLens', 'reflective'].includes(matName);
       mesh.receiveShadow = true;
       mesh.matrixAutoUpdate = false;
       mesh.userData.surf = surfOf(matName);
@@ -194,6 +209,15 @@ export class Level {
     // electrical box + conduit
     this.box(0.25, 0.9, 0.7, 'paintGrey', x0 + 0.32, 1.3, -5.5, 0, { collide: false });
     this.box(0.04, 2.0, 0.04, 'darkSteel', x0 + 0.24, 2.2, -5.4, 0, { collide: false });
+    // painted lettering high on the cladding + safety plate by the door
+    {
+      const key = this.decalMat('signWarehouse', warehouseSign, { rough: 0.7 });
+      const g = new THREE.PlaneGeometry(7.2, 1.8).rotateY(Math.PI / 2);
+      this.put(g, key, x0 + 0.035, 8.75, -9.5);
+      const fk = this.decalMat('plateForklift', () => plateSign('forklift'), { rough: 0.4, metal: 0.2 });
+      this.put(new THREE.PlaneGeometry(0.75, 0.5).rotateY(Math.PI / 2), fk, x0 + 0.33, 2.1, dz - dw / 2 - 0.9);
+      this.box(0.02, 0.52, 0.77, 'steel', x0 + 0.315, 1.84, dz - dw / 2 - 0.9, 0, { collide: false });
+    }
     // facade collider
     this.collider(x0 - 20, 0, -26, x0 + 0.25, 12, 22);
   }
@@ -224,6 +248,28 @@ export class Level {
       if (opts.open && sx > 0) continue;
       const pm = parent.clone().multiply(new THREE.Matrix4().compose(new THREE.Vector3(sx * (L / 2 - 0.02), 0.1, 0), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, sx * Math.PI / 2, 0)), new THREE.Vector3(1, 1, 1)));
       this.put(endP, mat, 0, 0, 0, 0, { parent: pm });
+    }
+    // painted livery following the corrugation (most boxes carry a brand)
+    const brand = opts.brand ?? ((this.serial * 7 + 3) % 6);
+    const serial = this.serial++;
+    if (brand < 4) {
+      const variant = serial % 2;
+      const sideKey = this.decalMat(`liv_${brand}_${variant}`, () => containerSide(brand, 40 + brand * 11 + variant * 5));
+      const deco = corrugatedPanel(L - 0.2, ph);
+      const uvA = deco.attributes.uv; for (let i = 0; i < uvA.count; i++) uvA.setX(i, uvA.getX(i) / (L - 0.2));
+      deco.translate(0, 0, 0.004);
+      for (const sz of [-1, 1]) {
+        const pm = parent.clone().multiply(new THREE.Matrix4().compose(new THREE.Vector3(0, 0.1, sz * (W / 2 - 0.02)), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, sz > 0 ? 0 : Math.PI, 0)), new THREE.Vector3(1, 1, 1)));
+        this.put(deco, sideKey, 0, 0, 0, 0, { parent: pm });
+      }
+      if (!opts.open) {
+        const doorKey = this.decalMat(`livd_${brand}`, () => containerDoor(brand, 40 + brand * 11));
+        const dd = corrugatedPanel(W - 0.2, ph, 0.3);
+        const uvB = dd.attributes.uv; for (let i = 0; i < uvB.count; i++) uvB.setX(i, uvB.getX(i) / (W - 0.2));
+        dd.translate(0, 0, 0.004);
+        const pm = parent.clone().multiply(new THREE.Matrix4().compose(new THREE.Vector3(L / 2 - 0.02, 0.1, 0), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI / 2, 0)), new THREE.Vector3(1, 1, 1)));
+        this.put(dd, doorKey, 0, 0, 0, 0, { parent: pm });
+      }
     }
     // roof & floor plates
     this.put(boxUV(new THREE.BoxGeometry(L - 0.1, 0.04, W - 0.1), L, 0.04, W, 1.5), mat, 0, H - 0.04, 0, 0, { parent });
@@ -303,6 +349,14 @@ export class Level {
     }
     this.put(new THREE.CylinderGeometry(0.025, 0.025, 33.5, 10), 'steel', -0.75, 2.75, zf, 0, { rz: Math.PI / 2 });
     this.put(new THREE.CylinderGeometry(0.02, 0.02, 33.5, 10), 'steel', -0.75, 0.12, zf, 0, { rz: Math.PI / 2 });
+    // warning plates wired to the fence (both faces)
+    {
+      const key = this.decalMat('plateDanger', () => plateSign('danger'), { rough: 0.4, metal: 0.2, extra: { side: THREE.DoubleSide } });
+      for (const x of [-11, 1.0, 11.5]) {
+        this.put(new THREE.PlaneGeometry(0.75, 0.5), key, x, 1.55, zf + 0.03);
+        this.box(0.77, 0.52, 0.015, 'steel', x, 1.29, zf + 0.012, 0, { collide: false });
+      }
+    }
     // barbed wire strands
     for (let s = 0; s < 3; s++) this.put(new THREE.CylinderGeometry(0.006, 0.006, 33.5, 4), 'darkSteel', -0.75, 2.86 + s * 0.12, zf + 0.12 + s * 0.08, 0, { rz: Math.PI / 2 });
     for (let x = -17.5; x < 16; x += 3) this.box(0.03, 0.42, 0.03, 'darkSteel', x, 2.85, zf + 0.12, 0, { rx: -0.6, collide: false });
@@ -563,6 +617,11 @@ export class Level {
       P(new THREE.PlaneGeometry(1.08, 0.78), wx < 0 ? 'windowLit' : 'glassDark', wx, 1.6, W / 2 + 0.045);
       for (let i = 0; i < 6; i++) P(new THREE.BoxGeometry(1.06, 0.018, 0.01), 'cabinWhite', wx, 1.27 + i * 0.13, W / 2 + 0.05);
     }
+    {
+      const key = this.decalMat('plateOffice', () => plateSign('office'), { rough: 0.35, metal: 0.1 });
+      P(new THREE.PlaneGeometry(1.2, 0.8), key, 0, 2.62 - 0.4 + 0.15, W / 2 + 0.07 + 0.02, {});
+      P(new THREE.BoxGeometry(1.24, 0.84, 0.03), 'steel', 0, 2.37, W / 2 + 0.07);
+    }
     // door + steps + AC unit
     P(boxUV(new THREE.BoxGeometry(0.95, 2.0, 0.06), 0.95, 2, 0.06, 1), 'paintBlue', 0, 1.3, W / 2 + 0.02);
     P(new THREE.CylinderGeometry(0.02, 0.02, 0.12, 8).rotateZ(Math.PI / 2), 'chrome', 0.35, 1.25, W / 2 + 0.08);
@@ -650,6 +709,15 @@ export class Level {
     line('lineYellow', -15.6, 0.5, 5.6, 0.15, 0); line('lineYellow', -16.9, 0.5, 5.6, 0.15, 0);
     // container bay markings
     for (let z = -20; z < 18; z += 6.15) line('lineWhite', 15.5, z - 3.07, 2.0, 0.12, Math.PI / 2);
+    // painted floor stencils
+    const stencil = (text, x, z, ry, w = 2.6) => {
+      const key = this.decalMat('st_' + text, () => floorStencil(text), { rough: 0.55 });
+      this.put(new THREE.PlaneGeometry(w, w / 4).rotateX(-Math.PI / 2), key, x, 0.006, z, ry);
+    };
+    stencil('SLOW  慢行', 2.0, 9.0, 0);
+    stencil('SLOW  慢行', 2.0, -12.0, 0);
+    for (let i = 0; i < 6; i++) stencil('BAY 0' + (i + 1), 14.6, -16.9 + i * 6.15, -Math.PI / 2, 2.0);
+    stencil('禁止停车 NO PARKING', -15.6, 6.4, Math.PI / 2, 3.4);
   }
 
   buildDistant() {
