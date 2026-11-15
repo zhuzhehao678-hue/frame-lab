@@ -192,7 +192,9 @@ async function boot() {
   const decal0 = effects.decals.count; effects.decals.count = 1;
   const wasFlare = flareCore.visible; flareCore.visible = true;
   await renderer.compileAsync(scene, camera);
-  R.render(0.016, 0);
+  // compileAsync builds the on-screen variant; the composer renders into linear
+  // targets, so draw one real frame with culling off to build the variants used in play
+  warmRender(R, scene);
   flareCore.visible = wasFlare;
   [weapon, pistol, dmr, shotgun].forEach((w, i) => { w.root.visible = gunVis[i][0]; w.flash.visible = gunVis[i][1]; });
   warmFx.forEach((m) => scene.remove(m)); effects.decals.count = decal0;
@@ -205,6 +207,12 @@ async function boot() {
   return { skyMesh, flareLight, flareCore, flashlight, lensGlow, lib, level, effects, audio, player, weapon, pistol, dmr, shotgun, enemies, grenades, ambient, boss, music, pickups, hazards, props, heli, crash, rain, hemi, walkers, sun };
 }
 
+function warmRender(R, scene) {
+  const off = [];
+  scene.traverse((o) => { if (o.frustumCulled) { o.frustumCulled = false; off.push(o); } });
+  R.render(0.016, 0);
+  for (const o of off) o.frustumCulled = true;
+}
 const G = await boot();
 const { level, effects, audio, player, enemies, grenades, ambient, boss, music, pickups, hazards, walkers, props } = G;
 grenades.props = hazards.props = enemies.props = props;
@@ -910,7 +918,6 @@ const laser = (() => {
   return { beam, dot, n: 0, end: new THREE.Vector3(), nrm: new THREE.Vector3(0, 1, 0), rc: new THREE.Raycaster() };
 })();
 // objects created after the boot warm-up (door sunbeam, laser): compile them now too
-{ const vis = [laser.beam.visible, laser.dot.visible]; laser.beam.visible = laser.dot.visible = true; renderer.compile(scene, camera); laser.beam.visible = vis[0]; laser.dot.visible = vis[1]; }
 function updateLaser() {
   const on = settings.laser && weapon === G.weapon && !player.dead && weapon.ads < 0.6 && weapon.sprint < 0.4 && weapon.equipT >= 1 && !photo;
   laser.beam.visible = laser.dot.visible = on;
@@ -1089,7 +1096,7 @@ const doorShaft = (() => {
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('k', new THREE.Float32BufferAttribute(kk, 1)); g.computeVertexNormals();
   const m = new THREE.Mesh(g, new THREE.ShaderMaterial({
     uniforms: { uCol: { value: TOD.sunColor.clone().multiplyScalar(0.55) }, uTime: { value: 0 } },
-    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, forceSinglePass: true,
     vertexShader: 'attribute float k; varying float vK; varying vec3 vN; varying vec3 vV; varying vec3 vW; void main(){ vK = k; vN = normalize(normalMatrix * normal); vec4 mv = modelViewMatrix * vec4(position,1.0); vV = normalize(-mv.xyz); vW = position; gl_Position = projectionMatrix * mv; }',
     fragmentShader: 'uniform vec3 uCol; uniform float uTime; varying float vK; varying vec3 vN; varying vec3 vV; varying vec3 vW; void main(){ float edge = pow(abs(dot(normalize(vN), normalize(vV))), 1.6); float dust = 0.75 + 0.25 * sin(vW.y * 7.0 + vW.z * 5.0 + uTime * 0.7); float a = edge * (1.0 - vK) * (1.0 - vK * 0.4) * dust * 1.4; gl_FragColor = vec4(uCol * a, a); }',
   }));
@@ -1385,3 +1392,7 @@ if (!noLoop) loop();
 
 // debug / screenshot hooks
 window.__game = { crash: G.crash, updateSunset, setSimTime: (v) => { simTime = v; }, setMenuT: (v) => { menuT = v; }, radio, props, emp, fireEMP, stats, showEnd, G, walkers, REFL, rain: G.rain, hazards, pickups: G.pickups, music: G.music, boss, switchWeapon, weapons, get weapon() { return weapon; }, ambient, updateHUD, score, grenades, setLocked: (v) => { locked = v; }, loop, start: () => { started = true; waves.start(); }, FOG, sun: G.sun, THREE, scene, camera, player, enemies, effects, level, R, waves, renderer, togglePhoto, shoot, input };
+
+// last step of boot: compile everything created after the main warm-up (door
+// sunbeam, laser, ...) so none of it compiles the first time it is seen
+{ const vis = [laser.beam.visible, laser.dot.visible]; laser.beam.visible = laser.dot.visible = true; warmRender(R, scene); laser.beam.visible = vis[0]; laser.dot.visible = vis[1]; }

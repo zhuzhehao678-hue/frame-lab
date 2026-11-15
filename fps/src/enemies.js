@@ -53,7 +53,7 @@ export class Enemies {
       g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
       const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
     })();
-    this.rotorMat = new THREE.MeshStandardMaterial({ map: rotorTex, transparent: true, depthWrite: false, roughness: 0.4, metalness: 0.5, side: THREE.DoubleSide });
+    this.rotorMat = new THREE.MeshStandardMaterial({ map: rotorTex, transparent: true, depthWrite: false, roughness: 0.4, metalness: 0.5, side: THREE.DoubleSide, forceSinglePass: true });
     this.boltMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(30, 3, 1.2), fog: false });
     this.boltGlowMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(5, 0.6, 0.2), transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
     this.boltGeo = new THREE.SphereGeometry(0.05, 10, 8).scale(1, 1, 4.5);
@@ -116,7 +116,7 @@ export class Enemies {
       m.group.traverse((o) => { if (o.isMesh && o.material === this.accent) o.material = this.shieldAcc; });
       if (!this.shieldMat) this.shieldMat = new THREE.ShaderMaterial({
         uniforms: { uHit: { value: 0 }, uUp: { value: 1 }, uTime: { value: 0 }, uHitPos: { value: new THREE.Vector3() } },
-        transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+        transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, forceSinglePass: true,
         vertexShader: 'varying vec3 vN; varying vec3 vV; varying vec3 vP; void main(){ vP = position; vN = normalize(normalMatrix * normal); vec4 mv = modelViewMatrix * vec4(position,1.0); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }',
         fragmentShader: `uniform float uHit, uUp, uTime; uniform vec3 uHitPos; varying vec3 vN; varying vec3 vV; varying vec3 vP;
           float hex(vec2 p){ p.x *= 1.1547; p.y += mod(floor(p.x), 2.0) * 0.5; p = abs(fract(p) - 0.5); return abs(max(p.x * 1.5 + p.y, p.y * 2.0) - 1.0); }

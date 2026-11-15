@@ -944,7 +944,7 @@ export class Level {
     if (!this.coneMat) {
       this.coneMat = new THREE.ShaderMaterial({
         uniforms: { uStrength: { value: 0 }, uColor: { value: new THREE.Color(1, 0.7, 0.4) } },
-        transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+        transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, forceSinglePass: true,
         vertexShader: 'varying float vH; varying vec3 vN; varying vec3 vV; void main(){ vH = uv.y; vN = normalize(normalMatrix * normal); vec4 mv = modelViewMatrix * vec4(position,1.0); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }',
         fragmentShader: 'uniform float uStrength; uniform vec3 uColor; varying float vH; varying vec3 vN; varying vec3 vV; void main(){ float rim = pow(abs(dot(normalize(vN), normalize(vV))), 1.6); float a = rim * pow(vH, 1.3) * uStrength * 0.45; gl_FragColor = vec4(uColor * a, a); }',
       });
