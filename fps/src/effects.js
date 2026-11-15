@@ -61,8 +61,7 @@ class ParticleSystem {
     this.p = [];
   }
   emit(o) {
-    if (this.p.length >= this.cap) this.p.shift();
-    this.p.push({
+    const q = ({
       pos: o.pos.clone(), vel: o.vel ? o.vel.clone() : new THREE.Vector3(),
       life: 0, max: o.life ?? 1, s0: o.size ?? 0.1, s1: o.size1 ?? o.size ?? 0.1,
       col: o.color ? o.color.clone() : new THREE.Color(1, 1, 1), a0: o.alpha ?? 1, a1: o.alpha1 ?? 0,
@@ -70,6 +69,8 @@ class ParticleSystem {
       stretch: o.stretch ?? 0, bounce: o.bounce ?? false, fadeIn: o.fadeIn ?? 0,
       col1: o.color1 ? o.color1.clone() : null,
     });
+    // full: overwrite round-robin instead of an O(n) shift
+    if (this.p.length >= this.cap) this.p[(this.rr = ((this.rr || 0) + 1) % this.cap)] = q; else this.p.push(q);
   }
   update(dt, floorFn) {
     const ps = this.p;
@@ -155,8 +156,8 @@ class FireSystem {
     this.p = [];
   }
   emit(pos, vel, size, life, heat = 1) {
-    if (this.p.length >= this.cap) this.p.shift();
-    this.p.push({ pos: pos.clone(), vel: vel.clone(), size, life: 0, max: life, seed: Math.random(), heat });
+    const q = ({ pos: pos.clone(), vel: vel.clone(), size, life: 0, max: life, seed: Math.random(), heat });
+    if (this.p.length >= this.cap) this.p[(this.rr = ((this.rr || 0) + 1) % this.cap)] = q; else this.p.push(q);
   }
   update(dt) {
     let w = 0;
@@ -183,12 +184,12 @@ export class Effects {
     this.add = new ParticleSystem(scene, 1500, new THREE.ShaderMaterial({
       vertexShader: PVERT, fragmentShader: PFRAG_ADD, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
     }));
-    this.smoke = new ParticleSystem(scene, 700, new THREE.ShaderMaterial({
+    this.smoke = new ParticleSystem(scene, 1400, new THREE.ShaderMaterial({
       vertexShader: PVERT, fragmentShader: PFRAG_SMOKE, transparent: true, depthWrite: false,
       uniforms: { map: { value: lib.tex.smoke.map } },
     }));
     this.smoke.mesh.renderOrder = 9;
-    this.fire = new FireSystem(scene, 160);
+    this.fire = new FireSystem(scene, 260);
     // ground shockwave rings
     this.ringMat = new THREE.ShaderMaterial({
       uniforms: { uA: { value: 0 }, uC: { value: new THREE.Color(1.6, 1.1, 0.7) } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
