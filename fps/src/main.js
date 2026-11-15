@@ -18,6 +18,7 @@ import { Pickups } from './pickups.js';
 import { Hazards } from './hazards.js';
 import { Props } from './props.js';
 import { Heli } from './heli.js';
+import { CrashEvent } from './setpiece.js';
 import { Rain } from './rain.js';
 import { Walkers } from './walker.js';
 
@@ -128,6 +129,7 @@ async function boot() {
   const hazards = new Hazards(scene, lib, level, effects, audio);
   const props = new Props(scene, lib, level, audio);
   const heli = new Heli(scene, lib, effects, audio);
+  const crash = new CrashEvent(scene, enemies, effects, audio);
   const rain = TOD.rain ? new Rain(scene, camera, effects, audio) : null;
   const walkers = new Walkers(scene, lib, effects, level, audio, enemies);
   enemies.walkers = walkers;
@@ -162,7 +164,7 @@ async function boot() {
   flareLight.castShadow = false; scene.add(flareLight);
   const flareCore = new THREE.Mesh(new THREE.SphereGeometry(0.18, 10, 8), new THREE.MeshBasicMaterial({ color: new THREE.Color(40, 34, 26), fog: false }));
   flareCore.visible = false; flareCore.userData.noAO = true; scene.add(flareCore);
-  return { skyMesh, flareLight, flareCore, flashlight, lensGlow, lib, level, effects, audio, player, weapon, pistol, dmr, shotgun, enemies, grenades, ambient, boss, music, pickups, hazards, props, heli, rain, hemi, walkers, sun };
+  return { skyMesh, flareLight, flareCore, flashlight, lensGlow, lib, level, effects, audio, player, weapon, pistol, dmr, shotgun, enemies, grenades, ambient, boss, music, pickups, hazards, props, heli, crash, rain, hemi, walkers, sun };
 }
 
 const G = await boot();
@@ -589,6 +591,7 @@ const waves = {
     this.active = false; this.timer = delay;
     const [n, h, k, special, wk = 0, sn = 0, md = 0, mn = 0, sd = 0] = this.wave(this.index);
     stats.waveDmg = 0;
+    if (this.index === 2 && !this.endless) setTimeout(() => G.crash.start(), 2500);
     this.bossPending = special === 'boss'; this.bossT = 4;
     const q = [...Array(n).fill('normal'), ...Array(h).fill('heavy'), ...Array(k).fill('kamikaze'), ...Array(wk).fill('walker'), ...Array(sn).fill('sniper'), ...Array(md).fill('medic'), ...Array(mn).fill('miner'), ...Array(sd).fill('shield')];
     for (let i = q.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [q[i], q[j]] = [q[j], q[i]]; }
@@ -669,6 +672,8 @@ function recordLB(grade, reached, win) {
   return { list, id };
 }
 renderLB($('mlb'), loadLB());
+G.crash.onHit = () => radio('防空击中了一架运输无人机——它要砸到货轮上了！');
+G.crash.onCrash = () => { radio('货轮甲板起火了……别管它，专心清理堆场。'); player.shake = Math.max(player.shake, 0.3); };
 for (const w of weapons) w.setFinish(settings.finish, G.lib);
 applyAccess();
 $('bindbtn').onclick = () => { renderBinds(); $('binds').classList.remove('hidden'); };
@@ -713,7 +718,7 @@ function defeat() {
   setTimeout(() => showEnd(false), 2200);
 }
 function restart() {
-  enemies.clear(); grenades.clear(); boss.clear(); pickups.reset(); hazards.reset(); walkers.clear(); props.reset(); G.heli.reset();
+  enemies.clear(); grenades.clear(); boss.clear(); pickups.reset(); hazards.reset(); walkers.clear(); props.reset(); G.heli.reset(); G.crash.reset();
   player.pos.copy(level.playerStart); player.vel.set(0, 0, 0); player.yaw = level.playerYaw; player.pitch = 0;
   player.health = 100; player.dead = false;
   G.weapon.ammo = 30; G.weapon.reserve = 180; G.pistol.ammo = 15; G.pistol.reserve = 60; G.dmr.ammo = 20; G.dmr.reserve = 80; G.shotgun.ammo = 6; G.shotgun.reserve = 30;
@@ -1111,6 +1116,7 @@ function loop() {
     props.update(dt, player);
     updateFlare(dt, t);
     G.heli.update(dt);
+    G.crash.update(dt);
     updateSunset(dt);
     updateDmgNums(realDt);
     killSource = { type: 'other' };
@@ -1183,4 +1189,4 @@ weapon.root.visible = false;
 if (!noLoop) loop();
 
 // debug / screenshot hooks
-window.__game = { updateSunset, setSimTime: (v) => { simTime = v; }, setMenuT: (v) => { menuT = v; }, radio, props, emp, fireEMP, stats, showEnd, G, walkers, REFL, rain: G.rain, hazards, pickups: G.pickups, music: G.music, boss, switchWeapon, weapons, get weapon() { return weapon; }, ambient, updateHUD, score, grenades, setLocked: (v) => { locked = v; }, loop, start: () => { started = true; waves.start(); }, FOG, sun: G.sun, THREE, scene, camera, player, enemies, effects, level, R, waves, renderer, togglePhoto, shoot, input };
+window.__game = { crash: G.crash, updateSunset, setSimTime: (v) => { simTime = v; }, setMenuT: (v) => { menuT = v; }, radio, props, emp, fireEMP, stats, showEnd, G, walkers, REFL, rain: G.rain, hazards, pickups: G.pickups, music: G.music, boss, switchWeapon, weapons, get weapon() { return weapon; }, ambient, updateHUD, score, grenades, setLocked: (v) => { locked = v; }, loop, start: () => { started = true; waves.start(); }, FOG, sun: G.sun, THREE, scene, camera, player, enemies, effects, level, R, waves, renderer, togglePhoto, shoot, input };
