@@ -844,7 +844,7 @@ function loop() {
     waves.update(dt);
     // adaptive music + barrel heat smoke
     music.setIntensity(boss.active && !boss.falling ? 2 : (waves.active && (enemies.list.length || waves.queue.length)) ? (player.health < 35 ? 2 : 1) : 0);
-    for (const w of weapons) w.heat = Math.max(0, (w.heat || 0) - dt * (w === weapon && input.firing ? 0.4 : 1.6));
+    for (const w of weapons) { w.heat = Math.max(0, (w.heat || 0) - dt * (w === weapon && input.firing ? 0.4 : 1.6)); w.setHeat(w.heat); }
     if (weapon.heat > 7 && Math.random() < dt * 30) {
       const mp = weapon.muzzle.getWorldPosition(new THREE.Vector3());
       effects.smoke.emit({ pos: mp, vel: new THREE.Vector3((Math.random() - 0.5) * 0.05, 0.35 + Math.random() * 0.2, (Math.random() - 0.5) * 0.05).add(player.vel.clone().multiplyScalar(0.8)), life: 1.4, size: 0.015, size1: 0.12, color: new THREE.Color(0.8, 0.8, 0.8).multiply(effects.ambient), alpha: Math.min(0.35, (weapon.heat - 7) * 0.04), alpha1: 0, drag: 1.5, gravity: -0.3, rotVel: (Math.random() - 0.5) * 3 });

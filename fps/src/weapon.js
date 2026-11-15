@@ -44,6 +44,8 @@ export class Weapon {
       glass: viewmodelMaterial(new THREE.MeshPhysicalMaterial({ color: 0x0c1418, roughness: 0.04, metalness: 0.2, transparent: true, opacity: 0.3, depthWrite: false, envMapIntensity: 2.5 })),
     };
     this.mat.sleeve.color = new THREE.Color(1, 1, 1);
+    // barrel steel that glows as it heats up (emissive driven by setHeat)
+    this.mat.hot = viewmodelMaterial(M.darkSteel); this.mat.hot.emissive = new THREE.Color(0, 0, 0);
     for (const m of Object.values(this.mat)) { m.envMapIntensity = m.envMapIntensity ?? 1; }
 
     this.root = new THREE.Group();     // follows camera
@@ -159,8 +161,8 @@ export class Weapon {
       A(mergeGeometries(parts), metal, 0, 0, 0);
     }
     // barrel, gas block area, muzzle brake
-    A(new THREE.CylinderGeometry(0.0088, 0.0088, 0.13, 20).rotateX(Math.PI / 2), dark, 0, 0.031, -0.525);
-    const brake = A(new THREE.CylinderGeometry(0.0128, 0.0128, 0.062, 24).rotateX(Math.PI / 2), metal, 0, 0.031, -0.615);
+    A(new THREE.CylinderGeometry(0.0088, 0.0088, 0.13, 20).rotateX(Math.PI / 2), this.mat.hot, 0, 0.031, -0.525);
+    const brake = A(new THREE.CylinderGeometry(0.0128, 0.0128, 0.062, 24).rotateX(Math.PI / 2), this.mat.hot, 0, 0.031, -0.615);
     for (const s of [-1, 1]) for (let i = 0; i < 3; i++) A(RB(0.004, 0.012, 0.008, 0.0015), dark, s * 0.0115, 0.031, -0.597 - i * 0.015);
     A(new THREE.CylinderGeometry(0.009, 0.0128, 0.006, 20).rotateX(Math.PI / 2), dark, 0, 0.031, -0.648);
     this.muzzle = new THREE.Object3D(); this.muzzle.position.set(0, 0.031, -0.655); this.gun.add(this.muzzle);
@@ -338,6 +340,13 @@ export class Weapon {
     const ret = A(new THREE.PlaneGeometry(0.02, 0.02), m, 0, Y, -0.075); ret.renderOrder = 20;
     const g = new THREE.Group(); for (const c of this.gun.children.slice(n0)) { this.gun.remove(c); g.add(c); } this.gun.add(g);
     this.optics.x2 = { group: g, reticle: ret, sightY: Y, zoom: 0.5, sens: 0.6, label: '2 倍镜' };
+  }
+
+  // heat: shots fired recently. Steel starts to glow dull red ~12, orange by ~28
+  setHeat(heat) {
+    const k = THREE.MathUtils.clamp((heat - 12) / 16, 0, 1);
+    this.mat.hot.emissive.setRGB(1, 0.18 + 0.32 * k, 0.03 + 0.1 * k * k);
+    this.mat.hot.emissiveIntensity = k * k * 2.2;
   }
 
   setOptic(name) {
@@ -737,7 +746,7 @@ export class DMR extends Weapon {
     // long free-float handguard and heavy barrel with suppressor
     A(uvScale(RB(0.046, 0.05, 0.42, 0.01), 3), tan, 0, 0.032, -0.33);
     for (const s of [-1, 1]) for (let i = 0; i < 7; i++) A(RB(0.003, 0.012, 0.034, 0.0014), dark, s * 0.0222, 0.028, -0.17 - i * 0.05);
-    A(new THREE.CylinderGeometry(0.0105, 0.0105, 0.16, 20).rotateX(Math.PI / 2), dark, 0, 0.033, -0.62);
+    A(new THREE.CylinderGeometry(0.0105, 0.0105, 0.16, 20).rotateX(Math.PI / 2), this.mat.hot, 0, 0.033, -0.62);
     A(uvScale(new THREE.CylinderGeometry(0.019, 0.019, 0.17, 28).rotateX(Math.PI / 2), 2), metal, 0, 0.033, -0.78);
     A(new THREE.CircleGeometry(0.019, 28), dark, 0, 0.033, -0.866, 0, Math.PI);
     this.muzzle = new THREE.Object3D(); this.muzzle.position.set(0, 0.033, -0.87); this.gun.add(this.muzzle);
