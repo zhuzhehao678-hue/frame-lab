@@ -93,10 +93,25 @@
   @keyframes feed { 0% { opacity: 0; transform: translateX(20px); } 8% { opacity: 1; transform: none; } 85% { opacity: 1; } 100% { opacity: 0; } }
   #hint { position: absolute; left: 50%; bottom: 140px; transform: translateX(-50%); font-size: 12px; letter-spacing: 0.3em; color: var(--hud); opacity: 0; transition: opacity .3s; }
   #fps { position: absolute; left: 12px; top: 10px; font: 11px ui-monospace, monospace; color: var(--dim); }
-  #end { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(5,3,2,0.55); pointer-events: auto; cursor: pointer; }
-  #end .t { font-size: 48px; font-weight: 200; letter-spacing: 0.35em; }
-  #end .s { margin-top: 20px; font-size: 13px; letter-spacing: 0.2em; color: var(--dim); line-height: 2; text-align: center; }
-  #end .c { margin-top: 36px; font-size: 12px; letter-spacing: 0.4em; color: var(--accent); }
+  #end { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: radial-gradient(ellipse at center, rgba(8,6,5,0.55), rgba(5,3,2,0.88)); pointer-events: auto; cursor: default; }
+  #end .panel { width: min(760px, 92vw); text-align: center; }
+  #end .k { font-size: 11px; letter-spacing: 0.6em; color: var(--accent); }
+  #end .t { margin-top: 12px; font-size: 46px; font-weight: 200; letter-spacing: 0.32em; }
+  #end .grade { margin: 18px auto 0; width: 92px; height: 92px; line-height: 92px; border: 1px solid rgba(240,236,228,0.35); font-size: 52px; font-weight: 700; color: var(--accent); }
+  #end .score { margin-top: 14px; font-size: 13px; letter-spacing: 0.25em; color: var(--hud); }
+  #end .stats { margin-top: 22px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  #end .stats div { padding: 10px 6px; background: rgba(255,255,255,0.04); border-top: 1px solid rgba(255,255,255,0.12); font-size: 10px; letter-spacing: 0.25em; color: var(--dim); }
+  #end .stats b { display: block; margin-top: 6px; font-size: 20px; font-weight: 300; letter-spacing: 0.05em; color: var(--hud); font-variant-numeric: tabular-nums; }
+  #end .medals { margin-top: 22px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  #end .medal { padding: 10px 8px; border: 1px solid rgba(255,255,255,0.08); opacity: 0.32; text-align: left; }
+  #end .medal.got { opacity: 1; border-color: rgba(240,138,75,0.6); background: rgba(240,138,75,0.08); }
+  #end .medal .n { font-size: 12px; letter-spacing: 0.2em; color: var(--hud); }
+  #end .medal .d { margin-top: 4px; font-size: 10px; letter-spacing: 0.08em; color: var(--dim); line-height: 1.5; }
+  #end .medal .i { float: right; color: var(--accent); }
+  #end .btns { margin-top: 26px; display: flex; gap: 14px; justify-content: center; }
+  #end button { background: none; border: 1px solid rgba(240,236,228,0.45); color: var(--hud); padding: 12px 34px; font: inherit; font-size: 13px; letter-spacing: 0.35em; cursor: pointer; }
+  #end button:hover { background: var(--accent); border-color: var(--accent); color: #140c07; }
+  #end button.hidden { display: none; }
 </style>
 </head>
 <body>
@@ -138,12 +153,12 @@
     </div>
     <div class="keys">
       <span><kbd>WASD</kbd>移动</span><span><kbd>鼠标</kbd>瞄准</span><span><kbd>左键</kbd>射击</span><span><kbd>右键</kbd>开镜</span>
-      <span><kbd>Shift</kbd>冲刺</span><span><kbd>C</kbd>蹲下</span><span><kbd>空格</kbd>跳跃</span><span><kbd>Q / E</kbd>左右探头</span><span><kbd>R</kbd>换弹</span><span><kbd>1 / 2</kbd>切枪</span><span><kbd>G</kbd>手雷</span><span><kbd>T</kbd>手电</span><span><kbd>V</kbd>近战</span>
+      <span><kbd>Shift</kbd>冲刺</span><span><kbd>C</kbd>蹲下</span><span><kbd>空格</kbd>跳跃</span><span><kbd>Q / E</kbd>左右探头</span><span><kbd>R</kbd>换弹</span><span><kbd>1 / 2 / 3</kbd>切枪</span><span><kbd>G</kbd>手雷</span><span><kbd>T</kbd>手电</span><span><kbd>V</kbd>近战</span>
       <span><kbd>F</kbd>帧率</span><span><kbd>P</kbd>照片模式</span><span><kbd>Esc</kbd>暂停</span>
     </div>
   </div>
 </div>
-<div id="end" class="hidden"><div class="t" id="et"></div><div class="s" id="es"></div><div class="c">点击重新开始</div></div>
+<div id="end" class="hidden"><div class="panel"><div class="k" id="ek"></div><div class="t" id="et"></div><div class="grade" id="eg"></div><div class="score" id="escore"></div><div class="stats" id="es"></div><div class="medals" id="em"></div><div class="btns"><button id="again">再来一局</button><button id="endless" class="hidden">进入无尽模式</button></div></div></div>
 
 <script type="module" src="./game.js"></script>
 </body>

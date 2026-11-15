@@ -248,7 +248,8 @@ $('play').onclick = () => {
   $('view').requestPointerLock();
   if (!started) { started = true; waves.start(); weapon.root.visible = true; weapon.equipT = 0; if (TOD.night) setTimeout(() => hint('夜间作战 · 按 T 开启战术手电', 4), 3500); }
 };
-$('end').onclick = () => { restart(); $('end').classList.add('hidden'); $('view').requestPointerLock(); };
+$('again').onclick = () => { restart(); $('end').classList.add('hidden'); $('view').requestPointerLock(); };
+$('endless').onclick = () => { $('end').classList.add('hidden'); waves.goEndless(); $('view').requestPointerLock(); };
 
 function showMenu(paused) {
   const o = $('overlay');
@@ -344,13 +345,15 @@ function updateHUD(dt, t) {
     $('bossfill').style.width = (boss.hpFrac * 100).toFixed(1) + '%';
     $('bossst').textContent = boss.shielded ? `护盾运行中 · 旋翼舱 ${boss.podsLeft} / 4` : '护盾失效 · 攻击核心';
   }
-  hud.wn.textContent = waves.index + 1;
+  hud.wn.textContent = waves.endless ? `无尽 ${waves.index + 1}` : waves.index + 1;
   hud.score.textContent = score.total;
   hud.wleft.textContent = waves.active ? `剩余 ${enemies.list.length + walkers.alive + waves.queue.length}` : (waves.index + 1 >= WAVES.length && waves.done ? '已肃清' : '准备');
 }
 
 // ------------------------------------------------------------------ gameplay hooks
-const stats = { shots: 0, hits: 0, kills: 0, t0: 0, dmgTaken: 0 };
+const freshStats = () => ({ shots: 0, hits: 0, kills: 0, t0: performance.now(), dmgTaken: 0, byKind: {}, bestCombo: 0, boomKills: 0, meleeKills: 0, longKills: 0, waveDmg: 0, flawless: 0, bossKilled: false });
+const stats = freshStats();
+let killSource = { type: 'gun' };
 player.onStep = (sp, sprint) => audio.footstep(sprint);
 player.onLand = (v) => audio.land(v);
 player.onSlide = () => audio.slide();
@@ -366,7 +369,12 @@ const POINTS = { normal: 100, heavy: 250, kamikaze: 150, walker: 450 };
 const score = { total: 0, combo: 0, last: -10, best: +(saved.best || 0) };
 enemies.onKill = (e) => {
   stats.kills++; killT = 0.35; killPulse = 1;
+  stats.byKind[e.kind] = (stats.byKind[e.kind] || 0) + 1;
+  if (killSource.type === 'boom') stats.boomKills++;
+  if (killSource.type === 'melee') stats.meleeKills++;
+  if (killSource.type === 'gun' && killSource.w === 'dmr' && killSource.dist > 25) stats.longKills++;
   score.combo = simTime - score.last < 4 ? score.combo + 1 : 1;
+  stats.bestCombo = Math.max(stats.bestCombo, score.combo);
   score.last = simTime;
   const pts = Math.round(POINTS[e.kind] * score.combo * DIFF[settings.diff].score);
   score.total += pts;
@@ -377,11 +385,11 @@ boss.onPodDown = (left) => {
   stats.kills++; score.total += 300; feed(`旋翼舱已摧毁  +300  (剩余 ${left})`);
   if (left === 0) { banner('SHIELD DOWN', '护盾失效', '攻击下方核心', 2.5); }
 };
-boss.onDeath = () => { score.total += 3000; feed('母舰 WARDEN 已击落  +3000'); slowmo.t = 2.2; banner('TARGET DOWN', '母舰已击落', '', 3); };
+boss.onDeath = () => { stats.bossKilled = true; score.total += 3000; feed('母舰 WARDEN 已击落  +3000'); slowmo.t = 2.2; banner('TARGET DOWN', '母舰已击落', '', 3); };
 boss.onExploded = () => { player.shake = 1; };
 walkers.onKill = (w) => enemies.onKill(w);
 enemies.onPlayerHit = (from, dmg) => {
-  stats.dmgTaken += dmg;
+  stats.dmgTaken += dmg; stats.waveDmg += dmg;
   audio.hurt();
   const el = document.createElement('div'); el.className = 'dd'; hud.dd.appendChild(el);
   dmgIndicators.push({ el, from: from.clone(), life: 1.4 });
@@ -393,16 +401,35 @@ const WALKER_SPAWNS = [[-9, -20], [13, -0.5], [0, 17.5], [6, -20.5], [-8, 1.5]];
 const CN = ['一', '二', '三', '四', '五'];
 const waves = {
   index: 0, active: false, queue: [], timer: 0, spawnT: 0, done: false,
-  start() { this.index = 0; this.begin(2.5); stats.t0 = performance.now(); },
+  start() { this.index = 0; this.endless = false; this.begin(2.5); stats.t0 = performance.now(); },
+  // campaign waves, then procedurally escalating endless waves (boss every 5th)
+  wave(i) {
+    if (i < WAVES.length && !this.endless) return WAVES[i];
+    const e = i - WAVES.length + 1;
+    return [Math.min(3 + Math.floor(e * 0.6), 7), Math.min(1 + Math.floor(e / 2), 4), Math.min(2 + Math.floor(e / 1.5), 7), e % 5 === 0 ? 'boss' : null, Math.min(1 + Math.floor(e / 3), 3)];
+  },
+  goEndless() {
+    this.endless = true; this.done = false; gameOver = false;
+    this.index++; this.refill(); this.begin(4);
+  },
+  refill() {
+    G.weapon.reserve = Math.min(G.weapon.reserve + 90, 270);
+    G.pistol.reserve = Math.min(G.pistol.reserve + 30, 90);
+    G.dmr.reserve = Math.min(G.dmr.reserve + 20, 100);
+    grenades.count = Math.min(grenades.max, grenades.count + 2);
+    player.health = Math.max(player.health, 70);
+  },
   begin(delay) {
     this.active = false; this.timer = delay;
-    const [n, h, k, special, wk = 0] = WAVES[this.index];
+    const [n, h, k, special, wk = 0] = this.wave(this.index);
+    stats.waveDmg = 0;
     this.bossPending = special === 'boss'; this.bossT = 4;
     const q = [...Array(n).fill('normal'), ...Array(h).fill('heavy'), ...Array(k).fill('kamikaze'), ...Array(wk).fill('walker')];
     for (let i = q.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [q[i], q[j]] = [q[j], q[i]]; }
     this.queue = q;
     const parts = [`哨兵 ×${n}`]; if (h) parts.push(`重型哨兵 ×${h}`); if (k) parts.push(`自爆蜂 ×${k}`); if (wk) parts.push(`四足机甲 ×${wk}`);
-    if (special === 'boss') banner('FINAL WAVE', '母舰 · WARDEN', '摧毁四个旋翼舱使护盾失效，然后攻击核心 · 激光可被掩体阻挡', 5);
+    if (this.endless) banner(`ENDLESS · ${this.index + 1}`, `无尽 · 第 ${this.index + 1} 波`, (special === 'boss' ? '母舰来袭  ·  ' : '') + parts.join('  ·  '), 3.2);
+    else if (special === 'boss') banner('FINAL WAVE', '母舰 · WARDEN', '摧毁四个旋翼舱使护盾失效，然后攻击核心 · 激光可被掩体阻挡', 5);
     else banner(`WAVE ${this.index + 1} / ${WAVES.length}`, `第 ${CN[this.index]} 波`, parts.join('  ·  '), 3.2);
     if (k && this.index === 1) setTimeout(() => hint('自爆蜂会直冲过来引爆 · 在远处击落它', 4), 3500);
   },
@@ -431,12 +458,10 @@ const waves = {
       }
     }
     if (!this.queue.length && enemies.list.length === 0 && enemies.falling.length === 0 && walkers.alive === 0 && !this.bossPending && !boss.active) {
-      if (this.index + 1 >= WAVES.length) { this.done = true; victory(); return; }
+      if (stats.waveDmg < 0.5) { stats.flawless++; feed('毫发无伤 · 本波未受伤  +250'); score.total += 250; }
+      if (this.index + 1 >= WAVES.length && !this.endless) { this.done = true; victory(); return; }
       this.index++;
-      G.weapon.reserve = Math.min(G.weapon.reserve + 90, 270);
-      G.pistol.reserve = Math.min(G.pistol.reserve + 30, 90);
-      G.dmr.reserve = Math.min(G.dmr.reserve + 20, 100);
-      grenades.count = Math.min(grenades.max, grenades.count + 2);
+      this.refill();
       hint('弹药已补给 · 步枪 +90 · 手枪 +30 · 射手步枪 +20 · 手雷 +2', 2.5);
       this.begin(6);
     }
@@ -447,24 +472,48 @@ function saveBest() {
   const nb = score.total > score.best; if (nb) { score.best = score.total; saved.best = score.best; LS.setItem('afterglow', JSON.stringify({ ...JSON.parse(LS.getItem('afterglow') || '{}'), best: score.best })); }
   return nb ? `得分 ${score.total} · 新纪录` : `得分 ${score.total} · 最高 ${score.best}`;
 }
+const MEDALS = [
+  ['毫发无伤', '任意一波未受伤', (s) => s.flawless > 0],
+  ['连杀大师', '4 秒连杀达到 5 次', (s) => s.bestCombo >= 5],
+  ['神射手', '命中率不低于 55%', (s) => s.shots > 20 && s.hits / s.shots >= 0.55],
+  ['爆破专家', '用手雷或油桶炸毁 3 个目标', (s) => s.boomKills >= 3],
+  ['机甲猎手', '击毁一台四足机甲', (s) => (s.byKind.walker || 0) > 0],
+  ['近身格斗', '用枪托击毁一个目标', (s) => s.meleeKills > 0],
+  ['远程狙杀', '用射手步枪在 25 米外击杀', (s) => s.longKills > 0],
+  ['屠龙者', '击落母舰 WARDEN', (s) => s.bossKilled],
+];
+function showEnd(win, bonus = 0) {
+  const secs = (performance.now() - stats.t0) / 1000;
+  const acc = stats.shots ? Math.round(stats.hits / stats.shots * 100) : 0;
+  const reached = waves.index + 1;
+  let grade = 'C';
+  if (win) grade = (acc >= 45 && stats.dmgTaken < 260) ? 'S' : 'A';
+  else if (waves.endless) grade = reached >= 15 ? 'S' : reached >= 10 ? 'A' : 'B';
+  else if (reached >= 4) grade = 'B';
+  const bestLine = saveBest();
+  if (waves.endless) { const bw = Math.max(saved.bestWave || 0, reached); saved.bestWave = bw; LS.setItem('afterglow', JSON.stringify({ ...JSON.parse(LS.getItem('afterglow') || '{}'), bestWave: bw })); }
+  $('ek').textContent = win ? 'MISSION COMPLETE' : (waves.endless ? `ENDLESS · WAVE ${reached}` : 'MISSION FAILED');
+  $('et').textContent = win ? '堆场已肃清' : '阵亡';
+  $('eg').textContent = grade;
+  $('escore').textContent = bestLine + (bonus ? `（含时间与生命奖励 +${bonus}）` : '') + (waves.endless ? ` · 无尽最高第 ${saved.bestWave} 波` : '');
+  const bk = stats.byKind;
+  const cell = (k, v) => `<div>${k}<b>${v}</b></div>`;
+  $('es').innerHTML = cell('用时', `${Math.floor(secs / 60)}:${String(Math.floor(secs % 60)).padStart(2, '0')}`) + cell('命中率', acc + '%') + cell('承受伤害', Math.round(stats.dmgTaken)) + cell('最高连杀', '×' + stats.bestCombo)
+    + cell('哨兵', (bk.normal || 0) + (bk.heavy || 0)) + cell('自爆蜂', bk.kamikaze || 0) + cell('四足机甲', bk.walker || 0) + cell('到达波次', reached);
+  $('em').innerHTML = MEDALS.map(([n, d, f]) => `<div class="medal ${f(stats) ? 'got' : ''}"><span class="i">${f(stats) ? '★' : '☆'}</span><div class="n">${n}</div><div class="d">${d}</div></div>`).join('');
+  $('endless').classList.toggle('hidden', !win);
+  $('overlay').classList.add('hidden'); $('hud').classList.remove('on');
+  $('end').classList.remove('hidden'); document.exitPointerLock();
+}
 function victory() {
   gameOver = true;
   const bonus = Math.max(0, Math.round(300 - (performance.now() - stats.t0) / 1000)) * 10 + Math.round(player.health) * 10;
   score.total += bonus;
-  setTimeout(() => {
-    const secs = (performance.now() - stats.t0) / 1000;
-    $('et').textContent = '堆场已肃清';
-    $('es').innerHTML = `${saveBest()}（含时间与生命奖励 +${bonus}）<br>用时 ${Math.floor(secs / 60)}:${String(Math.floor(secs % 60)).padStart(2, '0')}<br>击毁 ${stats.kills} · 命中率 ${stats.shots ? Math.round(stats.hits / stats.shots * 100) : 0}% · 承受伤害 ${Math.round(stats.dmgTaken)}`;
-    $('end').classList.remove('hidden'); document.exitPointerLock();
-  }, 2500);
+  setTimeout(() => showEnd(true, bonus), 2500);
 }
 function defeat() {
   gameOver = true;
-  setTimeout(() => {
-    $('et').textContent = '阵亡';
-    $('es').innerHTML = `${saveBest()}<br>坚持到第 ${waves.index + 1} 波 · 击毁 ${stats.kills}`;
-    $('end').classList.remove('hidden'); document.exitPointerLock();
-  }, 2200);
+  setTimeout(() => showEnd(false), 2200);
 }
 function restart() {
   enemies.clear(); grenades.clear(); boss.clear(); pickups.reset(); hazards.reset(); walkers.clear();
@@ -473,7 +522,7 @@ function restart() {
   G.weapon.ammo = 30; G.weapon.reserve = 180; G.pistol.ammo = 15; G.pistol.reserve = 60; G.dmr.ammo = 20; G.dmr.reserve = 80;
   for (const w of weapons) { w.reloading = false; w.equipT = 0; }
   if (weaponIdx !== 0) { started = true; weapon.root.visible = false; weaponIdx = 0; weapon = weapons[0]; weapon.root.visible = true; buildPips(); $('wname').textContent = weapon.label; }
-  Object.assign(stats, { shots: 0, hits: 0, kills: 0, dmgTaken: 0 }); score.total = 0; score.combo = 0;
+  Object.assign(stats, freshStats()); score.total = 0; score.combo = 0;
   gameOver = false; waves.done = false; waves.start();
 }
 
@@ -483,6 +532,7 @@ const fwdFlash = () => camera.getWorldDirection(new THREE.Vector3());
 const raycaster = new THREE.Raycaster();
 raycaster.firstHitOnly = true;
 function shoot(t) {
+  killSource = { type: 'gun', w: weapon.kind, dist: 0 };
   const muzzle = weapon.fire();
   stats.shots++;
   audio.gunshot(weapon.ads > 0.5, weapon.kind);
@@ -519,7 +569,7 @@ function shoot(t) {
   const wr = walkers.raycast(origin, dir, Math.min(bh ? bh.t : 400, eh ? eh.t : 400, wh ? wh.distance : 400));
   let end;
   if (wr) {
-    end = wr.point; eh = null;
+    end = wr.point; eh = null; killSource.dist = wr.t;
     const killed = walkers.damage(wr.walker, THREE.MathUtils.randFloat(weapon.damage[0], weapon.damage[1]), wr.part, dir);
     stats.hits++; hitT = 0.12; if (!killed) audio.hitmarker(false);
     audio.impact(wr.point, 'metal');
@@ -532,7 +582,7 @@ function shoot(t) {
     audio.impact(bh.point, 'metal');
     for (let i = 0; i < 8; i++) effects.add.emit({ pos: bh.point, vel: new THREE.Vector3((Math.random() - 0.5) * 6, Math.random() * 4, (Math.random() - 0.5) * 6), life: 0.3, size: 0.012, color: new THREE.Color(8, 5, 2), gravity: 9.8, stretch: 0.035 });
   } else if (eh) {
-    end = eh.point;
+    end = eh.point; killSource.dist = eh.t;
     stats.hits++; hitT = 0.12;
     const killed = enemies.damage(eh.enemy, THREE.MathUtils.randFloat(weapon.damage[0], weapon.damage[1]), eh.point, dir);
     if (!killed) audio.hitmarker(false);
@@ -571,6 +621,7 @@ const slowmo = { t: 0 };
 let meleePending = -1;
 // resolve the strike a moment into the swing
 function meleeStrike(t) {
+  killSource = { type: 'melee' };
   const fwd = camera.getWorldDirection(new THREE.Vector3());
   const o = camera.position;
   const inCone = (p, r = 2.3) => { const d = p.clone().sub(o); const l = d.length(); return l < r && d.normalize().dot(fwd) > 0.62; };
@@ -632,8 +683,10 @@ function loop() {
       effects.smoke.emit({ pos: mp, vel: new THREE.Vector3((Math.random() - 0.5) * 0.05, 0.35 + Math.random() * 0.2, (Math.random() - 0.5) * 0.05).add(player.vel.clone().multiplyScalar(0.8)), life: 1.4, size: 0.015, size1: 0.12, color: new THREE.Color(0.8, 0.8, 0.8).multiply(effects.ambient), alpha: Math.min(0.35, (weapon.heat - 7) * 0.04), alpha1: 0, drag: 1.5, gravity: -0.3, rotVel: (Math.random() - 0.5) * 3 });
     }
     enemies.update(dt, t, player);
+    killSource = { type: 'boom' };
     grenades.update(dt, { enemies, player, t, onPlayerHit: enemies.onPlayerHit, boss, hazards, walkers });
     hazards.update(dt, { enemies, player, t, onPlayerHit: enemies.onPlayerHit, boss, walkers });
+    killSource = { type: 'other' };
     walkers.update(dt, t, player);
     boss.update(dt, t, player);
     pickups.update(dt, t, player, (kind) => {
@@ -687,4 +740,4 @@ weapon.root.visible = false;
 if (!noLoop) loop();
 
 // debug / screenshot hooks
-window.__game = { G, walkers, REFL, rain: G.rain, hazards, pickups: G.pickups, music: G.music, boss, switchWeapon, weapons, get weapon() { return weapon; }, ambient, updateHUD, score, grenades, setLocked: (v) => { locked = v; }, loop, start: () => { started = true; waves.start(); }, FOG, sun: G.sun, THREE, scene, camera, player, enemies, effects, level, R, waves, renderer, togglePhoto, shoot, input };
+window.__game = { stats, showEnd, G, walkers, REFL, rain: G.rain, hazards, pickups: G.pickups, music: G.music, boss, switchWeapon, weapons, get weapon() { return weapon; }, ambient, updateHUD, score, grenades, setLocked: (v) => { locked = v; }, loop, start: () => { started = true; waves.start(); }, FOG, sun: G.sun, THREE, scene, camera, player, enemies, effects, level, R, waves, renderer, togglePhoto, shoot, input };
