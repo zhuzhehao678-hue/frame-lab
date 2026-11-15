@@ -14,6 +14,7 @@ import { REFL } from './reflect.js';
 import { Ambient } from './ambient.js';
 import { Boss } from './boss.js';
 import { Music } from './music.js';
+import { Pickups } from './pickups.js';
 
 installFog();
 
@@ -27,8 +28,9 @@ if (!QUALITY[qualityName]) qualityName = 'high';
 let todName = params.get('t') || saved.tod || 'golden';
 if (!TIMES[todName]) todName = 'golden';
 const TOD = TIMES[todName];
-const settings = { sens: saved.sens ?? 1, fov: saved.fov ?? 74, adsSens: saved.adsSens ?? 0.9, music: saved.music ?? 0.5 };
-$('quality').value = qualityName; $('tod').value = todName; $('sens').value = settings.sens; $('adssens').value = settings.adsSens; $('music').value = settings.music; $('fov').value = settings.fov;
+const DIFF = { easy: { dmg: 0.42, hp: 0.8, fire: 1.35, score: 0.8 }, normal: { dmg: 0.62, hp: 1, fire: 1, score: 1 }, hard: { dmg: 0.85, hp: 1.25, fire: 0.78, score: 1.35 } };
+const settings = { diff: DIFF[saved.diff] ? saved.diff : 'normal', sens: saved.sens ?? 1, fov: saved.fov ?? 74, adsSens: saved.adsSens ?? 0.9, music: saved.music ?? 0.5 };
+$('diff').value = settings.diff; $('quality').value = qualityName; $('tod').value = todName; $('sens').value = settings.sens; $('adssens').value = settings.adsSens; $('music').value = settings.music; $('fov').value = settings.fov;
 const persist = () => LS.setItem('afterglow', JSON.stringify({ quality: qualityName, tod: todName, ...settings, best: saved.best || 0 }));
 
 const frame = () => new Promise((r) => requestAnimationFrame(() => r()));
@@ -94,6 +96,7 @@ async function boot() {
   const ambient = new Ambient(scene, lib);
   const boss = new Boss(scene, lib, effects, level, audio, enemies);
   const music = new Music(audio);
+  const pickups = new Pickups(scene, lib, audio);
 
   R.setup(scene, camera, sunDir);
   R.final.uniforms.uExposure.value = TOD.exposure;
@@ -117,11 +120,16 @@ async function boot() {
   scene.remove(warm);
   await progress(1, '就绪');
 
-  return { lib, level, effects, audio, player, weapon, pistol, enemies, grenades, ambient, boss, music, sun };
+  return { lib, level, effects, audio, player, weapon, pistol, enemies, grenades, ambient, boss, music, pickups, sun };
 }
 
 const G = await boot();
-const { level, effects, audio, player, enemies, grenades, ambient, boss, music } = G;
+const { level, effects, audio, player, enemies, grenades, ambient, boss, music, pickups } = G;
+function applyDifficulty() {
+  const D = DIFF[settings.diff];
+  player.dmgScale = D.dmg; enemies.hpMult = D.hp; enemies.fireMult = D.fire;
+}
+applyDifficulty();
 // ------------------------------------------------------------------ loadout
 const weapons = [G.weapon, G.pistol];
 let weaponIdx = 0;
@@ -180,6 +188,7 @@ document.addEventListener('pointerlockchange', () => {
 });
 
 $('sens').oninput = (e) => { settings.sens = +e.target.value; persist(); };
+$('diff').onchange = (e) => { settings.diff = e.target.value; applyDifficulty(); persist(); };
 $('music').oninput = (e) => { settings.music = +e.target.value; music.setVolume(settings.music); persist(); };
 $('adssens').oninput = (e) => { settings.adsSens = +e.target.value; persist(); };
 $('fov').oninput = (e) => { settings.fov = +e.target.value; for (const w of weapons) w.baseFov = settings.fov; persist(); };
@@ -315,7 +324,7 @@ enemies.onKill = (e) => {
   stats.kills++; killT = 0.35;
   score.combo = simTime - score.last < 4 ? score.combo + 1 : 1;
   score.last = simTime;
-  const pts = POINTS[e.kind] * score.combo;
+  const pts = Math.round(POINTS[e.kind] * score.combo * DIFF[settings.diff].score);
   score.total += pts;
   feed(`${NAMES[e.kind]} 已摧毁  +${pts}${score.combo > 1 ? `  ×${score.combo} 连杀` : ''}`);
   audio.hitmarker(true);
@@ -404,7 +413,7 @@ function defeat() {
   }, 2200);
 }
 function restart() {
-  enemies.clear(); grenades.clear(); boss.clear();
+  enemies.clear(); grenades.clear(); boss.clear(); pickups.reset();
   player.pos.copy(level.playerStart); player.vel.set(0, 0, 0); player.yaw = level.playerYaw; player.pitch = 0;
   player.health = 100; player.dead = false;
   G.weapon.ammo = 30; G.weapon.reserve = 180; G.pistol.ammo = 15; G.pistol.reserve = 60;
@@ -535,6 +544,16 @@ function loop() {
     enemies.update(dt, t, player);
     grenades.update(dt, { enemies, player, t, onPlayerHit: enemies.onPlayerHit, boss });
     boss.update(dt, t, player);
+    pickups.update(dt, t, player, (kind) => {
+      if (kind === 'med') {
+        if (player.health >= player.maxHealth - 1) return false;
+        player.health = Math.min(player.maxHealth, player.health + 50); feed('医疗包  +50 生命'); return true;
+      }
+      const W = G.weapon, P = G.pistol;
+      if (W.reserve >= 270 && P.reserve >= 90 && grenades.count >= grenades.max) return false;
+      W.reserve = Math.min(270, W.reserve + 60); P.reserve = Math.min(90, P.reserve + 15); grenades.count = Math.min(grenades.max, grenades.count + 1);
+      feed('弹药箱  步枪 +60 · 手枪 +15 · 手雷 +1'); return true;
+    });
     for (const e of enemies.list) audio.updateHum(e.hum, e.vel.length());
     if (player.dead && !gameOver) defeat();
   }
@@ -567,4 +586,4 @@ weapon.root.visible = false;
 if (!noLoop) loop();
 
 // debug / screenshot hooks
-window.__game = { music: G.music, boss, switchWeapon, weapons, get weapon() { return weapon; }, ambient, updateHUD, score, grenades, setLocked: (v) => { locked = v; }, loop, start: () => { started = true; waves.start(); }, FOG, sun: G.sun, THREE, scene, camera, player, enemies, effects, level, R, waves, renderer, togglePhoto, shoot, input };
+window.__game = { pickups: G.pickups, music: G.music, boss, switchWeapon, weapons, get weapon() { return weapon; }, ambient, updateHUD, score, grenades, setLocked: (v) => { locked = v; }, loop, start: () => { started = true; waves.start(); }, FOG, sun: G.sun, THREE, scene, camera, player, enemies, effects, level, R, waves, renderer, togglePhoto, shoot, input };

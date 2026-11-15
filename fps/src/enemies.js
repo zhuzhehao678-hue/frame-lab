@@ -101,7 +101,7 @@ export class Enemies {
     const e = {
       ...m, pos: m.group.position, vel: new THREE.Vector3(), heavy,
       kami, kind, beepT: 0, armed: -1,
-      hp: heavy ? 260 : (kami ? 45 : 100), maxHp: heavy ? 260 : (kami ? 45 : 100), radius: heavy ? 1.0 : (kami ? 0.62 : 0.76),
+      hp: (heavy ? 260 : (kami ? 45 : 100)) * (this.hpMult || 1), maxHp: (heavy ? 260 : (kami ? 45 : 100)) * (this.hpMult || 1), radius: heavy ? 1.0 : (kami ? 0.62 : 0.76),
       fireCD: 1.5 + Math.random() * 2, charge: 0, burst: 0,
       orbit: Math.random() * Math.PI * 2, orbitDir: Math.random() < 0.5 ? -1 : 1,
       pref: (heavy ? 13 : 10) + Math.random() * 5, alt: 3.2 + Math.random() * 3,
@@ -329,7 +329,7 @@ export class Enemies {
           e.burst++;
           const burstN = e.heavy ? 4 : 2;
           if (e.burst < burstN) e.fireCD = e.heavy ? 0.18 : 0.25;
-          else { e.burst = 0; e.fireCD = (e.heavy ? 2.4 : 1.8) + Math.random() * 1.8; }
+          else { e.burst = 0; e.fireCD = ((e.heavy ? 2.4 : 1.8) + Math.random() * 1.8) * (this.fireMult || 1); }
           if (e.burst > 0) e.charge = 0; // next shot of burst skips charge
         }
       }
@@ -337,7 +337,7 @@ export class Enemies {
         this.fireBolt(e, player);
         e.burst++;
         const burstN = e.heavy ? 4 : 2;
-        if (e.burst >= burstN) { e.burst = 0; e.fireCD = (e.heavy ? 2.4 : 1.8) + Math.random() * 1.8; } else e.fireCD = e.heavy ? 0.18 : 0.25;
+        if (e.burst >= burstN) { e.burst = 0; e.fireCD = ((e.heavy ? 2.4 : 1.8) + Math.random() * 1.8) * (this.fireMult || 1); } else e.fireCD = e.heavy ? 0.18 : 0.25;
       }
     }
     this.list = this.list.filter((e) => e.alive);
