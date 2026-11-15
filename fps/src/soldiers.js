@@ -30,7 +30,7 @@ function mergeGroup(g) {
 export class Soldiers {
   constructor(scene, lib, effects, level, audio, enemies) {
     this.scene = scene; this.lib = lib; this.effects = effects; this.level = level; this.audio = audio; this.enemies = enemies;
-    this.list = [];
+    this.list = []; this.nades = []; this.grenadeCD = 8; this.allowNades = true;
     const M = lib.M;
     const tint = (src, c, extra = {}) => { const m = src.clone(); m.color = new THREE.Color(...c); Object.assign(m, extra); return m; };
     this.mat = {
@@ -108,7 +108,7 @@ export class Soldiers {
     const s = Object.assign(b, {
       pos: b.root.position, kind: 'soldier', heavy: false, kami: false, alive: true, hp: HP * (this.enemies.hpMult || 1), maxHp: HP,
       yaw: 0, phase: Math.random() * 6, speed: 0, crouch: 0, aimPitch: 0, hitK: 0, state: 'move', goal: null, path: null, planT: 0,
-      aimT: 0, burst: 0, burstT: 0, bursts: 0, fireCD: 1 + Math.random(), losT: 0, noLos: 0, reloadT: 0, shooting: false, spotted: false, dead: 0, burstLimit: 2 + Math.floor(Math.random() * 2),
+      aimT: 0, burst: 0, burstT: 0, bursts: 0, fireCD: 1 + Math.random(), losT: 0, noLos: 0, reloadT: 0, shooting: false, spotted: false, dead: 0, flushT: 0, burstLimit: 2 + Math.floor(Math.random() * 2),
     });
     this.list.push(s);
     return s;
@@ -237,7 +237,52 @@ export class Soldiers {
         }
       } else if (s.shooting && (!los || s.state !== 'engage' || s.reloadT > 0)) { s.shooting = false; shooters--; s.aimT = 0; }
 
+      // flush a camper: engaged but blind for a while -> lob a grenade at the last seen spot
+      if (los) s.lastSeen = new THREE.Vector3(target.x, 0, target.z);
+      s.flushT = (s.state === 'engage' && !los && s.lastSeen) ? s.flushT + dt : 0;
+      if (s.flushT > 3.5 && this.grenadeCD <= 0 && !this.nades.length && this.allowNades && s.lastSeen.distanceTo(s.pos) > 6 && s.lastSeen.distanceTo(s.pos) < 24) {
+        this.throwNade(s, s.lastSeen); s.flushT = -6; this.grenadeCD = 14;
+      }
+
       this.animate(s, dt, target);
+    }
+    this.grenadeCD -= dt;
+    this.updateNades(dt, player, onPlayerHit, t);
+  }
+
+  throwNade(s, at) {
+    const from = s.A.chest.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 0.4, 0));
+    const tgt = at.clone().add(new THREE.Vector3((Math.random() - 0.5) * 2, 0, (Math.random() - 0.5) * 2));
+    const T = 1.1, v = tgt.clone().sub(from).divideScalar(T); v.y = (tgt.y - from.y) / T + 0.5 * 9.8 * T;
+    const mesh = (this.nadeProto ? this.nadeProto.clone() : new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 6), this.lib.M.darkSteel));
+    mesh.position.copy(from); this.scene.add(mesh);
+    this.nades.push({ mesh, vel: v, fuse: 2.6, warned: false });
+    s.recoil = 1;
+  }
+
+  updateNades(dt, player, onPlayerHit, t) {
+    for (let i = this.nades.length - 1; i >= 0; i--) {
+      const n = this.nades[i], p = n.mesh.position;
+      n.fuse -= dt; n.vel.y -= 9.8 * dt; p.addScaledVector(n.vel, dt);
+      n.mesh.rotation.x += dt * 9; n.mesh.rotation.z += dt * 5;
+      if (p.y < 0.05) { p.y = 0.05; n.vel.y *= -0.3; n.vel.x *= 0.5; n.vel.z *= 0.5; }
+      for (const b of this.level.colliders) { if (b.containsPoint(p)) { p.addScaledVector(n.vel, -dt * 1.5); n.vel.x *= -0.35; n.vel.z *= -0.35; break; } }
+      const d = player.pos.distanceTo(p);
+      if (!n.warned && d < 7) { n.warned = true; if (this.onNadeWarn) this.onNadeWarn(p); }
+      if (n.warned && Math.random() < dt * 8 && this.audio.beep) this.audio.beep(p, 1500);
+      if (n.fuse <= 0) {
+        this.scene.remove(n.mesh); this.nades.splice(i, 1);
+        const at = p.clone().add(new THREE.Vector3(0, 0.3, 0));
+        this.effects.explosion(at, 1); this.audio.explosion(at);
+        if (this.enemies.props) this.enemies.props.splash(at, 6, 30);
+        this.splash(at, 4.5, 140);
+        const eye = player.camera.position;
+        const dd = eye.distanceTo(at);
+        if (!player.dead && dd < 5.5 && !segmentBlocked(this.level, at, eye)) {
+          const dmg = 70 * (1 - dd / 5.5); player.damage(dmg, at, t); if (onPlayerHit) onPlayerHit(at, dmg);
+        }
+        player.shake = Math.min(1, (player.shake || 0) + Math.max(0, 0.8 * (1 - dd / 16)));
+      }
     }
   }
 
@@ -275,6 +320,11 @@ export class Soldiers {
     s.crouch += (crouchWant - s.crouch) * Math.min(1, dt * 5);
     const c = s.crouch * (1 - k);
     const sw = Math.sin(s.phase);
+    // a footfall each half stride, audible within ~28 m
+    if (k > 0.2 && Math.sign(sw) !== (s.lastSw || 0)) {
+      s.lastSw = Math.sign(sw);
+      if (this.audio.npcStep && target.distanceToSquared(s.pos) < 784) this.audio.npcStep(s.pos, s.speed > 2.5);
+    }
     for (const [L, sgn] of [[s.legR, 1], [s.legL, -1]]) {
       const ph = sw * sgn;
       L.hip.rotation.x = ph * 0.6 * k + c * 1.25;
@@ -314,6 +364,6 @@ export class Soldiers {
     if (s.dead > 17) { this.scene.remove(s.root); s.removed = true; }
   }
 
-  clear() { for (const s of this.list) this.scene.remove(s.root); this.list = []; }
+  clear() { for (const s of this.list) this.scene.remove(s.root); this.list = []; for (const n of this.nades) this.scene.remove(n.mesh); this.nades = []; this.grenadeCD = 8; }
   prune() { this.list = this.list.filter((s) => !s.removed); }
 }

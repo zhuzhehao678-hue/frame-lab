@@ -185,6 +185,12 @@ export class Audio {
     this.tone(d, t + 0.1, 2.2, { f: 600, f1: 1900, gain: 0.05, attack: 0.3, curve: 1.5 });
     this.noise(d, t + 2.4, 0.3, { type: 'bandpass', f: 1200, q: 0.8, gain: 0.25 });
   }
+  // enemy footfall: short positional scuff so you can hear squads moving in
+  npcStep(pos, run) {
+    if (!this.enabled) return; const t = this.ctx.currentTime; const d = this.out(pos, { verb: 0.25, gain: run ? 0.55 : 0.35 });
+    this.noise(d, t, 0.06, { type: 'bandpass', f: 900 + Math.random() * 500, q: 1.2, gain: 0.8, curve: 4 });
+    this.tone(d, t, 0.05, { f: 70, f1: 45, gain: 0.25, curve: 4 });
+  }
   // hostile rifle: positional crack + body, distance does the rest
   enemyShot(pos) {
     if (!this.enabled) return; const t = this.ctx.currentTime; const p = 0.92 + Math.random() * 0.16;

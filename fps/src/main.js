@@ -556,7 +556,7 @@ function updateHUD(dt, t) {
 }
 
 // ------------------------------------------------------------------ gameplay hooks
-const freshStats = () => ({ shots: 0, hits: 0, kills: 0, t0: performance.now(), dmgTaken: 0, byKind: {}, bestCombo: 0, boomKills: 0, meleeKills: 0, longKills: 0, crits: 0, waveDmg: 0, flawless: 0, bossKilled: false });
+const freshStats = () => ({ shots: 0, hits: 0, kills: 0, t0: performance.now(), dmgTaken: 0, byKind: {}, bestCombo: 0, boomKills: 0, meleeKills: 0, longKills: 0, crits: 0, heads: 0, waveDmg: 0, flawless: 0, bossKilled: false });
 const stats = freshStats();
 let killSource = { type: 'gun' };
 player.onStep = (sp, sprint, surf) => audio.footstep(sprint, surf, TOD.rain ? 0.8 : (TOD.wet >= 1 ? 0.3 : 0.08));
@@ -629,6 +629,8 @@ boss.onDeath = () => { stats.bossKilled = true; score.total += 3000; feed('母�
 boss.onExploded = () => { player.shake = 1; };
 walkers.onKill = (w) => enemies.onKill(w);
 soldiers.onKill = (s) => enemies.onKill(s);
+soldiers.nadeProto = grenades.proto;
+soldiers.onNadeWarn = () => { hint('⚠ 手雷！快离开', 1.6); audio.hitmarker(false); };
 enemies.onPlayerHit = (from, dmg) => {
   G.lastHitFrom = from && from.clone ? from.clone() : null;
   if (player.health < 30 && !player.dead && simTime - (G.lowRadioT ?? -99) > 40) { G.lowRadioT = simTime; radio(pick(RADIO.low)); }
@@ -680,6 +682,7 @@ const waves = {
   begin(delay) {
     this.active = false; this.timer = delay;
     const W = this.wave(this.index);
+    soldiers.allowNades = this.index >= 1;
     const { s: sol = 0, n = 0, h = 0, k = 0, special = null, wk = 0, sn = 0, md = 0, mn = 0, sd = 0 } = W;
     stats.waveDmg = 0;
     if (this.index === 2 && !this.endless) setTimeout(() => G.crash.start(), 2500);
@@ -766,6 +769,7 @@ const MEDALS = [
   ['远程狙杀', '用射手步枪在 25 米外击杀', (s) => s.longKills > 0],
   ['屠龙者', '击落母舰 WARDEN', (s) => s.bossKilled],
   ['弱点专家', '命中无人机传感器 10 次', (s) => s.crits >= 10],
+  ['爆头', '爆头击中武装人员 8 次', (s) => (s.heads || 0) >= 8],
 ];
 // live medal unlocks (accuracy is only judged at the end)
 const medalShown = new Set(); let medalAcc = 0;
@@ -825,8 +829,8 @@ function showEnd(win, bonus = 0) {
   $('escore').textContent = bestLine + (bonus ? `（含时间与生命奖励 +${bonus}）` : '') + (waves.endless ? ` · 无尽最高第 ${saved.bestWave} 波` : '');
   const bk = stats.byKind;
   const cell = (k, v) => `<div>${k}<b>${v}</b></div>`;
-  $('es').innerHTML = cell('用时', `${Math.floor(secs / 60)}:${String(Math.floor(secs % 60)).padStart(2, '0')}`) + cell('命中率', acc + '%') + cell('弱点命中', stats.crits) + cell('承受伤害', Math.round(stats.dmgTaken)) + cell('最高连杀', '×' + stats.bestCombo)
-    + cell('哨兵', (bk.normal || 0) + (bk.heavy || 0)) + cell('自爆蜂', bk.kamikaze || 0) + cell('四足机甲', bk.walker || 0) + cell('到达波次', reached);
+  $('es').innerHTML = cell('用时', `${Math.floor(secs / 60)}:${String(Math.floor(secs % 60)).padStart(2, '0')}`) + cell('命中率', acc + '%') + cell('爆头 / 弱点', `${stats.heads || 0} / ${stats.crits}`) + cell('承受伤害', Math.round(stats.dmgTaken)) + cell('最高连杀', '×' + stats.bestCombo)
+    + cell('武装人员', bk.soldier || 0) + cell('无人机', (bk.normal || 0) + (bk.heavy || 0)) + cell('自爆蜂', bk.kamikaze || 0) + cell('四足机甲', bk.walker || 0) + cell('到达波次', reached);
   $('em').innerHTML = MEDALS.map(([n, d, f]) => `<div class="medal ${f(stats) ? 'got' : ''}"><span class="i">${f(stats) ? '★' : '☆'}</span><div class="n">${n}</div><div class="d">${d}</div></div>`).join('');
   $('overlay').classList.add('hidden'); $('hud').classList.remove('on');
   $('end').classList.remove('hidden'); document.exitPointerLock();
