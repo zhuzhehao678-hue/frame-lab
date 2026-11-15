@@ -2,6 +2,7 @@
 // outdoor slap-back reverb, mechanical reload foley, HRTF-positioned drones,
 // plasma bolts, explosions, footsteps and a harbour ambience bed.
 import * as THREE from 'three';
+import { segmentBlocked, rayColliders } from './enemies.js';
 
 export class Audio {
   constructor(camera) {
@@ -24,7 +25,7 @@ export class Audio {
     this.verb.connect(this.verbGain).connect(this.master);
     // early slap-back echo off the warehouse
     this.slap = ctx.createDelay(1); this.slap.delayTime.value = 0.085;
-    const slapG = ctx.createGain(); slapG.gain.value = 0.25;
+    const slapG = ctx.createGain(); slapG.gain.value = 0.25; this.slapGain = slapG;
     const slapF = ctx.createBiquadFilter(); slapF.type = 'lowpass'; slapF.frequency.value = 2400;
     this.slap.connect(slapF).connect(slapG).connect(this.master);
     this.noiseBuf = this.makeNoise(2);
@@ -61,7 +62,13 @@ export class Audio {
       const p = ctx.createPanner();
       p.panningModel = 'HRTF'; p.distanceModel = 'inverse'; p.refDistance = 2; p.rolloffFactor = 1.1; p.maxDistance = 200;
       p.positionX.value = pos.x; p.positionY.value = pos.y; p.positionZ.value = pos.z;
-      g.connect(p); p.connect(this.master);
+      // occlusion: anything between us and the source muffles it
+      if (this.isOccluded(pos)) {
+        const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 650; lp.Q.value = 0.5;
+        g.gain.value = gain * 0.55;
+        g.connect(lp); lp.connect(p);
+      } else g.connect(p);
+      p.connect(this.master);
       if (verb > 0) { const s = ctx.createGain(); s.gain.value = verb; p.connect(s); s.connect(this.verb); }
     } else {
       g.connect(this.master);
@@ -223,13 +230,43 @@ export class Audio {
     const lfoG = ctx.createGain(); lfoG.gain.value = 0.35;
     lfo.connect(lfoG).connect(ng.gain);
     o1.connect(lp); o2.connect(lp); n.connect(bp).connect(ng).connect(lp);
-    lp.connect(g).connect(p).connect(this.master);
+    const occ = ctx.createBiquadFilter(); occ.type = 'lowpass'; occ.frequency.value = 20000;
+    lp.connect(occ).connect(g).connect(p).connect(this.master);
     const s = ctx.createGain(); s.gain.value = 0.15; p.connect(s).connect(this.verb);
     o1.start(); o2.start(); n.start(); lfo.start();
-    return { p, g, oscs: [o1, o2, n, lfo], obj, base };
+    return { p, g, occ, oscs: [o1, o2, n, lfo], obj, base };
   }
+  isOccluded(pos) {
+    if (!this.level) return false;
+    const ear = this.camera.getWorldPosition(new THREE.Vector3());
+    if (ear.distanceTo(pos) < 1.5) return false;
+    return segmentBlocked(this.level, ear, pos);
+  }
+
+  // probe the surroundings and retune the early reflections / tail
+  updateSpace(dt) {
+    if (!this.ctx || !this.level) return;
+    this.spaceT = (this.spaceT || 0) - dt;
+    if (this.spaceT > 0) return;
+    this.spaceT = 0.5;
+    const ear = this.camera.getWorldPosition(new THREE.Vector3());
+    let sum = 0, n = 0;
+    for (let i = 0; i < 8; i++) {
+      const a = i / 8 * Math.PI * 2;
+      sum += rayColliders(this.level, ear, new THREE.Vector3(Math.cos(a), 0, Math.sin(a)), 25); n++;
+    }
+    const up = rayColliders(this.level, ear, new THREE.Vector3(0, 1, 0), 20);
+    const avg = sum / n;
+    const enclosed = THREE.MathUtils.clamp(1 - (avg - 2) / 14, 0, 1) * (up < 19 ? 1.25 : 1);
+    const t = this.ctx.currentTime;
+    this.slap.delayTime.setTargetAtTime(THREE.MathUtils.clamp(avg * 2 / 343, 0.012, 0.11), t, 0.3);
+    this.slapGain.gain.setTargetAtTime(0.18 + enclosed * 0.35, t, 0.3);
+    this.verbGain.gain.setTargetAtTime(0.45 + enclosed * 0.35, t, 0.4);
+  }
+
   updateHum(h, speed) {
     if (!h) return; const t = this.ctx.currentTime; const pos = h.obj.position;
+    if (h.occ) h.occ.frequency.setTargetAtTime(this.isOccluded(pos) ? 700 : 20000, t, 0.15);
     h.p.positionX.setTargetAtTime(pos.x, t, 0.02); h.p.positionY.setTargetAtTime(pos.y, t, 0.02); h.p.positionZ.setTargetAtTime(pos.z, t, 0.02);
     h.oscs[0].frequency.setTargetAtTime(h.base * (1 + speed * 0.04), t, 0.1);
     h.oscs[1].frequency.setTargetAtTime(h.base * 2.01 * (1 + speed * 0.04), t, 0.1);

@@ -99,6 +99,7 @@ async function boot() {
   const effects = new Effects(scene, lib, camera);
   effects.ambient.copy(TOD.smokeTint);
   const audio = new Audio(camera);
+  audio.level = level;
   const player = new Player(camera, level);
   const weapon = new Weapon(camera, lib, effects);
   const pistol = new Pistol(camera, lib, effects);
@@ -714,6 +715,7 @@ function loop() {
     ambient.update(running ? dt : 0, t, effects);
   }
   audio.updateListener();
+  audio.updateSpace(realDt);
   if (level.water) {
     level.M.water.normalMap.offset.set(t * 0.004, t * 0.0065);
   }
