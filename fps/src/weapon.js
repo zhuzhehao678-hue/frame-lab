@@ -360,6 +360,21 @@ export class Weapon {
     this.mat.hot.emissiveIntensity = k * k * 2.2;
   }
 
+  // receiver / furniture finish; the tan texture carries the cerakote grain
+  setFinish(name, lib) {
+    const { metal, tan, poly } = this.mat;
+    if (!this._fin) this._fin = { mMap: metal.map, mCol: metal.color.clone(), pCol: poly.color.clone(), tCol: tan.color.clone() };
+    const f = this._fin, T = lib.M.gunTan.map;
+    const tint = { fde: [1.0, 1.0, 1.0], olive: [0.62, 0.7, 0.45], grey: [0.62, 0.64, 0.68] }[name];
+    if (!tint) { metal.map = f.mMap; metal.color.copy(f.mCol); poly.color.copy(f.pCol); tan.color.copy(f.tCol); }
+    else {
+      metal.map = T; metal.color.setRGB(...tint);
+      tan.color.setRGB(...tint);
+      poly.color.setRGB(...tint.map((v) => v * 0.55));
+    }
+    metal.needsUpdate = true;
+  }
+
   setMuzzle(suppressed) {
     if (!this.suppressor) return;
     this.suppressed = !!suppressed; this.suppressor.visible = this.suppressed;
