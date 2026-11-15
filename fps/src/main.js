@@ -599,6 +599,23 @@ const MEDALS = [
   ['屠龙者', '击落母舰 WARDEN', (s) => s.bossKilled],
   ['弱点专家', '命中无人机传感器 10 次', (s) => s.crits >= 10],
 ];
+// local leaderboard: best 5 runs on this machine
+const LB_KEY = 'afterglow_lb';
+const loadLB = () => { try { return JSON.parse(LS.getItem(LB_KEY) || '[]'); } catch (e) { return []; } };
+function renderLB(el, list, meId) {
+  const DN = { easy: '简单', normal: '普通', hard: '困难' };
+  el.innerHTML = '<h4>本机排行榜 · TOP 5</h4>' + (list.length ? list.map((r, i) => `<div class="r ${r.id === meId ? 'me' : ''}"><span>${i + 1}</span><span>${r.date} · ${DN[r.d] || ''} · ${r.endless ? '无尽 ' + r.w + ' 波' : (r.win ? '通关' : '第 ' + r.w + ' 波')}</span><span>${r.g}</span><b>${r.s}</b></div>`).join('') : '<div class="r"><span></span><span>还没有记录</span></div>');
+}
+function recordLB(grade, reached, win) {
+  const id = Date.now() + Math.random();
+  const d = new Date(); const date = `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  const list = loadLB(); list.push({ id, s: score.total, w: reached, d: settings.diff, g: grade, win, endless: waves.endless, date });
+  list.sort((a, b) => b.s - a.s); list.length = Math.min(list.length, 5);
+  LS.setItem(LB_KEY, JSON.stringify(list));
+  return { list, id };
+}
+renderLB($('mlb'), loadLB());
+
 function showEnd(win, bonus = 0) {
   const secs = (performance.now() - stats.t0) / 1000;
   const acc = stats.shots ? Math.round(stats.hits / stats.shots * 100) : 0;
@@ -608,6 +625,7 @@ function showEnd(win, bonus = 0) {
   else if (waves.endless) grade = reached >= 15 ? 'S' : reached >= 10 ? 'A' : 'B';
   else if (reached >= 4) grade = 'B';
   const bestLine = saveBest();
+  const lb = recordLB(grade, reached, win); renderLB($('elb'), lb.list, lb.id); renderLB($('mlb'), lb.list);
   if (waves.endless) { const bw = Math.max(saved.bestWave || 0, reached); saved.bestWave = bw; LS.setItem('afterglow', JSON.stringify({ ...JSON.parse(LS.getItem('afterglow') || '{}'), bestWave: bw })); }
   $('ek').textContent = win ? 'MISSION COMPLETE' : (waves.endless ? `ENDLESS · WAVE ${reached}` : 'MISSION FAILED');
   $('et').textContent = win ? '堆场已肃清' : '阵亡';

@@ -111,11 +111,19 @@
   #hint { position: absolute; left: 50%; bottom: 140px; transform: translateX(-50%); font-size: 12px; letter-spacing: 0.3em; color: var(--hud); opacity: 0; transition: opacity .3s; }
   #fps { position: absolute; left: 12px; top: 10px; font: 11px ui-monospace, monospace; color: var(--dim); }
   #end { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: radial-gradient(ellipse at center, rgba(8,6,5,0.55), rgba(5,3,2,0.88)); pointer-events: auto; cursor: default; }
-  #end .panel { width: min(760px, 92vw); text-align: center; }
+  #end .panel { width: min(760px, 92vw); text-align: center; max-height: 96vh; overflow-y: auto; padding: 8px 4px; scrollbar-width: thin; }
   #end .k { font-size: 11px; letter-spacing: 0.6em; color: var(--accent); }
   #end .t { margin-top: 12px; font-size: 46px; font-weight: 200; letter-spacing: 0.32em; }
   #end .grade { margin: 18px auto 0; width: 92px; height: 92px; line-height: 92px; border: 1px solid rgba(240,236,228,0.35); font-size: 52px; font-weight: 700; color: var(--accent); }
   #end .score { margin-top: 14px; font-size: 13px; letter-spacing: 0.25em; color: var(--hud); }
+  .lb { font-size: 11px; color: var(--dim); letter-spacing: .08em; }
+  .lb h4 { margin: 0 0 8px; font-weight: 400; font-size: 10px; letter-spacing: .35em; color: var(--hud); opacity: .8; }
+  .lb .r { display: grid; grid-template-columns: 22px 1fr 28px 64px; gap: 8px; padding: 5px 0; border-top: 1px solid rgba(255,255,255,.08); font-variant-numeric: tabular-nums; }
+  .lb .r b { color: var(--hud); font-weight: 400; text-align: right; }
+  .lb .r.me { color: #ffd27a; } .lb .r.me b { color: #ffd27a; }
+  #mlb { position: absolute; right: 5vw; top: 34vh; width: 380px; }
+  .lb .r span:nth-child(2) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #elb { margin: 20px auto 0; max-width: 460px; text-align: left; }
   #end .stats { margin-top: 22px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
   #end .stats div { padding: 10px 6px; background: rgba(255,255,255,0.04); border-top: 1px solid rgba(255,255,255,0.12); font-size: 10px; letter-spacing: 0.25em; color: var(--dim); }
   #end .stats b { display: block; margin-top: 6px; font-size: 20px; font-weight: 300; letter-spacing: 0.05em; color: var(--hud); font-variant-numeric: tabular-nums; }
@@ -164,6 +172,7 @@
   <div id="menu" class="hidden">
     <div id="paused" class="hidden">已暂停</div>
     <button id="play">开始作战</button>
+    <div id="mlb" class="lb"></div>
     <div class="opts">
       <label>难度 <select id="diff"><option value="easy">简单</option><option value="normal">普通</option><option value="hard">困难</option></select></label>
       <label>时段 <select id="tod"><option value="day">白天</option><option value="golden">黄昏</option><option value="sunset">日落</option><option value="rain">雨天</option><option value="night">夜晚</option></select></label>
@@ -196,7 +205,7 @@
   <label>滤镜 <select id="ph_filter"><option value="0">无</option><option value="1">黑白</option><option value="2">暖调胶片</option><option value="3">冷调青橙</option><option value="4">高对比</option></select></label>
   <div class="tip">点击画面 / Tab：飞行取景（WASD、鼠标、Shift 加速、空格上升、C 下降）<br>H 隐藏面板 · P 退出照片模式</div>
 </div>
-<div id="end" class="hidden"><div class="panel"><div class="k" id="ek"></div><div class="t" id="et"></div><div class="grade" id="eg"></div><div class="score" id="escore"></div><div class="stats" id="es"></div><div class="medals" id="em"></div><div class="btns"><button id="again">再来一局</button><button id="endless" class="hidden">进入无尽模式</button></div></div></div>
+<div id="end" class="hidden"><div class="panel"><div class="k" id="ek"></div><div class="t" id="et"></div><div class="grade" id="eg"></div><div class="score" id="escore"></div><div class="stats" id="es"></div><div class="medals" id="em"></div><div id="elb" class="lb"></div><div class="btns"><button id="again">再来一局</button><button id="endless" class="hidden">进入无尽模式</button></div></div></div>
 
 <script type="module" src="./game.js"></script>
 </body>
