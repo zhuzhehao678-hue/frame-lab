@@ -809,7 +809,76 @@ export class Level {
     stencil('禁止停车 NO PARKING', -15.6, 6.4, Math.PI / 2, 3.4);
   }
 
+  // feeder container ship moored along the quay east of the yard
+  buildFeeder() {
+    const X0 = 44, L = 104, B = 17, ZC = -32.2 - B / 2;   // stern at X0, bow at X0 + L
+    // extend the quay east: apron, coping, wall, fenders, bollards
+    this.put(new THREE.PlaneGeometry(150, 12).rotateX(-Math.PI / 2), 'ground', 107, 0.0, -21.5);
+    this.box(150, 0.4, 2.4, 'concreteWall', 115, -0.55, -26.2, 0, { uvScale: 2, collide: false });
+    this.box(150, 3.2, 1.2, 'concreteWall', 115, -5.2, -27.2, 0, { uvScale: 3.2, collide: false });
+    for (let x = 42; x <= 186; x += 6) this.box(0.6, 1.6, 0.35, 'rubber', x, -2.8, -27.9, 0, { collide: false });
+    const bpts = [[0, 0], [0.26, 0], [0.2, 0.08], [0.17, 0.45], [0.3, 0.55], [0.3, 0.62], [0, 0.64]].map(([a, b]) => new THREE.Vector2(a, b));
+    const bollards = [X0 - 6, X0 + 8, X0 + L - 10, X0 + L + 6];
+    for (const x of bollards) this.put(new THREE.LatheGeometry(bpts, 16), 'paintGrey', x, 0, -25.8, 0, { noShadow: true });
+    // hull: deck outline extruded vertically; red below the boot-top, dark blue above
+    const sh = new THREE.Shape();
+    sh.moveTo(0, -B / 2 + 1.2); sh.quadraticCurveTo(0, -B / 2, 1.5, -B / 2); sh.lineTo(L - 22, -B / 2);
+    sh.bezierCurveTo(L - 8, -B / 2, L - 2, -3, L, 0); sh.bezierCurveTo(L - 2, 3, L - 8, B / 2, L - 22, B / 2);
+    sh.lineTo(1.5, B / 2); sh.quadraticCurveTo(0, B / 2, 0, B / 2 - 1.2); sh.closePath();
+    const hullPart = (y0, y1, mat) => {
+      const g = new THREE.ExtrudeGeometry(sh, { depth: y1 - y0, bevelEnabled: false, curveSegments: 16 }).rotateX(-Math.PI / 2).translate(X0, y0, ZC);
+      const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 0.25, uv.getY(i) * 0.25);
+      this.put(g, mat, 0, 0, 0, 0, { noShadow: true });
+    };
+    hullPart(-8, -1.5, 'paintRed');
+    hullPart(-1.5, 5.6, 'paintBlue');
+    hullPart(5.6, 6.6, 'paintGrey');                                  // bulwark / deck edge
+    // forecastle and its mast
+    this.box(14, 2.2, B - 3, 'paintBlue', X0 + L - 18, 6.6, ZC, 0, { collide: false, noShadow: true });
+    this.put(new THREE.CylinderGeometry(0.25, 0.3, 9, 10), 'paintGrey', X0 + L - 12, 13.3, ZC, 0, { noShadow: true });
+    // container bays: 20 ft boxes, 6 rows, 2-4 tiers, hatch covers underneath
+    const cols = ['containerRed', 'containerBlue', 'containerGreen', 'containerOrange', 'containerBlue', 'paintGrey'];
+    let n = 0;
+    for (let bay = 0; bay < 11; bay++) {
+      const bx = X0 + 20 + bay * 6.4;
+      this.box(6.2, 0.6, B - 2.5, 'darkSteel', bx, 6.6, ZC, 0, { collide: false, noShadow: true });
+      const tiers = 2 + Math.floor(Math.abs(Math.sin(bay * 2.7)) * 3);
+      for (let row = 0; row < 6; row++) {
+        const rz = ZC - 6.1 + row * 2.44;
+        const t = Math.max(1, tiers - (row === 0 || row === 5 ? 1 : 0) - (Math.sin(bay * 5.1 + row * 3.3) > 0.7 ? 1 : 0));
+        for (let k = 0; k < t; k++) this.box(6.06, 2.59, 2.42, cols[(n++ * 7 + row) % cols.length], bx, 7.2 + k * 2.59, rz, 0, { uvScale: 2.6, collide: false, noShadow: true });
+      }
+    }
+    // stern accommodation block, bridge with window band, wings, funnel, radar mast
+    const SX = X0 + 7;
+    this.box(11, 13, B - 2, 'cabinWhite', SX, 6.6, ZC, 0, { uvScale: 3, collide: false, noShadow: true });
+    this.box(9, 3, B + 1.5, 'cabinWhite', SX + 0.5, 19.6, ZC, 0, { uvScale: 3, collide: false, noShadow: true });
+    this.box(0.1, 1.3, B + 1.2, 'glassDark', SX + 5.03, 20.6, ZC, 0, { collide: false, noShadow: true });
+    for (let f = 0; f < 4; f++) for (const sz of [-1, 1]) this.box(8, 0.8, 0.1, 'glassDark', SX, 8.2 + f * 3, ZC + sz * (B / 2 - 0.97), 0, { collide: false, noShadow: true });
+    this.box(0.1, 0.8, B - 4, 'glassDark', SX + 5.53, 17.2, ZC, 0, { collide: false, noShadow: true });
+    this.put(new THREE.CylinderGeometry(1.5, 1.8, 7, 16), 'paintRed', SX - 3, 25.6, ZC, 0, { noShadow: true });
+    this.put(new THREE.CylinderGeometry(1.55, 1.55, 1.4, 16), 'darkSteel', SX - 3, 29.7, ZC, 0, { noShadow: true });
+    this.put(new THREE.CylinderGeometry(0.2, 0.25, 8, 8), 'paintGrey', SX + 1, 26.6, ZC, 0, { noShadow: true });
+    this.box(0.3, 0.3, 4, 'darkSteel', SX + 1, 28.5, ZC, 0, { collide: false, noShadow: true });
+    this.put(new THREE.SphereGeometry(0.35, 8, 6), 'lampRed', SX + 1, 30.8, ZC, 0, { noShadow: true });
+    // name on the bow
+    const nameKey = this.decalMat('shipname', () => { const c = document.createElement('canvas'); c.width = 1024; c.height = 160; const g = c.getContext('2d'); g.fillStyle = '#f2efe6'; g.font = '900 110px Arial, sans-serif'; g.textBaseline = 'middle'; g.fillText('NORDVAST TIDE', 20, 82); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; });
+    for (const sz of [-1, 1]) this.put(new THREE.PlaneGeometry(14, 2.2).rotateY(sz > 0 ? 0 : Math.PI), nameKey, X0 + L - 24, 2.6, ZC + sz * (B / 2 + 0.03), 0, { noShadow: true });
+    // mooring lines (sagging) from bow and stern to the quay bollards
+    const line = (a, b) => {
+      const mid = a.clone().lerp(b, 0.5); mid.y -= 1.2;
+      const curve = new THREE.QuadraticBezierCurve3(a, mid, b);
+      this.put(new THREE.TubeGeometry(curve, 16, 0.05, 5), 'rubber', 0, 0, 0, 0, { noShadow: true });
+    };
+    const side = ZC + B / 2 - 0.4;
+    line(new THREE.Vector3(X0 + 1.5, 6.6, side), new THREE.Vector3(bollards[0], 0.5, -25.8));
+    line(new THREE.Vector3(X0 + 4, 6.6, side), new THREE.Vector3(bollards[1], 0.5, -25.8));
+    line(new THREE.Vector3(X0 + L - 20, 8.8, side), new THREE.Vector3(bollards[2], 0.5, -25.8));
+    line(new THREE.Vector3(X0 + L - 16, 8.8, side), new THREE.Vector3(bollards[3], 0.5, -25.8));
+  }
+
   buildDistant() {
+    this.buildFeeder();
     // Ship-to-shore gantry cranes on the far side of the basin
     const crane = (x, z, ry) => {
       const parent = new THREE.Matrix4().compose(new THREE.Vector3(x, 0, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, ry, 0)), new THREE.Vector3(1, 1, 1));
