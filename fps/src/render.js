@@ -68,11 +68,11 @@ const FinalShader = {
     tDiffuse: { value: null }, uTime: { value: 0 }, uExposure: { value: 0.56 },
     uRes: { value: new THREE.Vector2(1, 1) }, uDamage: { value: 0 }, uLowHealth: { value: 0 },
     uCA: { value: 0.0018 }, uVignette: { value: 0.32 }, uGrain: { value: 0.045 }, uADS: { value: 0 },
-    uFlash: { value: 0 }, uGrade: { value: new THREE.Color(1, 1, 1) },
+    uFlash: { value: 0 }, uKill: { value: 0 }, uGrade: { value: new THREE.Color(1, 1, 1) },
   },
   vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} `,
   fragmentShader: /* glsl */`
-    uniform vec3 uGrade; uniform sampler2D tDiffuse; uniform float uTime, uExposure, uDamage, uLowHealth, uCA, uVignette, uGrain, uADS, uFlash;
+    uniform vec3 uGrade; uniform float uKill; uniform sampler2D tDiffuse; uniform float uTime, uExposure, uDamage, uLowHealth, uCA, uVignette, uGrain, uADS, uFlash;
     uniform vec2 uRes; varying vec2 vUv;
 
     // ACES fitted (Stephen Hill)
@@ -118,7 +118,8 @@ const FinalShader = {
       vec3 highTint = vec3(1.06, 1.0, 0.92);
       col *= mix(shadowTint, highTint, smoothstep(0.02, 1.2, L));
       // saturation
-      col = mix(vec3(L), col, 1.08 - uLowHealth*0.7);
+      col = mix(vec3(L), col, 1.08 - uLowHealth*0.7 + uKill*0.35);
+      col *= 1.0 + uKill * 0.08;
 
       col = ACES(col);
 
@@ -192,16 +193,28 @@ export class Renderer {
         uniforms: {
           tDiffuse: { value: null }, tDepth: { value: this.gtao.depthTexture },
           uInvViewProj: { value: new THREE.Matrix4() }, uPrevViewProj: { value: new THREE.Matrix4() },
-          uStrength: { value: 0.5 }, uNear: { value: camera.near }, uFar: { value: camera.far },
+          uStrength: { value: 0.5 }, uNear: { value: camera.near }, uFar: { value: camera.far }, uADS: { value: 0 }, uAspect: { value: 1 },
         },
         defines: { SAMPLES: 8 },
         vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
-        fragmentShader: `uniform sampler2D tDiffuse, tDepth; uniform mat4 uInvViewProj, uPrevViewProj; uniform float uStrength, uNear, uFar; varying vec2 vUv;
+        fragmentShader: `uniform sampler2D tDiffuse, tDepth; uniform mat4 uInvViewProj, uPrevViewProj; uniform float uStrength, uNear, uFar, uADS, uAspect; varying vec2 vUv;
           float linearDepth(float d){ float z = d * 2.0 - 1.0; return 2.0 * uNear * uFar / (uFar + uNear - z * (uFar - uNear)); }
           void main(){
             vec4 base = texture2D(tDiffuse, vUv);
             float d = texture2D(tDepth, vUv).r;
-            if (d < 1.0 && linearDepth(d) < 1.0) { gl_FragColor = base; return; }
+            if (d < 1.0 && linearDepth(d) < 1.0) {
+              // ADS depth of field: the weapon softens toward the screen edges
+              float r = uADS * smoothstep(0.06, 0.4, length((vUv - 0.5) * vec2(uAspect, 1.0))) * 0.006;
+              if (r < 0.0003) { gl_FragColor = base; return; }
+              vec3 acc = base.rgb; float ws = 1.0;
+              for (int i = 0; i < 8; i++) {
+                float a = float(i) * 0.785398 + 0.39;
+                vec2 suv = vUv + vec2(cos(a) / uAspect, sin(a)) * r;
+                float sd = texture2D(tDepth, suv).r;
+                if (sd < 1.0 && linearDepth(sd) < 1.0) { acc += texture2D(tDiffuse, suv).rgb; ws += 1.0; }
+              }
+              gl_FragColor = vec4(acc / ws, base.a); return;
+            }
             vec4 wp = uInvViewProj * vec4(vUv * 2.0 - 1.0, d * 2.0 - 1.0, 1.0); wp /= wp.w;
             vec4 pp = uPrevViewProj * wp; vec2 puv = pp.xy / pp.w * 0.5 + 0.5;
             vec2 v = (vUv - puv) * uStrength;
@@ -293,7 +306,7 @@ export class Renderer {
       u.uNear.value = cam.near; u.uFar.value = cam.far;
       // 180° shutter, normalised so the look is frame-rate independent-ish
       u.uStrength.value = this.motionBlur ? 0.5 * Math.min(1.5, (1 / 60) / Math.max(dt, 1e-3)) : 0;
-      this.mblur.enabled = this.motionBlur !== false;
+      u.uAspect.value = cam.aspect;
     }
     this.composer.render(dt);
     if (vp) this.prevVP = vp;

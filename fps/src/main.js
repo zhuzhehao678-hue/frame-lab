@@ -323,7 +323,7 @@ const NAMES = { normal: '哨兵无人机', heavy: '重型哨兵', kamikaze: '自
 const POINTS = { normal: 100, heavy: 250, kamikaze: 150 };
 const score = { total: 0, combo: 0, last: -10, best: +(saved.best || 0) };
 enemies.onKill = (e) => {
-  stats.kills++; killT = 0.35;
+  stats.kills++; killT = 0.35; killPulse = 1;
   score.combo = simTime - score.last < 4 ? score.combo + 1 : 1;
   score.last = simTime;
   const pts = Math.round(POINTS[e.kind] * score.combo * DIFF[settings.diff].score);
@@ -507,6 +507,7 @@ let fpsAcc = 0, fpsN = 0, simTime = 0;
 let prevAds = false;
 const noLoop = params.has('noloop');
 const slowmo = { t: 0 };
+let killPulse = 0;
 function loop() {
   if (!noLoop) requestAnimationFrame(loop);
   const realDt = Math.min(clock.getDelta(), 0.05);
@@ -579,6 +580,8 @@ function loop() {
   f.uDamage.value = THREE.MathUtils.clamp(player.shake * 1.2, 0, 1);
   f.uLowHealth.value = THREE.MathUtils.clamp(1 - player.health / 40, 0, 1);
   f.uADS.value = weapon.ads;
+  if (R.mblur) R.mblur.uniforms.uADS.value = weapon.ads * (weapon.kind === 'pistol' ? 1 : 0.7);
+  killPulse = Math.max(0, killPulse - realDt * 2.2); f.uKill.value = killPulse;
   const now = performance.now();
   if (running && !noLoop) R.adapt(now - (loop.last || now));
   loop.last = now;
