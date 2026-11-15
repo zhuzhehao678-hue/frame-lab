@@ -26,6 +26,59 @@ function ik(hip, foot, pole) {
   return hip.clone().addScaledVector(dir, a).addScaledVector(p, h);
 }
 
+// Coarse navigation grid + A* (0.5 m cells, obstacles inflated by the walker's
+// footprint). Built once from the static colliders.
+class NavGrid {
+  constructor(colliders) {
+    this.x0 = -17; this.z0 = -23; this.cs = 0.5; this.w = 68; this.h = 88;
+    this.block = new Uint8Array(this.w * this.h);
+    for (let j = 0; j < this.h; j++) for (let i = 0; i < this.w; i++) {
+      const x = this.x0 + (i + 0.5) * this.cs, z = this.z0 + (j + 0.5) * this.cs;
+      if (x < -16.4 || x > 15.6 || z < -22.6 || z > 19.6) { this.block[j * this.w + i] = 1; continue; }
+      for (const b of colliders) {
+        if (b.max.y < 0.5 || b.min.y > 2) continue;
+        const pad = (b.max.x - b.min.x < 1.2 && b.max.z - b.min.z < 1.2) ? 0.55 : 1.0;
+        if (x > b.min.x - pad && x < b.max.x + pad && z > b.min.z - pad && z < b.max.z + pad) { this.block[j * this.w + i] = 1; break; }
+      }
+    }
+  }
+  cell(p) { return [Math.floor((p.x - this.x0) / this.cs), Math.floor((p.z - this.z0) / this.cs)]; }
+  free(i, j) { return i >= 0 && j >= 0 && i < this.w && j < this.h && !this.block[j * this.w + i]; }
+  nearestFree(i, j) {
+    for (let r = 0; r < 12; r++) for (let dj = -r; dj <= r; dj++) for (let di = -r; di <= r; di++) if (this.free(i + di, j + dj)) return [i + di, j + dj];
+    return null;
+  }
+  path(from, to) {
+    let s = this.cell(from), g = this.cell(to);
+    s = this.nearestFree(s[0], s[1]); g = this.nearestFree(g[0], g[1]);
+    if (!s || !g) return null;
+    const W = this.w, N = W * this.h;
+    const gs = new Float32Array(N).fill(Infinity), came = new Int32Array(N).fill(-1), closed = new Uint8Array(N);
+    const heap = []; const push = (n, f) => { heap.push([f, n]); let k = heap.length - 1; while (k > 0) { const p = (k - 1) >> 1; if (heap[p][0] <= heap[k][0]) break; [heap[p], heap[k]] = [heap[k], heap[p]]; k = p; } };
+    const pop = () => { const top = heap[0], last = heap.pop(); if (heap.length) { heap[0] = last; let k = 0; for (;;) { const l = 2 * k + 1, r = l + 1; let m = k; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r; if (m === k) break; [heap[m], heap[k]] = [heap[k], heap[m]]; k = m; } } return top; };
+    const si = s[1] * W + s[0], gi = g[1] * W + g[0];
+    const hfn = (i, j) => { const dx = Math.abs(i - g[0]), dz = Math.abs(j - g[1]); return Math.max(dx, dz) + 0.414 * Math.min(dx, dz); };
+    gs[si] = 0; push(si, hfn(s[0], s[1]));
+    let iter = 0;
+    while (heap.length && iter++ < 20000) {
+      const [, n] = pop(); if (closed[n]) continue; closed[n] = 1;
+      if (n === gi) break;
+      const i = n % W, j = (n / W) | 0;
+      for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
+        if (!di && !dj) continue;
+        const ni = i + di, nj = j + dj; if (!this.free(ni, nj)) continue;
+        if (di && dj && (!this.free(i + di, j) || !this.free(i, j + dj))) continue; // no corner cutting
+        const m = nj * W + ni; const c = gs[n] + (di && dj ? 1.414 : 1);
+        if (c < gs[m]) { gs[m] = c; came[m] = n; push(m, c + hfn(ni, nj)); }
+      }
+    }
+    if (came[gi] < 0 && gi !== si) return null;
+    const pts = []; for (let n = gi; n !== -1 && n !== si; n = came[n]) pts.push(new THREE.Vector3(this.x0 + (n % W + 0.5) * this.cs, 0, this.z0 + (((n / W) | 0) + 0.5) * this.cs));
+    pts.reverse();
+    return pts.filter((_, k) => k % 3 === 2 || k === pts.length - 1); // thin to ~1.5 m hops
+  }
+}
+
 export class Walkers {
   constructor(scene, lib, effects, level, audio, enemies) {
     this.scene = scene; this.lib = lib; this.effects = effects; this.level = level; this.audio = audio; this.enemies = enemies;
@@ -79,6 +132,7 @@ export class Walkers {
   }
 
   spawn(pos) {
+    if (!this.nav) this.nav = new NavGrid(this.level.colliders);
     const w = this.build();
     w.body.position.set(pos.x, BODY_Y, pos.z);
     this.scene.add(w.body);
@@ -150,6 +204,32 @@ export class Walkers {
       // stuck detection: wander off at an angle for a bit
       w.stuckT = (w.stuckT || 0) + dt;
       if (w.stuckT > 2.5) { if (w.lastPos && w.lastPos.distanceTo(w.pos) < 0.8) { w.detour = 2.2; w.detourDir = side.clone().multiplyScalar(Math.random() < 0.5 ? 1 : -1).add(to.clone().multiplyScalar(-0.3)).normalize(); } w.lastPos = w.pos.clone(); w.stuckT = 0; }
+      // long without sight: pick a vantage point on a ring around the player
+      // that has line of sight, isn't inside geometry, and is closest to us
+      if (w.lostT > 2.5) {
+        w.planT = (w.planT || 0) - dt;
+        if (w.planT <= 0) {
+          w.planT = 2;
+          let best = null, bestD = Infinity;
+          for (let i = 0; i < 16; i++) {
+            const a = i / 16 * Math.PI * 2;
+            for (const r of [8, 11, 14]) {
+              const c = new THREE.Vector3(target.x + Math.cos(a) * r, 2.3, target.z + Math.sin(a) * r);
+              if (c.x < -16 || c.x > 15 || c.z < -22 || c.z > 19) continue;
+              if (this.level.colliders.some((b) => b.max.y > 0.5 && c.x > b.min.x - 1 && c.x < b.max.x + 1 && c.z > b.min.z - 1 && c.z < b.max.z + 1)) continue;
+              if (segmentBlocked(this.level, c, target)) continue;
+              const d = c.distanceTo(w.pos);
+              if (d < bestD) { bestD = d; best = c; }
+            }
+          }
+          w.goal = best;
+        }
+        if (w.goal && (!w.path || w.planT === 2)) w.path = this.nav.path(w.pos, w.goal);
+        if (w.path && w.path.length) {
+          if (w.path[0].distanceTo(new THREE.Vector3(w.pos.x, 0, w.pos.z)) < 0.8) w.path.shift();
+          if (w.path.length) want = w.path[0].clone().sub(w.pos).setY(0).normalize();
+        }
+      } else { w.goal = null; w.path = null; }
       if (w.detour > 0) { w.detour -= dt; want = w.detourDir.clone(); }
       if (Math.random() < dt * 0.15) w.strafe *= -1;
       const probe = w.pos.clone().addScaledVector(want.clone().normalize(), 1.8); probe.y = 0.6;
@@ -161,12 +241,20 @@ export class Walkers {
       want.y = 0; if (want.lengthSq() > 0) want.normalize();
       w.vel.lerp(want.multiplyScalar(1.9), 1 - Math.exp(-2 * dt));
       const next = w.pos.clone().addScaledVector(w.vel, dt);
-      let blocked = false;
-      for (const b of this.level.colliders) {
-        if (b.max.y < 0.5) continue;
-        if (next.x > b.min.x - 0.9 && next.x < b.max.x + 0.9 && next.z > b.min.z - 0.9 && next.z < b.max.z + 0.9 && b.min.y < 2) { blocked = true; break; }
-      }
-      if (!blocked) { w.pos.x = next.x; w.pos.z = next.z; } else { w.vel.multiplyScalar(-0.3); w.strafe *= -1; }
+      const hits = (x, z) => {
+        for (const b of this.level.colliders) {
+          if (b.max.y < 0.5 || b.min.y > 2) continue;
+          // big obstacles need body clearance; small props only the hull
+          const pad = (b.max.x - b.min.x < 1.2 && b.max.z - b.min.z < 1.2) ? 0.45 : 0.9;
+          if (x > b.min.x - pad && x < b.max.x + pad && z > b.min.z - pad && z < b.max.z + pad) return true;
+        }
+        return false;
+      };
+      // move, else slide along one axis, else bounce off (if already wedged, let it escape)
+      if (hits(w.pos.x, w.pos.z) || !hits(next.x, next.z)) { w.pos.x = next.x; w.pos.z = next.z; }
+      else if (!hits(next.x, w.pos.z)) { w.pos.x = next.x; w.vel.z *= 0.2; }
+      else if (!hits(w.pos.x, next.z)) { w.pos.z = next.z; w.vel.x *= 0.2; }
+      else { w.vel.multiplyScalar(-0.3); w.strafe *= -1; }
       w.pos.x = THREE.MathUtils.clamp(w.pos.x, -16.5, 15); w.pos.z = THREE.MathUtils.clamp(w.pos.z, -22, 19);
       // heading follows motion; turret tracks the player
       if (w.vel.lengthSq() > 0.05) w.yaw = THREE.MathUtils.lerp(w.yaw, Math.atan2(-w.vel.x, -w.vel.z) + (w.vel.dot(to) < 0 ? 0 : 0), 1 - Math.exp(-2.5 * dt));

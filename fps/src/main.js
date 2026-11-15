@@ -367,7 +367,7 @@ enemies.onPlayerHit = (from, dmg) => {
 
 // each wave: [normal, heavy, kamikaze]
 const WAVES = [[3, 0, 0], [3, 1, 1], [3, 1, 2, null, 1], [3, 2, 3, null, 1], [2, 1, 2, 'boss', 1]];
-const WALKER_SPAWNS = [[-14, -19], [12, 15], [-13, 16], [9, -20], [-14, 2]];
+const WALKER_SPAWNS = [[-9, -20], [13, -0.5], [0, 17.5], [6, -20.5], [-8, 1.5]];
 const CN = ['一', '二', '三', '四', '五'];
 const waves = {
   index: 0, active: false, queue: [], timer: 0, spawnT: 0, done: false,
