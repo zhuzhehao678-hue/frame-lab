@@ -32,7 +32,7 @@ if (!QUALITY[qualityName]) qualityName = 'high';
 let todName = params.get('t') || saved.tod || 'golden';
 if (!TIMES[todName]) todName = 'golden';
 const TOD = TIMES[todName];
-const DIFF = { easy: { dmg: 0.42, hp: 0.8, fire: 1.35, score: 0.8 }, normal: { dmg: 0.62, hp: 1, fire: 1, score: 1 }, hard: { dmg: 0.85, hp: 1.25, fire: 0.78, score: 1.35 } };
+const DIFF = { easy: { dmg: 0.42, hp: 0.8, fire: 1.35, score: 0.8 }, normal: { dmg: 0.62, hp: 1, fire: 1, score: 1 }, hard: { dmg: 0.85, hp: 1.25, fire: 0.78, score: 1.35 }, hardcore: { dmg: 1.1, hp: 1.25, fire: 0.78, score: 1.8, hc: true } };
 const settings = { xhStyle: saved.xhStyle || 'both', xhColor: saved.xhColor || '#f0ece4', mblur: saved.mblur ?? true, diff: DIFF[saved.diff] ? saved.diff : 'normal', sens: saved.sens ?? 1, fov: saved.fov ?? 74, adsSens: saved.adsSens ?? 0.9, music: saved.music ?? 0.5, optic: saved.optic || 'reddot', muzzle: saved.muzzle || 'brake', dmgNums: saved.dmgNums ?? false, cb: saved.cb || 0, hudScale: saved.hudScale ?? 1 };
 $('diff').value = settings.diff; $('xhstyle').value = settings.xhStyle; $('xhcolor').value = settings.xhColor; $('mblur').checked = settings.mblur; $('quality').value = qualityName; $('tod').value = todName; $('sens').value = settings.sens; $('adssens').value = settings.adsSens; $('music').value = settings.music; $('fov').value = settings.fov; $('optic').value = settings.optic; $('dmgnum').checked = settings.dmgNums; $('cb').value = settings.cb; $('hudscale').value = settings.hudScale; $('muzzle').value = settings.muzzle;
 const persist = () => LS.setItem('afterglow', JSON.stringify({ quality: qualityName, tod: todName, ...settings, binds: saved.binds, best: saved.best || 0, bestWave: saved.bestWave || 0, tutorialDone: !!saved.tutorialDone }));
@@ -169,6 +169,7 @@ grenades.props = hazards.props = enemies.props = props;
 function applyDifficulty() {
   const D = DIFF[settings.diff];
   player.dmgScale = D.dmg; enemies.hpMult = D.hp; enemies.fireMult = D.fire;
+  document.body.classList.toggle('hardcore', !!D.hc);
 }
 applyDifficulty();
 R.motionBlur = settings.mblur;
@@ -252,7 +253,7 @@ addEventListener('keydown', (e) => {
     weapon.meleeT = 0; weapon.reloading = false; meleePending = 0.17;
     audio.melee && audio.melee(false);
   }
-  if (e.code === 'KeyI' && locked && !photo && !player.dead && weapon.ads < 0.1) { weapon.inspectT = 0; audio.click(1300, 0.25); audio.click(800, 0.2, 0.9); }
+  if (e.code === 'KeyI' && locked && !photo && !player.dead && weapon.ads < 0.1) { weapon.inspectT = 0; audio.click(1300, 0.25); audio.click(800, 0.2, 0.9); if (DIFF[settings.diff].hc) { const k = weapon.ammo / weapon.magSize; hint(k > 0.66 ? '弹匣：满' : k > 0.33 ? '弹匣：约一半' : k > 0 ? '弹匣：快空了' : '弹匣：空', 1.6); } }
   if (e.code === 'KeyF') $('fps').classList.toggle('hidden');
   if (e.code === 'KeyP' && (locked || photo)) { togglePhoto(); if (!photo && !locked) $('view').requestPointerLock(); }
   if (e.code === 'Tab' && photo) { e.preventDefault(); if (locked) document.exitPointerLock(); else $('view').requestPointerLock(); }
@@ -651,7 +652,7 @@ const MEDALS = [
 const LB_KEY = 'afterglow_lb';
 const loadLB = () => { try { return JSON.parse(LS.getItem(LB_KEY) || '[]'); } catch (e) { return []; } };
 function renderLB(el, list, meId) {
-  const DN = { easy: '简单', normal: '普通', hard: '困难' };
+  const DN = { easy: '简单', normal: '普通', hard: '困难', hardcore: '硬核' };
   el.innerHTML = '<h4>本机排行榜 · TOP 5</h4>' + (list.length ? list.map((r, i) => `<div class="r ${r.id === meId ? 'me' : ''}"><span>${i + 1}</span><span>${r.date} · ${DN[r.d] || ''} · ${r.endless ? '无尽 ' + r.w + ' 波' : (r.win ? '通关' : '第 ' + r.w + ' 波')}</span><span>${r.g}</span><b>${r.s}</b></div>`).join('') : '<div class="r"><span></span><span>还没有记录</span></div>');
 }
 function recordLB(grade, reached, win) {
