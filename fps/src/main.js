@@ -405,6 +405,15 @@ function updateCompass() {
     el.style.display = ''; el.style.left = (260 + d * 2.75) + 'px';
   };
   for (const it of compass.items) place(it.el, it.b);
+  // supply pickups (hidden while respawning), dimmer the farther they are
+  if (!compass.picks) compass.picks = G.pickups.items.map((it) => { const e = document.createElement('b'); e.className = 'pk ' + it.kind; e.textContent = it.kind === 'med' ? '✚' : '▮'; compass.el.appendChild(e); return e; });
+  G.pickups.items.forEach((it, i) => {
+    const el = compass.picks[i];
+    if (!it.alive) { el.style.display = 'none'; return; }
+    const dx = it.root.position.x - camera.position.x, dz = it.root.position.z - camera.position.z;
+    place(el, THREE.MathUtils.radToDeg(Math.atan2(dx, -dz)));
+    el.style.opacity = THREE.MathUtils.clamp(1.2 - Math.hypot(dx, dz) / 40, 0.35, 1);
+  });
   const list = enemies.list.concat(walkers.list.filter((w) => w.alive));
   while (compass.enemies.length < list.length) { const e = document.createElement('i'); compass.el.appendChild(e); compass.enemies.push(e); }
   compass.enemies.forEach((el, i) => {
