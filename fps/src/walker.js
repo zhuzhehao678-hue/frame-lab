@@ -28,8 +28,8 @@ function ik(hip, foot, pole) {
 
 // Coarse navigation grid + A* (0.5 m cells, obstacles inflated by the walker's
 // footprint). Built once from the static colliders.
-class NavGrid {
-  constructor(colliders) {
+export class NavGrid {
+  constructor(colliders, padSmall = 0.55, padLarge = 1.0) {
     this.x0 = -17; this.z0 = -23; this.cs = 0.5; this.w = 68; this.h = 88;
     this.block = new Uint8Array(this.w * this.h);
     for (let j = 0; j < this.h; j++) for (let i = 0; i < this.w; i++) {
@@ -37,7 +37,7 @@ class NavGrid {
       if (x < -16.4 || x > 15.6 || z < -22.6 || z > 19.6) { this.block[j * this.w + i] = 1; continue; }
       for (const b of colliders) {
         if (b.max.y < 0.5 || b.min.y > 2) continue;
-        const pad = (b.max.x - b.min.x < 1.2 && b.max.z - b.min.z < 1.2) ? 0.55 : 1.0;
+        const pad = (b.max.x - b.min.x < 1.2 && b.max.z - b.min.z < 1.2) ? padSmall : padLarge;
         if (x > b.min.x - pad && x < b.max.x + pad && z > b.min.z - pad && z < b.max.z + pad) { this.block[j * this.w + i] = 1; break; }
       }
     }

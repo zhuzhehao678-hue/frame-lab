@@ -337,6 +337,7 @@ export class Enemies {
     this.triggerMines(pos, radius);
     if (this.hazards) this.hazards.splash(pos, radius * 0.8);
     if (this.walkers) this.walkers.splash(pos, radius * 1.2, droneMax * 0.8);
+    if (this.soldiers) this.soldiers.splash(pos, radius * 1.2, droneMax);
     const pl = this.player;
     if (pl && !pl.dead) {
       const d = pl.camera.position.distanceTo(pos);
@@ -504,7 +505,7 @@ export class Enemies {
           desired.copy(best.pos).addScaledVector(away, 4.5); desired.y = best.pos.y + 1.6;
         } else { desired.set(target.x + Math.cos(e.orbit) * 17, 7, target.z + Math.sin(e.orbit) * 17); }
       }
-      const acc = desired.sub(e.pos).clampLength(0, 6).multiplyScalar(e.kami ? 3.4 : 1.4);
+      const acc = desired.sub(e.pos).clampLength(0, 6).multiplyScalar(e.kami ? 2.4 : 1.0);
       // separation
       for (const o of this.list) {
         if (o === e || !o.alive) continue;
@@ -521,7 +522,7 @@ export class Enemies {
       if (e.pos.y < 1.2) acc.y += (1.2 - e.pos.y) * 20;
       e.vel.addScaledVector(acc, dt);
       e.vel.multiplyScalar(Math.exp(-1.6 * dt));
-      e.vel.clampLength(0, e.heavy ? 4.2 : (e.kami ? 10.5 : 6.5));
+      e.vel.clampLength(0, e.heavy ? 3.2 : (e.kami ? 7.5 : 4.6));
       e.pos.addScaledVector(e.vel, dt);
 
       // orientation: face the player, bank with acceleration
@@ -588,8 +589,8 @@ export class Enemies {
       if (player.dead) continue;
       e.fireCD -= dt * (this.noiseT > 0 ? 1.3 : 1);
       const charging = this.list.reduce((n, o) => n + (o.charge > 0 ? 1 : 0), 0);
-      if (los && e.fireCD <= 0 && e.charge <= 0 && e.stagger <= 0 && charging < 2) { e.charge = 0.0001; this.audio.charge(e.pos); }
-      else if (los && e.fireCD <= 0 && charging >= 2) e.fireCD = 0.3 + Math.random() * 0.5; // wait for a firing slot
+      if (los && e.fireCD <= 0 && e.charge <= 0 && e.stagger <= 0 && charging < 1) { e.charge = 0.0001; this.audio.charge(e.pos); }
+      else if (los && e.fireCD <= 0 && charging >= 1) e.fireCD = 0.3 + Math.random() * 0.5; // wait for a firing slot
       if (e.charge > 0) {
         e.charge += dt / 0.65;
         if (e.charge >= 1) {
@@ -598,7 +599,7 @@ export class Enemies {
           e.burst++;
           const burstN = e.heavy ? 4 : 2;
           if (e.burst < burstN) e.fireCD = e.heavy ? 0.18 : 0.25;
-          else { e.burst = 0; e.fireCD = ((e.heavy ? 2.4 : 1.8) + Math.random() * 1.8) * (this.fireMult || 1); }
+          else { e.burst = 0; e.fireCD = ((e.heavy ? 3.4 : 2.8) + Math.random() * 2.2) * (this.fireMult || 1); }
           if (e.burst > 0) e.charge = 0; // next shot of burst skips charge
         }
       }
@@ -606,7 +607,7 @@ export class Enemies {
         this.fireBolt(e, player);
         e.burst++;
         const burstN = e.heavy ? 4 : 2;
-        if (e.burst >= burstN) { e.burst = 0; e.fireCD = ((e.heavy ? 2.4 : 1.8) + Math.random() * 1.8) * (this.fireMult || 1); } else e.fireCD = e.heavy ? 0.18 : 0.25;
+        if (e.burst >= burstN) { e.burst = 0; e.fireCD = ((e.heavy ? 3.4 : 2.8) + Math.random() * 2.2) * (this.fireMult || 1); } else e.fireCD = e.heavy ? 0.18 : 0.25;
       }
     }
     this.list = this.list.filter((e) => e.alive);

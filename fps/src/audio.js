@@ -185,6 +185,14 @@ export class Audio {
     this.tone(d, t + 0.1, 2.2, { f: 600, f1: 1900, gain: 0.05, attack: 0.3, curve: 1.5 });
     this.noise(d, t + 2.4, 0.3, { type: 'bandpass', f: 1200, q: 0.8, gain: 0.25 });
   }
+  // hostile rifle: positional crack + body, distance does the rest
+  enemyShot(pos) {
+    if (!this.enabled) return; const t = this.ctx.currentTime; const p = 0.92 + Math.random() * 0.16;
+    const d = this.out(pos, { verb: 0.9, gain: 0.85 });
+    this.noise(d, t, 0.02, { type: 'highpass', f: 2600, gain: 0.9 });
+    this.noise(d, t, 0.14, { type: 'lowpass', f: 3200 * p, f1: 450, q: 0.7, gain: 1.1, curve: 5 });
+    this.tone(d, t, 0.12, { f: 105 * p, f1: 40, gain: 0.7, curve: 3 });
+  }
   smokePop(pos) {
     if (!this.enabled) return; const t = this.ctx.currentTime; const d = this.out(pos, { verb: 0.3, gain: 0.8 });
     this.click(1200, 0.4);

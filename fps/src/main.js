@@ -21,6 +21,7 @@ import { Heli } from './heli.js';
 import { CrashEvent } from './setpiece.js';
 import { Rain } from './rain.js';
 import { Walkers } from './walker.js';
+import { Soldiers } from './soldiers.js';
 
 installFog();
 
@@ -145,6 +146,7 @@ async function boot() {
   const crash = new CrashEvent(scene, enemies, effects, audio);
   const rain = TOD.rain ? new Rain(scene, camera, effects, audio) : null;
   const walkers = new Walkers(scene, lib, effects, level, audio, enemies);
+  const soldiers = new Soldiers(scene, lib, effects, level, audio, enemies);
   enemies.walkers = walkers;
   enemies.hazards = hazards;
 
@@ -176,6 +178,7 @@ async function boot() {
   const W0 = new THREE.Vector3(0, -40, 0);
   const warmKinds = ['normal', 'heavy', 'kamikaze', 'sniper', 'medic', 'miner', 'shield'].map((k, i) => enemies.spawn(W0.clone().add(new THREE.Vector3(i * 3, 0, 0)), k));
   for (const e of warmKinds) { e.fireCD = 99; }
+  soldiers.spawn(W0.clone().add(new THREE.Vector3(-4, 0, 0)));
   enemies.sniperLogic(warmKinds[3], 0.016, player, true); warmKinds[3].aimT = 0.5; warmKinds[3].laser && (warmKinds[3].laser.visible = true);
   enemies.medicLogic(warmKinds[4], 0.016); if (warmKinds[4].beam) warmKinds[4].beam.visible = true;
   warmKinds[6].fireCD = 99;
@@ -198,13 +201,13 @@ async function boot() {
   flareCore.visible = wasFlare;
   [weapon, pistol, dmr, shotgun].forEach((w, i) => { w.root.visible = gunVis[i][0]; w.flash.visible = gunVis[i][1]; });
   warmFx.forEach((m) => scene.remove(m)); effects.decals.count = decal0;
-  enemies.clear(); heli.g.visible = false; crash.g.visible = false;
+  enemies.clear(); soldiers.clear(); heli.g.visible = false; crash.g.visible = false;
   for (const r of effects.rings) scene.remove(r.mesh); effects.rings.length = 0;
   effects.add.p.length = 0; effects.smoke.p.length = 0; effects.fire.p.length = 0;
   scene.remove(warm); warmLegs.forEach((o) => scene.remove(o));
   await progress(1, '就绪');
 
-  return { skyMesh, flareLight, flareCore, flashlight, lensGlow, lib, level, effects, audio, player, weapon, pistol, dmr, shotgun, enemies, grenades, ambient, boss, music, pickups, hazards, props, heli, crash, rain, hemi, walkers, sun };
+  return { skyMesh, flareLight, flareCore, flashlight, lensGlow, lib, level, effects, audio, player, weapon, pistol, dmr, shotgun, enemies, grenades, ambient, boss, music, pickups, hazards, props, heli, crash, soldiers, rain, hemi, walkers, sun };
 }
 
 function warmRender(R, scene) {
@@ -214,8 +217,9 @@ function warmRender(R, scene) {
   for (const o of off) o.frustumCulled = true;
 }
 const G = await boot();
-const { level, effects, audio, player, enemies, grenades, ambient, boss, music, pickups, hazards, walkers, props } = G;
+const { level, effects, audio, player, enemies, grenades, ambient, boss, music, pickups, hazards, walkers, props, soldiers } = G;
 grenades.props = hazards.props = enemies.props = props;
+enemies.soldiers = grenades.soldiers = hazards.soldiers = soldiers;
 function applyDifficulty() {
   const D = DIFF[settings.diff];
   player.dmgScale = D.dmg; enemies.hpMult = D.hp; enemies.fireMult = D.fire;
@@ -377,7 +381,7 @@ $('play').onclick = () => {
     setTimeout(() => radio(RADIO.start[0]), 1200);
     if (!saved.tutorialDone) {
       // first run: walk through the essentials during the opening countdown
-      const tips = ['WASD 移动 · Shift 冲刺 · 空格 跳跃/翻越', '右键 开镜 · 左键 射击 · R 换弹', '1-4 切枪（4 是霰弹枪）· V 近战', 'G 手雷 · B 切换烟雾弹（遮断无人机视线）', 'Q/E 探头 · C 蹲下（冲刺中滑铲）', '打无人机的发光“眼睛”可暴击 · 6 连杀后按 X 释放 EMP', '顶部罗盘标出敌人方位 · 场上有补给箱'];
+      const tips = ['WASD 移动 · Shift 冲刺 · 空格 跳跃/翻越', '右键 开镜 · 左键 射击 · R 换弹', '1-4 切枪（4 是霰弹枪）· V 近战', 'G 手雷 · B 切换烟雾弹（遮断无人机视线）', 'Q/E 探头 · C 蹲下（冲刺中滑铲）', '敌人举枪瞄准后才开火 · 打头一击致命 · 6 连杀后按 X 释放 EMP', '顶部罗盘标出敌人方位 · 场上有补给箱'];
       tips.forEach((tx, i) => setTimeout(() => hint(tx, 2.6), 400 + i * 2800));
       saved.tutorialDone = true; saved.seenV2 = true; persist();
     } else if (!saved.seenV2) {
@@ -449,6 +453,8 @@ const compass = { el: $('compass'), items: [], enemies: [] };
 // DOM writes only when the value changes (each write invalidates style/layout)
 const setT = (el, v) => { v = String(v); if (el._t !== v) { el._t = v; el.textContent = v; } };
 const setS = (el, k, v) => { const c = el._s || (el._s = {}); v = String(v); if (c[k] !== v) { c[k] = v; el.style[k] = v; } };
+// where to aim at a target: soldiers by the chest, machines by their centre
+const aimPt = (e) => (e.kind === 'soldier' ? e.A.chest.getWorldPosition(new THREE.Vector3()) : e.pos.clone());
 function updateCompass() {
   const fwd = new THREE.Vector3(); camera.getWorldDirection(fwd);
   const head = THREE.MathUtils.radToDeg(Math.atan2(fwd.x, -fwd.z));
@@ -467,12 +473,12 @@ function updateCompass() {
     place(el, THREE.MathUtils.radToDeg(Math.atan2(dx, -dz)));
     setS(el, 'opacity', THREE.MathUtils.clamp(1.2 - Math.hypot(dx, dz) / 40, 0.35, 1));
   });
-  const list = enemies.list.concat(walkers.list.filter((w) => w.alive));
+  const list = enemies.list.concat(walkers.list.filter((w) => w.alive), soldiers.list.filter((w) => w.alive));
   while (compass.enemies.length < list.length) { const e = document.createElement('i'); compass.el.appendChild(e); compass.enemies.push(e); }
   compass.enemies.forEach((el, i) => {
     const e = list[i];
     if (!e) { setS(el, 'display', 'none'); return; }
-    el.className = 'en' + (e.heavy ? ' heavy' : '') + (e.kami ? ' kami' : '') + (e.kind === 'walker' ? ' walker' : '') + (e.kind === 'medic' ? ' medic' : '') + (e.kind === 'miner' ? ' miner' : '') + (e.kind === 'shield' ? ' shieldd' : '');
+    el.className = 'en' + (e.heavy ? ' heavy' : '') + (e.kami ? ' kami' : '') + (e.kind === 'walker' ? ' walker' : '') + (e.kind === 'medic' ? ' medic' : '') + (e.kind === 'miner' ? ' miner' : '') + (e.kind === 'shield' ? ' shieldd' : '') + (e.kind === 'soldier' ? ' soldier' : '');
     place(el, THREE.MathUtils.radToDeg(Math.atan2(e.pos.x - camera.position.x, -(e.pos.z - camera.position.z))));
   });
 }
@@ -498,7 +504,7 @@ function radioNext() {
 }
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 const RADIO = {
-  start: ['九号码头，这里是指挥部。无人机巡逻队已接管堆场——清除它们，夺回码头。'],
+  start: ['九号码头，这里是指挥部。一支武装分队带着无人机占领了堆场——他们会找掩体和你对射，稳住，逐个解决。'],
   clear: ['这一波肃清了。补给已投放，抓紧时间换弹。', '干得好。雷达上又有信号在聚集，准备迎接下一波。', '区域暂时安全。别在开阔地停留太久。', '确认击落。它们在调整编队，保持警惕。'],
   boss: ['侦测到大型目标——母舰 WARDEN 正在接近。先打掉它的旋翼舱！'],
   low: ['你的生命体征在下降，找掩体！', '你受伤了，退到掩体后面等护盾恢复。'],
@@ -546,7 +552,7 @@ function updateHUD(dt, t) {
   $('lockwarn').classList.toggle('on', enemies.list.some((e) => e.lasering));
   setT(hud.wn, waves.endless ? `无尽 ${waves.index + 1}` : waves.index + 1);
   setT(hud.score, score.total);
-  setT(hud.wleft, waves.active ? `剩余 ${enemies.list.length + walkers.alive + waves.queue.length}` : (waves.index + 1 >= WAVES.length && waves.done ? '已肃清' : '准备'));
+  setT(hud.wleft, waves.active ? `剩余 ${enemies.list.length + walkers.alive + soldiers.alive + waves.queue.length}` : (waves.index + 1 >= WAVES.length && waves.done ? '已肃清' : '准备'));
 }
 
 // ------------------------------------------------------------------ gameplay hooks
@@ -563,8 +569,8 @@ for (const w of weapons) {
   w.events.magin = () => audio.magIn();
   w.events.bolt = () => audio.bolt();
 }
-const NAMES = { normal: '哨兵无人机', heavy: '重型哨兵', kamikaze: '自爆蜂', walker: '四足机甲', sniper: '狙击无人机', medic: '维修无人机', miner: '布雷无人机', shield: '盾卫无人机' };
-const POINTS = { normal: 100, heavy: 250, kamikaze: 150, walker: 450, sniper: 220, medic: 200, miner: 220, shield: 300 };
+const NAMES = { soldier: '武装人员', normal: '哨兵无人机', heavy: '重型哨兵', kamikaze: '自爆蜂', walker: '四足机甲', sniper: '狙击无人机', medic: '维修无人机', miner: '布雷无人机', shield: '盾卫无人机' };
+const POINTS = { soldier: 120, normal: 100, heavy: 250, kamikaze: 150, walker: 450, sniper: 220, medic: 200, miner: 220, shield: 300 };
 const score = { total: 0, combo: 0, last: -10, best: +(saved.best || 0) };
 // scorestreak: every EMP_KILLS kills charges an EMP that disables machines nearby
 const EMP_KILLS = 6, EMP_RADIUS = 32;
@@ -622,6 +628,7 @@ boss.onPodDown = (left) => {
 boss.onDeath = () => { stats.bossKilled = true; score.total += 3000; feed('母舰 WARDEN 已击落  +3000'); slowmo.t = 2.2; banner('TARGET DOWN', '母舰已击落', '', 3); };
 boss.onExploded = () => { player.shake = 1; };
 walkers.onKill = (w) => enemies.onKill(w);
+soldiers.onKill = (s) => enemies.onKill(s);
 enemies.onPlayerHit = (from, dmg) => {
   G.lastHitFrom = from && from.clone ? from.clone() : null;
   if (player.health < 30 && !player.dead && simTime - (G.lowRadioT ?? -99) > 40) { G.lowRadioT = simTime; radio(pick(RADIO.low)); }
@@ -633,7 +640,14 @@ enemies.onPlayerHit = (from, dmg) => {
 };
 
 // each wave: [normal, heavy, kamikaze]
-const WAVES = [[3, 0, 0], [3, 1, 1], [3, 1, 2, null, 1, 0, 1, 1, 1], [3, 2, 3, null, 1, 1, 1, 1, 1], [2, 1, 2, 'boss', 1, 1, 0, 1, 1]];
+// s soldiers (the main threat), n/h drones, k kamikaze, wk walker, sn sniper, md medic, mn miner, sd shield
+const WAVES = [
+  { s: 4 },
+  { s: 6, n: 1 },
+  { s: 7, n: 1, k: 1 },
+  { s: 8, n: 1, h: 1, wk: 1, sn: 1, sd: 1, md: 1 },
+  { s: 6, n: 1, special: 'boss' },
+];
 const WALKER_SPAWNS = [[-9, -20], [13, -0.5], [0, 17.5], [6, -20.5], [-8, 1.5]];
 const CN = ['一', '二', '三', '四', '五'];
 const waves = {
@@ -648,7 +662,7 @@ const waves = {
   wave(i) {
     if (i < WAVES.length && !this.endless) return WAVES[i];
     const e = i - WAVES.length + 1;
-    return [Math.min(3 + Math.floor(e * 0.6), 7), Math.min(1 + Math.floor(e / 2), 4), Math.min(2 + Math.floor(e / 1.5), 7), e % 5 === 0 && !this.blitz ? 'boss' : null, Math.min(1 + Math.floor(e / 3), 3), Math.min(1 + Math.floor(e / 2), 3), Math.min(1 + Math.floor(e / 3), 2), Math.min(Math.floor(e / 2), 2), Math.min(1 + Math.floor(e / 3), 3)];
+    return { s: Math.min(5 + e, 12), n: Math.min(1 + Math.floor(e / 2), 3), h: Math.min(Math.floor(e / 3), 2), k: Math.min(Math.floor(e / 2), 3), wk: e % 3 === 0 ? 1 : 0, sn: Math.min(Math.floor(e / 3), 2), md: Math.min(Math.floor(e / 4), 1), mn: Math.min(Math.floor(e / 4), 1), sd: Math.min(Math.floor(e / 3), 2), special: e % 5 === 0 && !this.blitz ? 'boss' : null };
   },
   goEndless() {
     this.endless = true; this.done = false; gameOver = false;
@@ -665,19 +679,24 @@ const waves = {
   },
   begin(delay) {
     this.active = false; this.timer = delay;
-    const [n, h, k, special, wk = 0, sn = 0, md = 0, mn = 0, sd = 0] = this.wave(this.index);
+    const W = this.wave(this.index);
+    const { s: sol = 0, n = 0, h = 0, k = 0, special = null, wk = 0, sn = 0, md = 0, mn = 0, sd = 0 } = W;
     stats.waveDmg = 0;
     if (this.index === 2 && !this.endless) setTimeout(() => G.crash.start(), 2500);
     this.bossPending = special === 'boss'; this.bossT = 4;
-    const q = [...Array(n).fill('normal'), ...Array(h).fill('heavy'), ...Array(k).fill('kamikaze'), ...Array(wk).fill('walker'), ...Array(sn).fill('sniper'), ...Array(md).fill('medic'), ...Array(mn).fill('miner'), ...Array(sd).fill('shield')];
-    for (let i = q.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [q[i], q[j]] = [q[j], q[i]]; }
+    // infantry lead the wave; machines join once the squads are in
+    const extra = [...Array(n).fill('normal'), ...Array(h).fill('heavy'), ...Array(k).fill('kamikaze'), ...Array(wk).fill('walker'), ...Array(sn).fill('sniper'), ...Array(md).fill('medic'), ...Array(mn).fill('miner'), ...Array(sd).fill('shield')];
+    for (let i = extra.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [extra[i], extra[j]] = [extra[j], extra[i]]; }
+    const q = Array(Math.min(sol, 3)).fill('soldier'); let rest = sol - q.length;
+    for (const x of extra) { if (rest > 0) { q.push('soldier'); rest--; } q.push(x); if (rest > 0) { q.push('soldier'); rest--; } }
+    while (rest-- > 0) q.push('soldier');
     this.queue = q;
-    const parts = [`哨兵 ×${n}`]; if (h) parts.push(`重型哨兵 ×${h}`); if (k) parts.push(`自爆蜂 ×${k}`); if (wk) parts.push(`四足机甲 ×${wk}`); if (sn) parts.push(`狙击无人机 ×${sn}`); if (md) parts.push(`维修无人机 ×${md}`); if (mn) parts.push(`布雷无人机 ×${mn}`); if (sd) parts.push(`盾卫无人机 ×${sd}`);
+    const parts = []; if (sol) parts.push(`武装人员 ×${sol}`); if (n) parts.push(`哨兵无人机 ×${n}`); if (h) parts.push(`重型哨兵 ×${h}`); if (k) parts.push(`自爆蜂 ×${k}`); if (wk) parts.push(`四足机甲 ×${wk}`); if (sn) parts.push(`狙击无人机 ×${sn}`); if (md) parts.push(`维修无人机 ×${md}`); if (mn) parts.push(`布雷无人机 ×${mn}`); if (sd) parts.push(`盾卫无人机 ×${sd}`);
     if (this.blitz) banner(`BLITZ · ${this.index - WAVES.length}`, '限时突击', parts.join('  ·  '), 2.2);
     else if (this.endless) banner(`ENDLESS · ${this.index + 1}`, `无尽 · 第 ${this.index + 1} 波`, (special === 'boss' ? '母舰来袭  ·  ' : '') + parts.join('  ·  '), 3.2);
     else if (special === 'boss') banner('FINAL WAVE', '母舰 · WARDEN', '摧毁四个旋翼舱使护盾失效，然后攻击核心 · 激光可被掩体阻挡', 5);
     else banner(`WAVE ${this.index + 1} / ${WAVES.length}`, `第 ${CN[this.index]} 波`, parts.join('  ·  '), 3.2);
-    if (k && this.index === 1) setTimeout(() => hint('自爆蜂会直冲过来引爆 · 在远处击落它', 4), 3500);
+    if (k && !this.kamiHint) { this.kamiHint = true; setTimeout(() => hint('自爆蜂会直冲过来引爆 · 在远处击落它', 4), 3500); }
   },
   update(dt) {
     if (this.done) return;
@@ -694,8 +713,17 @@ const waves = {
     }
     this.spawnT -= dt;
     if (this.bossPending) { this.bossT -= dt; if (this.bossT <= 0) { this.bossPending = false; boss.spawn(new THREE.Vector3(0, 16, -34)); radio(RADIO.boss[0]); } }
-    if (this.queue.length && this.spawnT <= 0) {
+    const onField = enemies.list.length + walkers.alive + soldiers.alive;
+    const capN = Math.min(8, 5 + Math.floor(this.index / 2));
+    if (this.queue.length && this.spawnT <= 0 && onField < capN) {
       const kind = this.queue.shift();
+      if (kind === 'soldier') {
+        // enter from one of the far gates, a few seconds apart
+        const sp = soldiers.spawnPts.slice().sort((a, b) => Math.hypot(b[0] - player.pos.x, b[1] - player.pos.z) - Math.hypot(a[0] - player.pos.x, a[1] - player.pos.z))[Math.floor(Math.random() * 4)];
+        soldiers.spawn(new THREE.Vector3(sp[0], 0, sp[1]));
+        if (!this.soldierHint) { this.soldierHint = true; setTimeout(() => hint('武装人员会找掩体射击 · 枪口举起后才开火 · 打头一击致命', 4.5), 1500); }
+        this.spawnT = 1.8;
+      } else
       if (kind === 'walker') {
         const sp = WALKER_SPAWNS.slice().sort((a, b) => Math.hypot(b[0] - player.pos.x, b[1] - player.pos.z) - Math.hypot(a[0] - player.pos.x, a[1] - player.pos.z))[Math.floor(Math.random() * 2)];
         walkers.spawn(new THREE.Vector3(sp[0], 0, sp[1]));
@@ -712,7 +740,7 @@ const waves = {
       this.spawnT = 1.1;
       }
     }
-    if (!this.queue.length && enemies.list.length === 0 && enemies.falling.length === 0 && walkers.alive === 0 && !this.bossPending && !boss.active) {
+    if (!this.queue.length && enemies.list.length === 0 && enemies.falling.length === 0 && walkers.alive === 0 && soldiers.alive === 0 && !this.bossPending && !boss.active) {
       if (stats.waveDmg < 0.5) { stats.flawless++; feed('毫发无伤 · 本波未受伤  +250'); score.total += 250; }
       if (this.index + 1 >= WAVES.length && !this.endless) { this.done = true; victory(); return; }
       this.index++;
@@ -818,7 +846,7 @@ function defeat() {
   const from = G.lastHitFrom;
   let best = null, bd = Infinity;
   if (from) {
-    for (const e of enemies.list.concat(walkers.list)) if (e.alive) { const d = e.pos.distanceTo(from); if (d < bd) { bd = d; best = e; } }
+    for (const e of enemies.list.concat(walkers.list, soldiers.list)) if (e.alive) { const d = e.pos.distanceTo(from); if (d < bd) { bd = d; best = e; } }
     if (boss.active && boss.pos && boss.pos.distanceTo(from) < bd) best = { pos: boss.pos, kind: 'boss', hp: boss.hpFrac, maxHp: 1 };
   }
   if (best && bd < 25) {
@@ -831,7 +859,7 @@ function defeat() {
   setTimeout(() => showEnd(false), 4200);
 }
 function restart() {
-  enemies.clear(); grenades.clear(); boss.clear(); pickups.reset(); hazards.reset(); walkers.clear(); props.reset(); G.heli.reset(); G.crash.reset(); G.killcam = null; $('killcam').classList.remove('on'); medalShown.clear();
+  enemies.clear(); grenades.clear(); boss.clear(); pickups.reset(); hazards.reset(); walkers.clear(); soldiers.clear(); props.reset(); G.heli.reset(); G.crash.reset(); G.killcam = null; $('killcam').classList.remove('on'); medalShown.clear();
   player.pos.copy(level.playerStart); player.vel.set(0, 0, 0); player.yaw = level.playerYaw; player.pitch = 0;
   player.health = 100; player.dead = false;
   G.weapon.ammo = 30; G.weapon.reserve = 180; G.pistol.ammo = 15; G.pistol.reserve = 60; G.dmr.ammo = 20; G.dmr.reserve = 80; G.shotgun.ammo = 6; G.shotgun.reserve = 30;
@@ -1004,10 +1032,22 @@ function shoot(t) {
     if (pens && Math.random() < 0.5) audio.impact(hits[0].point, 'metal');
     let eh = enemies.raycast(origin, dir, wh ? wh.distance : 400);
     const bh = boss.raycast(origin, dir, eh ? eh.t : (wh ? wh.distance : 400));
-    const wr = walkers.raycast(origin, dir, Math.min(bh ? bh.t : 400, eh ? eh.t : 400, wh ? wh.distance : 400));
-    if (weapon.falloff) penMul *= weapon.falloff(wr ? wr.t : bh ? bh.t : eh ? eh.t : (wh ? wh.distance : 0));
+    let wr = walkers.raycast(origin, dir, Math.min(bh ? bh.t : 400, eh ? eh.t : 400, wh ? wh.distance : 400));
+    const sr = soldiers.raycast(origin, dir, Math.min(wr ? wr.t : 400, bh ? bh.t : 400, eh ? eh.t : 400, wh ? wh.distance : 400));
+    if (weapon.falloff) penMul *= weapon.falloff(sr ? sr.t : wr ? wr.t : bh ? bh.t : eh ? eh.t : (wh ? wh.distance : 0));
     let end;
-    if (wr) {
+    if (sr) {
+      end = sr.point; eh = null; wr = null; killSource.dist = sr.t;
+      const head = sr.part === 'head';
+      const killed = soldiers.damage(sr.soldier, THREE.MathUtils.randFloat(weapon.damage[0], weapon.damage[1]) * penMul, sr.part, dir);
+      aggDmg(sr.soldier, sr.point, sr.soldier.lastDmg || 0, head);
+      stats.hits++; hitT = 0.12;
+      if (head) { stats.crits++; stats.heads = (stats.heads || 0) + 1; critT = 0.3; audio.crit(); } else if (!killed) audio.hitmarker(false);
+      audio.impact(sr.point, 'wood');
+      // dust and fabric fibres off the hit, kept non-graphic
+      for (let i = 0; i < 8; i++) effects.add.emit({ pos: sr.point, vel: dir.clone().multiplyScalar(1.5).add(new THREE.Vector3((Math.random() - 0.5) * 2, Math.random() * 1.5, (Math.random() - 0.5) * 2)), life: 0.35, size: 0.01, color: new THREE.Color(0.5, 0.45, 0.35), gravity: 6 });
+      effects.puff(sr.point, dir.clone().negate(), new THREE.Color(0.42, 0.4, 0.34), 3, 0.12, 0.6);
+    } else if (wr) {
       end = wr.point; eh = null; killSource.dist = wr.t;
       const killed = walkers.damage(wr.walker, THREE.MathUtils.randFloat(weapon.damage[0], weapon.damage[1]) * penMul, wr.part, dir);
       aggDmg(wr.walker, wr.point, wr.walker.lastDmg || 0, wr.part === 'cell');
@@ -1150,8 +1190,8 @@ function pollGamepad(dt) {
   // look: expo curve, ADS + aim-assist slowdown over targets
   const fwd = camera.getWorldDirection(new THREE.Vector3());
   let assist = 1;
-  for (const e of enemies.list.concat(walkers.list.filter((w) => w.alive))) {
-    const to = e.pos.clone().sub(camera.position); const d = to.length();
+  for (const e of enemies.list.concat(walkers.list.filter((w) => w.alive), soldiers.list.filter((w) => w.alive))) {
+    const to = aimPt(e).sub(camera.position); const d = to.length();
     if (fwd.dot(to.normalize()) > Math.cos(Math.max(0.03, 1.2 / d))) { assist = 0.55; break; }
   }
   const rate = 3.1 * settings.sens * THREE.MathUtils.lerp(1, settings.adsSens * 0.8, weapon.ads) * THREE.MathUtils.lerp(1, weapon.kind === 'dmr' ? 0.4 : (weapon.opticSens || 1), weapon.ads) * assist;
@@ -1166,9 +1206,9 @@ function pollGamepad(dt) {
   if (input.ads && !wasAds) {
     // ADS snap: nudge toward the nearest target close to the crosshair
     let best = null, bestA = 0.1;
-    for (const e of enemies.list.concat(walkers.list.filter((w) => w.alive))) {
-      const to = e.pos.clone().sub(camera.position).normalize(); const a = Math.acos(THREE.MathUtils.clamp(fwd.dot(to), -1, 1));
-      if (a < bestA && !segmentBlockedFn(camera.position, e.pos)) { bestA = a; best = to; }
+    for (const e of enemies.list.concat(walkers.list.filter((w) => w.alive), soldiers.list.filter((w) => w.alive))) {
+      const to = aimPt(e).sub(camera.position).normalize(); const a = Math.acos(THREE.MathUtils.clamp(fwd.dot(to), -1, 1));
+      if (a < bestA && !segmentBlockedFn(camera.position, aimPt(e))) { bestA = a; best = to; }
     }
     if (best) { player.yaw = THREE.MathUtils.lerp(player.yaw, Math.atan2(-best.x, -best.z), 0.6); player.pitch = THREE.MathUtils.lerp(player.pitch, Math.asin(best.y), 0.6); }
   }
@@ -1202,6 +1242,7 @@ function meleeStrike(t) {
   let hit = null;
   for (const e of enemies.list) if (e.alive && inCone(e.pos, 2.0 + e.radius)) { hit = e.pos.clone(); enemies.damage(e, 120, e.pos, fwd); }
   for (const w of walkers.list) if (w.alive && inCone(w.pos, 2.6)) { hit = w.pos.clone(); walkers.damage(w, 120, 'body', null); }
+  for (const so of soldiers.list) if (so.alive && inCone(so.pos.clone().setY(1.1), 2.0)) { hit = so.pos.clone(); soldiers.damage(so, 150, 'body', camera.getWorldDirection(new THREE.Vector3())); }
   for (const d of hazards.list) if (d.alive && inCone(d.pos, 1.9)) { hit = d.pos.clone(); hazards.damage(d, 15, d.pos); }
   if (!hit) {
     raycaster.set(o, fwd); raycaster.far = 1.9;
@@ -1311,6 +1352,7 @@ function loop() {
     updateDmgNums(realDt);
     killSource = { type: 'other' };
     walkers.update(dt, t, player);
+    soldiers.update(dt, t, player, enemies.onPlayerHit);
     boss.update(dt, t, player);
     if (G.aimingGrenade) grenades.showPreview(camera, player.vel); 
     pickups.update(dt, t, player, (kind) => {

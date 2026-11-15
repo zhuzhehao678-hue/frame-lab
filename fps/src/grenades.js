@@ -132,6 +132,7 @@ export class Grenades {
 
   explode(pos, { enemies, player, t, onPlayerHit, boss, hazards, walkers }) {
     if (walkers) walkers.splash(pos, 7, 230);
+    if (this.soldiers) this.soldiers.splash(pos, 7, 230);
     if (hazards) hazards.splash(pos, 6);
     if (enemies && enemies.triggerMines) enemies.triggerMines(pos, 6);
     if (this.props) this.props.splash(pos, 7, 40);
