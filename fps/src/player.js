@@ -55,7 +55,7 @@ export class Player {
     for (let iter = 0; iter < 3; iter++) {
       let hit = false;
       for (const b of this.level.colliders) {
-        if (b.max.y <= feet + STEP || b.min.y >= head) continue;
+        if (b.max.y <= feet + STEP || b.min.y >= head || b.max.y <= 0.05) continue; // never shove sideways out of the ground slab
         const cx = THREE.MathUtils.clamp(p.x, b.min.x, b.max.x);
         const cz = THREE.MathUtils.clamp(p.z, b.min.z, b.max.z);
         let dx = p.x - cx, dz = p.z - cz;
@@ -81,8 +81,57 @@ export class Player {
     }
   }
 
+  // is the capsule at (x, feet, z) free of colliders?
+  freeAt(x, feet, z, height = STAND_H) {
+    for (const b of this.level.colliders) {
+      if (b.max.y <= feet + 0.02 || b.min.y >= feet + height) continue;
+      if (x + RADIUS > b.min.x && x - RADIUS < b.max.x && z + RADIUS > b.min.z && z - RADIUS < b.max.z) return false;
+    }
+    return true;
+  }
+
+  // look for a waist-high obstacle straight ahead that can be vaulted/mantled
+  tryVault(fwd) {
+    const feet = this.pos.y;
+    for (const reach of [0.45, 0.7, 0.95]) {
+      const px = this.pos.x + fwd.x * reach, pz = this.pos.z + fwd.z * reach;
+      for (const b of this.level.colliders) {
+        const top = b.max.y - feet;
+        if (top < 0.5 || top > 1.35) continue;
+        if (px < b.min.x - 0.05 || px > b.max.x + 0.05 || pz < b.min.z - 0.05 || pz > b.max.z + 0.05) continue;
+        // depth of the obstacle along fwd: march until we're past it
+        // march forward: find where the ray enters and then leaves the box
+        let over = -1, entered = false;
+        for (let d = 0; d < 4.5; d += 0.05) {
+          const x = this.pos.x + fwd.x * d, z = this.pos.z + fwd.z * d;
+          const inside = x >= b.min.x && x <= b.max.x && z >= b.min.z && z <= b.max.z;
+          if (inside) entered = true; else if (entered) { over = d; break; }
+        }
+        if (over < 0) continue;
+        const land = new THREE.Vector3(this.pos.x + fwd.x * (over + RADIUS + 0.15), feet, this.pos.z + fwd.z * (over + RADIUS + 0.15));
+        const g = this.groundHeightAt(land.x, land.z, b.max.y);
+        const topPt = new THREE.Vector3(this.pos.x + fwd.x * (reach + 0.2), b.max.y, this.pos.z + fwd.z * (reach + 0.2));
+        if (!this.freeAt(topPt.x, b.max.y, topPt.z, CROUCH_H)) continue;
+        if (over - reach < 1.6 && g > -1 && Math.abs(g - feet) < 0.6 && this.freeAt(land.x, g, land.z)) { land.y = g; return { from: this.pos.clone(), apex: b.max.y + 0.15, to: land, t: 0, dur: 0.55, kind: 'vault' }; }
+        if (this.freeAt(topPt.x, b.max.y, topPt.z)) return { from: this.pos.clone(), apex: b.max.y + 0.1, to: topPt, t: 0, dur: 0.6, kind: 'mantle' };
+      }
+    }
+    return null;
+  }
+
   update(dt, input, time) {
     if (this.dead) { this.updateCamera(dt, time); return; }
+    // ----- scripted vault / mantle
+    if (this.vault) {
+      const v = this.vault; v.t += dt / v.dur;
+      const s = Math.min(1, v.t), e = s * s * (3 - 2 * s);
+      this.pos.lerpVectors(v.from, v.to, e);
+      const rise = v.kind === 'vault' ? Math.sin(s * Math.PI) : Math.min(1, s * 1.6);
+      this.pos.y = THREE.MathUtils.lerp(v.from.y, v.to.y, e) + Math.max(0, v.apex - Math.max(v.from.y, v.to.y)) * rise;
+      this.vaultRoll = Math.sin(s * Math.PI) * (v.kind === 'vault' ? 0.12 : 0.05);
+      if (s >= 1) { this.vault = null; this.vaultRoll = 0; this.onGround = true; this.vel.set(0, 0, 0); if (this.onLand) this.onLand(3); }
+      this.speed = 3; this.updateCamera(dt, time); return;
+    }
     // ----- intent
     const fwd = new THREE.Vector3(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
     const right = new THREE.Vector3(-fwd.z, 0, fwd.x);
@@ -93,9 +142,24 @@ export class Player {
 
     const wantLean = this.sprinting ? 0 : (input.leanR ? 1 : 0) - (input.leanL ? 1 : 0);
     this.lean = THREE.MathUtils.damp(this.lean, wantLean, 11, dt);
-    const wantCrouch = input.crouch;
+    // slide: crouch while sprinting
+    if (input.crouch && !this.crouchHeld && this.sprinting && this.onGround && !this.slideT) {
+      const hvx = new THREE.Vector3(this.vel.x, 0, this.vel.z);
+      const dir = hvx.lengthSq() > 0.1 ? hvx.normalize() : fwd.clone();
+      const sp = Math.max(this.speed, 6.5) * 1.35;
+      this.vel.x = dir.x * sp; this.vel.z = dir.z * sp;
+      this.slideT = 0.85; this.slideDir = dir;
+      if (this.onSlide) this.onSlide();
+    }
+    this.crouchHeld = input.crouch;
+    if (this.slideT) {
+      this.slideT = Math.max(0, this.slideT - dt);
+      const hs = Math.hypot(this.vel.x, this.vel.z);
+      if (hs < 2.6 || !this.onGround) this.slideT = 0;
+    }
+    const wantCrouch = input.crouch || this.slideT > 0;
     this.crouch = THREE.MathUtils.damp(this.crouch, wantCrouch ? 1 : 0, 12, dt);
-    this.sprinting = input.sprint && input.f && !wantCrouch && this.ads < 0.3 && !input.firing;
+    this.sprinting = input.sprint && input.f && !input.crouch && !this.slideT && this.ads < 0.3 && !input.firing;
     let maxSpeed = this.sprinting ? 7.0 : 4.4;
     if (this.crouch > 0.5) maxSpeed = 2.3;
     if (this.ads > 0.5) maxSpeed = Math.min(maxSpeed, 3.7);
@@ -105,11 +169,22 @@ export class Player {
     const hv = new THREE.Vector3(this.vel.x, 0, this.vel.z);
     if (this.onGround) {
       const sp = hv.length();
-      if (sp > 0) { const drop = sp * 10 * dt; hv.multiplyScalar(Math.max(sp - drop, 0) / sp); }
-      const cur = hv.dot(wish);
-      const add = maxSpeed - cur;
-      if (add > 0) hv.addScaledVector(wish, Math.min(70 * dt * maxSpeed * 0.2, add));
-      if (input.jump && this.crouch < 0.5) { this.vel.y = 5.4; this.onGround = false; input.jump = false; }
+      if (this.slideT > 0) {
+        // low friction, slight steering
+        if (sp > 0) hv.multiplyScalar(Math.max(sp - sp * 1.6 * dt, 0) / sp);
+        hv.addScaledVector(wish, 2.5 * dt);
+      } else {
+        if (sp > 0) { const drop = sp * 10 * dt; hv.multiplyScalar(Math.max(sp - drop, 0) / sp); }
+        const cur = hv.dot(wish);
+        const add = maxSpeed - cur;
+        if (add > 0) hv.addScaledVector(wish, Math.min(70 * dt * maxSpeed * 0.2, add));
+      }
+      if (input.jump && (this.crouch < 0.5 || this.slideT > 0)) {
+        input.jump = false;
+        const v = this.tryVault(fwd);
+        if (v) { this.vault = v; this.slideT = 0; if (this.onVault) this.onVault(v.kind); return this.updateCamera(dt, time); }
+        this.vel.y = 5.4; this.onGround = false; this.slideT = 0;
+      }
     } else {
       const cur = hv.dot(wish);
       const add = maxSpeed * 0.8 - cur;
@@ -137,7 +212,9 @@ export class Player {
         for (const b of this.level.colliders) {
           if (this.pos.x + RADIUS < b.min.x || this.pos.x - RADIUS > b.max.x || this.pos.z + RADIUS < b.min.z || this.pos.z - RADIUS > b.max.z) continue;
           const head = this.pos.y + this.height;
-          if (b.min.y < head && b.min.y > this.pos.y + STEP) { this.pos.y = b.min.y - this.height; this.vel.y = 0; }
+          const headBefore = head - this.vel.y * h;
+          // only something that was above our head before this step is a ceiling
+          if (b.min.y < head && b.min.y >= headBefore - 0.02) { this.pos.y = Math.max(b.min.y - this.height, this.pos.y - this.vel.y * h); this.vel.y = 0; }
         }
       }
       const g2 = this.groundHeightAt(this.pos.x, this.pos.z, this.pos.y);
@@ -153,6 +230,7 @@ export class Player {
         this.onGround = false;
       }
     }
+    if (this.pos.y < -0.3 && Math.abs(this.pos.x) < 30 && this.pos.z > -26 && this.pos.z < 29) { this.pos.y = 0; this.vel.y = 0; this.onGround = true; }
     if (this.pos.y < -10) { this.pos.copy(this.level.playerStart); this.vel.set(0, 0, 0); }
 
     // footsteps
@@ -218,7 +296,7 @@ export class Player {
     } else this.leanOff = THREE.MathUtils.damp(this.leanOff, 0, 20, dt);
     cam.position.addScaledVector(right, this.leanOff);
     cam.position.y -= Math.abs(this.leanOff) * 0.12;
-    const roll = -this.lean * 0.17 - Math.cos(this.bobPhase) * 0.004 * this.bobAmp + n(1.3) * sh * 0.03 + (this.dead ? Math.min((time - this.deathTime), 1) * 0.6 : 0);
+    const roll = (this.vaultRoll || 0) + (this.slideT > 0 ? 0.07 : 0) - this.lean * 0.17 - Math.cos(this.bobPhase) * 0.004 * this.bobAmp + n(1.3) * sh * 0.03 + (this.dead ? Math.min((time - this.deathTime), 1) * 0.6 : 0);
     cam.rotation.set(this.pitch + this.recoilPitch + n(1.0) * sh * 0.03, this.yaw + this.recoilYaw + n(0.7) * sh * 0.03, roll, 'YXZ');
   }
 }

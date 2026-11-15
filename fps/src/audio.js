@@ -171,6 +171,15 @@ export class Audio {
     this.tone(d, t, 0.18, { f: 70, f1: 42, gain: 0.5, curve: 3 }); this.noise(d, t, 0.08, { type: 'lowpass', f: 900, gain: 0.5 });
     this.tone(d, t + 0.02, 0.12, { type: 'sawtooth', f: 340, f1: 520, gain: 0.04, attack: 0.03 });
   }
+  slide() {
+    if (!this.enabled) return; const t = this.ctx.currentTime; const d = this.out(null, { verb: 0.05, gain: 0.6 });
+    this.noise(d, t, 0.7, { type: 'bandpass', f: 900, f1: 300, q: 0.8, gain: 0.5, attack: 0.03, curve: 2 });
+    this.noise(d, t, 0.5, { type: 'highpass', f: 3000, gain: 0.12, attack: 0.02, curve: 2 });
+  }
+  vault() {
+    if (!this.enabled) return; const t = this.ctx.currentTime; const d = this.out(null, { verb: 0.05, gain: 0.6 });
+    this.noise(d, t, 0.12, { type: 'bandpass', f: 500, q: 1, gain: 0.6 }); this.click(900, 0.3, 0.05);
+  }
   heartbeat() {
     if (!this.enabled) return; const t = this.ctx.currentTime; const d = this.out(null, { verb: 0, gain: 0.9 });
     this.tone(d, t, 0.12, { f: 62, f1: 40, gain: 0.7, curve: 3 }); this.tone(d, t + 0.17, 0.12, { f: 55, f1: 38, gain: 0.5, curve: 3 });

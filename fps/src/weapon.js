@@ -357,6 +357,9 @@ export class Weapon {
     pos.y += THREE.MathUtils.clamp(-player.vel.y * 0.002, -0.02, 0.02);
     // crouch tilt
     rot.z += player.crouch * 0.05 * (1 - this.ads);
+    // slide / vault: gun tucked low and canted
+    const vk = player.vault ? Math.sin(Math.min(1, player.vault.t) * Math.PI) : 0;
+    pos.y -= (this.slideK || 0) * 0.03 + vk * 0.12; rot.z += (this.slideK || 0) * 0.25 + vk * 0.4; rot.x -= vk * 0.3;
     // sprint pose (tactical lower)
     const sp = this.sprint;
     pos.add(new THREE.Vector3(-0.03, -0.045, 0.03).multiplyScalar(sp));
@@ -416,7 +419,8 @@ export class Weapon {
 
     // FOV
     const baseFov = this.baseFov || 74;
-    this.camera.fov = THREE.MathUtils.lerp(baseFov, baseFov * 0.72, this.ads) + this.sprint * 4;
+    this.slideK = THREE.MathUtils.damp(this.slideK || 0, player.slideT > 0 ? 1 : 0, 10, dt);
+    this.camera.fov = THREE.MathUtils.lerp(baseFov, baseFov * 0.72, this.ads) + this.sprint * 4 + this.slideK * 7;
     this.camera.updateProjectionMatrix();
     const vfov = THREE.MathUtils.lerp(VM.fov, VM.fov * 0.86, this.ads);
     const top = 0.01 * Math.tan(THREE.MathUtils.degToRad(vfov / 2)), h = 2 * top, w = h * this.camera.aspect;

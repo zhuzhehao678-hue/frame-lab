@@ -347,6 +347,8 @@ function updateHUD(dt, t) {
 const stats = { shots: 0, hits: 0, kills: 0, t0: 0, dmgTaken: 0 };
 player.onStep = (sp, sprint) => audio.footstep(sprint);
 player.onLand = (v) => audio.land(v);
+player.onSlide = () => audio.slide();
+player.onVault = () => audio.vault();
 effects.onBrass = (p) => audio.brass(p);
 for (const w of weapons) {
   w.events.magout = () => audio.magOut();
