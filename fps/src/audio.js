@@ -439,7 +439,22 @@ export class Audio {
     const tick = () => {
       if (!this.ctx) return;
       const t = ctx.currentTime;
-      if (Math.random() < 0.5) {
+      const r = Math.random();
+      if (r < 0.1) {
+        // distant ship horn: two detuned low saws, long swell
+        const d = this.out(new THREE.Vector3(60, 10, -300), { verb: 1.8, gain: 0.9 });
+        for (const f of [92, 116]) { this.tone(d, t, 3.2, { type: 'sawtooth', f, gain: 0.07, attack: 0.5, curve: 1.3 }); }
+        this.noise(d, t, 3.2, { type: 'lowpass', f: 300, gain: 0.05, attack: 0.5, curve: 1.3 });
+      } else if (r < 0.2) {
+        // harbour PA: three-note chime then muffled announcement babble
+        const d = this.out(new THREE.Vector3(-18, 8, 0), { verb: 1.4, gain: 0.6 });
+        [784, 659, 523].forEach((f, k) => this.tone(d, t + k * 0.42, 0.9, { type: 'sine', f, gain: 0.09, attack: 0.01, curve: 3 }));
+        for (let k = 0; k < 7; k++) this.noise(d, t + 1.5 + k * 0.28 + Math.random() * 0.08, 0.2 + Math.random() * 0.15, { type: 'bandpass', f: 600 + Math.random() * 900, q: 4, gain: 0.12, attack: 0.03, curve: 2 });
+      } else if (r < 0.3) {
+        // mooring lines creaking against the bollards
+        const d = this.out(new THREE.Vector3(44, 2, -27), { verb: 0.5, gain: 0.6 });
+        this.tone(d, t, 0.9, { type: 'sawtooth', f: 310 + Math.random() * 80, f1: 240, gain: 0.025, attack: 0.15, curve: 1.8 });
+      } else if (r < 0.65) {
         const d = this.out(new THREE.Vector3((Math.random() - 0.5) * 60, 15, -40 - Math.random() * 30), { verb: 0.8, gain: 0.5 });
         for (let k = 0; k < 2 + Math.floor(Math.random() * 3); k++) this.tone(d, t + k * 0.22, 0.2, { type: 'triangle', f: 1500 + Math.random() * 300, f1: 900, gain: 0.05, attack: 0.03, curve: 2 });
       } else {
