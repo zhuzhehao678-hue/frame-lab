@@ -171,7 +171,7 @@ export class Walkers {
       const fwd = new THREE.Vector3(-Math.sin(w.yaw), 0, -Math.cos(w.yaw));
       if (fwd.dot(dir) < -0.5) k = 0.5;
     }
-    w.hp -= amount * k; w.hitFlash = 1;
+    w.hp -= amount * k; w.hitFlash = 1; w.lastDmg = amount * k;
     if (w.hp <= 0) { this.kill(w); return true; }
     return false;
   }

@@ -33,8 +33,8 @@ let todName = params.get('t') || saved.tod || 'golden';
 if (!TIMES[todName]) todName = 'golden';
 const TOD = TIMES[todName];
 const DIFF = { easy: { dmg: 0.42, hp: 0.8, fire: 1.35, score: 0.8 }, normal: { dmg: 0.62, hp: 1, fire: 1, score: 1 }, hard: { dmg: 0.85, hp: 1.25, fire: 0.78, score: 1.35 } };
-const settings = { xhStyle: saved.xhStyle || 'both', xhColor: saved.xhColor || '#f0ece4', mblur: saved.mblur ?? true, diff: DIFF[saved.diff] ? saved.diff : 'normal', sens: saved.sens ?? 1, fov: saved.fov ?? 74, adsSens: saved.adsSens ?? 0.9, music: saved.music ?? 0.5, optic: saved.optic || 'reddot', muzzle: saved.muzzle || 'brake' };
-$('diff').value = settings.diff; $('xhstyle').value = settings.xhStyle; $('xhcolor').value = settings.xhColor; $('mblur').checked = settings.mblur; $('quality').value = qualityName; $('tod').value = todName; $('sens').value = settings.sens; $('adssens').value = settings.adsSens; $('music').value = settings.music; $('fov').value = settings.fov; $('optic').value = settings.optic; $('muzzle').value = settings.muzzle;
+const settings = { xhStyle: saved.xhStyle || 'both', xhColor: saved.xhColor || '#f0ece4', mblur: saved.mblur ?? true, diff: DIFF[saved.diff] ? saved.diff : 'normal', sens: saved.sens ?? 1, fov: saved.fov ?? 74, adsSens: saved.adsSens ?? 0.9, music: saved.music ?? 0.5, optic: saved.optic || 'reddot', muzzle: saved.muzzle || 'brake', dmgNums: saved.dmgNums ?? false };
+$('diff').value = settings.diff; $('xhstyle').value = settings.xhStyle; $('xhcolor').value = settings.xhColor; $('mblur').checked = settings.mblur; $('quality').value = qualityName; $('tod').value = todName; $('sens').value = settings.sens; $('adssens').value = settings.adsSens; $('music').value = settings.music; $('fov').value = settings.fov; $('optic').value = settings.optic; $('dmgnum').checked = settings.dmgNums; $('muzzle').value = settings.muzzle;
 const persist = () => LS.setItem('afterglow', JSON.stringify({ quality: qualityName, tod: todName, ...settings, binds: saved.binds, best: saved.best || 0, bestWave: saved.bestWave || 0, tutorialDone: !!saved.tutorialDone }));
 
 const frame = () => new Promise((r) => requestAnimationFrame(() => r()));
@@ -294,6 +294,7 @@ $('diff').onchange = (e) => { settings.diff = e.target.value; applyDifficulty();
 $('music').oninput = (e) => { settings.music = +e.target.value; music.setVolume(settings.music); persist(); };
 $('adssens').oninput = (e) => { settings.adsSens = +e.target.value; persist(); };
 $('optic').onchange = (e) => { settings.optic = e.target.value; G.weapon.setOptic(settings.optic); persist(); };
+$('dmgnum').onchange = (e) => { settings.dmgNums = e.target.checked; persist(); };
 $('muzzle').onchange = (e) => { settings.muzzle = e.target.value; G.weapon.setMuzzle(settings.muzzle === 'sup'); persist(); };
 $('fov').oninput = (e) => { settings.fov = +e.target.value; for (const w of weapons) w.baseFov = settings.fov; persist(); };
 $('quality').onchange = (e) => {
@@ -735,6 +736,29 @@ function updateFlare(dt, t) {
   if (Math.random() < dt * 20) effects.smoke.emit({ pos: flare.pos.clone().add(new THREE.Vector3(0, 0.2, 0)), vel: new THREE.Vector3((Math.random() - 0.5) * 0.3, 0.4, (Math.random() - 0.5) * 0.3), life: 9, size: 0.4, size1: 3.5, color: new THREE.Color(0.55, 0.5, 0.46).multiplyScalar(0.35 + 0.65 * k), alpha: 0.35, alpha1: 0, drag: 0.6, gravity: -0.05, rotVel: (Math.random() - 0.5) * 0.4 });
   if (flare.t > life || flare.pos.y < 3) { flare.t = -1; }
 }
+// floating damage numbers (optional): one per target per shot
+const shotAgg = new Map();
+function aggDmg(key, point, v, crit) {
+  const a = shotAgg.get(key); if (a) { a.sum += v; a.crit = a.crit || crit; } else shotAgg.set(key, { point: point.clone(), sum: v, crit });
+}
+const dmgPool = []; let dmgIdx = 0;
+for (let i = 0; i < 24; i++) { const d = document.createElement('div'); d.className = 'dn'; $('dmgnums').appendChild(d); dmgPool.push({ el: d, t: 9, pos: new THREE.Vector3(), vy: 0 }); }
+function dmgNum(point, v, crit) {
+  const n = dmgPool[dmgIdx++ % dmgPool.length];
+  n.t = 0; n.pos.copy(point); n.vx = (Math.random() - 0.5) * 0.6; n.el.textContent = Math.round(v); n.el.className = 'dn' + (crit ? ' crit' : '');
+}
+function updateDmgNums(dt) {
+  const w = innerWidth, h = innerHeight, v = new THREE.Vector3();
+  for (const n of dmgPool) {
+    if (n.t > 0.9) { if (n.el.style.opacity !== '0') n.el.style.opacity = 0; continue; }
+    n.t += dt; n.pos.y += dt * 0.9; n.pos.x += n.vx * dt;
+    v.copy(n.pos).project(camera);
+    if (v.z > 1) { n.el.style.opacity = 0; continue; }
+    const pop = n.t < 0.08 ? 1.5 - n.t * 6 : 1;
+    n.el.style.transform = `translate(${(v.x * 0.5 + 0.5) * w}px, ${(-v.y * 0.5 + 0.5) * h}px) translate(-50%, -50%) scale(${pop})`;
+    n.el.style.opacity = Math.min(1, (0.9 - n.t) * 4);
+  }
+}
 function scareGulls(pos, k) {
   const n = ambient.scare(pos, k);
   if (n >= 2 && simTime - (G.gullT ?? -99) > 6) { G.gullT = simTime; audio.gulls(n); }
@@ -770,6 +794,7 @@ function shoot(t) {
   player.pitch += climb; player.yaw -= side;
   player.addRecoil(0.006, (Math.random() - 0.5) * 0.004);
   const pellets = weapon.pellets || 1;
+  shotAgg.clear();
   if (pellets > 1) stats.shots += pellets - 1;
   for (let pel = 0; pel < pellets; pel++) {
     // ray with spread
@@ -804,13 +829,16 @@ function shoot(t) {
     if (wr) {
       end = wr.point; eh = null; killSource.dist = wr.t;
       const killed = walkers.damage(wr.walker, THREE.MathUtils.randFloat(weapon.damage[0], weapon.damage[1]) * penMul, wr.part, dir);
+      aggDmg(wr.walker, wr.point, wr.walker.lastDmg || 0, wr.part === 'cell');
       stats.hits++; hitT = 0.12; if (!killed) audio.hitmarker(false);
       audio.impact(wr.point, 'metal');
       const crit = wr.part === 'cell';
       for (let i = 0; i < (crit ? 16 : 8); i++) effects.add.emit({ pos: wr.point, vel: new THREE.Vector3((Math.random() - 0.5) * 6, Math.random() * 4, (Math.random() - 0.5) * 6), life: 0.3, size: 0.014, color: crit ? new THREE.Color(9, 6, 1) : new THREE.Color(8, 5, 2), gravity: 9.8, stretch: 0.035 });
     } else if (bh) {
       end = bh.point; eh = null;
-      const r = boss.damage(bh.part, THREE.MathUtils.randFloat(weapon.damage[0], weapon.damage[1]) * penMul, bh.point);
+      const bv = THREE.MathUtils.randFloat(weapon.damage[0], weapon.damage[1]) * penMul;
+      const r = boss.damage(bh.part, bv, bh.point);
+      if (r !== 'armor') aggDmg(bh.part, bh.point, bv, false);
       if (r !== 'armor') { stats.hits++; hitT = 0.12; audio.hitmarker(r === 'kill'); if (r === 'kill') killT = 0.35; }
       audio.impact(bh.point, 'metal');
       for (let i = 0; i < 8; i++) effects.add.emit({ pos: bh.point, vel: new THREE.Vector3((Math.random() - 0.5) * 6, Math.random() * 4, (Math.random() - 0.5) * 6), life: 0.3, size: 0.012, color: new THREE.Color(8, 5, 2), gravity: 9.8, stretch: 0.035 });
@@ -823,7 +851,9 @@ function shoot(t) {
       if (rotor && !eh.enemy.staggerHinted) { eh.enemy.staggerHinted = true; feed('击中旋翼 · 目标失衡'); }
       const crit = !rotor && enemies.eyeHit(eh.enemy, origin, dir);
       if (crit) { stats.crits++; critT = 0.3; eh.enemy.flick = 0.25; }
-      const killed = enemies.damage(eh.enemy, THREE.MathUtils.randFloat(weapon.damage[0], weapon.damage[1]) * penMul * (rotor ? 1.3 : 1) * (crit ? 2.2 : 1), eh.point, dir);
+      const ev = THREE.MathUtils.randFloat(weapon.damage[0], weapon.damage[1]) * penMul * (rotor ? 1.3 : 1) * (crit ? 2.2 : 1);
+      aggDmg(eh.enemy, eh.point, ev, crit);
+      const killed = enemies.damage(eh.enemy, ev, eh.point, dir);
       if (crit) audio.crit(); else if (!killed) audio.hitmarker(false);
       if (crit) for (let i = 0; i < 14; i++) effects.add.emit({ pos: eh.point, vel: dir.clone().multiplyScalar(-2).add(new THREE.Vector3((Math.random() - 0.5) * 5, Math.random() * 3, (Math.random() - 0.5) * 5)), life: 0.25, size: 0.016, color: new THREE.Color(9, 2, 1), gravity: 6, stretch: 0.04 });
       const n = eh.point.clone().sub(eh.enemy.pos).normalize();
@@ -860,6 +890,7 @@ function shoot(t) {
   if (pellets > 1) continue;
     if (weapon.kind === 'rifle' && weapon.shotsFired % 3 === 1) effects.tracer(muzzle, end);
   }
+  if (settings.dmgNums) for (const v of shotAgg.values()) dmgNum(v.point, v.sum, v.crit);
 }
 
 // ------------------------------------------------------------------ ambient motes
@@ -1014,6 +1045,7 @@ function loop() {
     hazards.update(dt, { enemies, player, t, onPlayerHit: enemies.onPlayerHit, boss, walkers });
     props.update(dt, player);
     updateFlare(dt, t);
+    updateDmgNums(realDt);
     killSource = { type: 'other' };
     walkers.update(dt, t, player);
     boss.update(dt, t, player);
