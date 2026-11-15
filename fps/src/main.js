@@ -11,6 +11,7 @@ import { Audio } from './audio.js';
 import { Grenades } from './grenades.js';
 import { TIMES } from './timeofday.js';
 import { REFL } from './reflect.js';
+import { Ambient } from './ambient.js';
 
 installFog();
 
@@ -86,6 +87,7 @@ async function boot() {
   weapon.baseFov = settings.fov;
   const enemies = new Enemies(scene, lib, effects, level, audio);
   const grenades = new Grenades(scene, lib, effects, level, audio);
+  const ambient = new Ambient(scene, lib);
 
   R.setup(scene, camera, sunDir);
   R.final.uniforms.uExposure.value = TOD.exposure;
@@ -108,11 +110,11 @@ async function boot() {
   scene.remove(warm);
   await progress(1, '就绪');
 
-  return { lib, level, effects, audio, player, weapon, enemies, grenades, sun };
+  return { lib, level, effects, audio, player, weapon, enemies, grenades, ambient, sun };
 }
 
 const G = await boot();
-const { level, effects, audio, player, weapon, enemies, grenades } = G;
+const { level, effects, audio, player, weapon, enemies, grenades, ambient } = G;
 
 // ------------------------------------------------------------------ input
 const input = { f: false, b: false, l: false, r: false, sprint: false, crouch: false, jump: false, firing: false, ads: false };
@@ -466,6 +468,7 @@ function loop() {
   if (running || photo) {
     effects.update(running ? dt : 0, level);
     if (running) motes(dt);
+    ambient.update(running ? dt : 0, t, effects);
   }
   audio.updateListener();
   if (level.water) {
@@ -491,4 +494,4 @@ weapon.root.visible = false;
 if (!noLoop) loop();
 
 // debug / screenshot hooks
-window.__game = { updateHUD, score, grenades, setLocked: (v) => { locked = v; }, loop, start: () => { started = true; waves.start(); }, FOG, sun: G.sun, THREE, scene, camera, player, weapon, enemies, effects, level, R, waves, renderer, togglePhoto, shoot, input };
+window.__game = { ambient, updateHUD, score, grenades, setLocked: (v) => { locked = v; }, loop, start: () => { started = true; waves.start(); }, FOG, sun: G.sun, THREE, scene, camera, player, weapon, enemies, effects, level, R, waves, renderer, togglePhoto, shoot, input };
