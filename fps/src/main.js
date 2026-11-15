@@ -882,7 +882,7 @@ function loop() {
   audio.updateListener();
   audio.updateSpace(realDt);
   if (level.water) {
-    level.M.water.normalMap.offset.set(t * 0.004, t * 0.0065);
+    level.water.position.y = -2.1 + Math.sin(t * 0.55) * 0.05 + Math.sin(t * 0.23 + 1) * 0.03; // slow harbour swell
   }
   updateHUD(dt, t);
   // post FX uniforms
