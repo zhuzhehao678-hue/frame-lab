@@ -194,6 +194,10 @@ addEventListener('keydown', (e) => {
     G.flashlight.intensity = G.flashOn ? 90 : 0; G.lensGlow.visible = G.flashOn;
     audio.click(G.flashOn ? 2400 : 1700, 0.35);
   }
+  if (e.code === 'KeyV' && locked && !photo && !player.dead && weapon.meleeT > 0.6 && weapon.throwT > 0.6) {
+    weapon.meleeT = 0; weapon.reloading = false; meleePending = 0.17;
+    audio.melee && audio.melee(false);
+  }
   if (e.code === 'KeyF') $('fps').classList.toggle('hidden');
   if (e.code === 'KeyP' && locked) togglePhoto();
 });
@@ -561,6 +565,26 @@ let fpsAcc = 0, fpsN = 0, simTime = 0;
 let prevAds = false;
 const noLoop = params.has('noloop');
 const slowmo = { t: 0 };
+let meleePending = -1;
+// resolve the strike a moment into the swing
+function meleeStrike(t) {
+  const fwd = camera.getWorldDirection(new THREE.Vector3());
+  const o = camera.position;
+  const inCone = (p, r = 2.3) => { const d = p.clone().sub(o); const l = d.length(); return l < r && d.normalize().dot(fwd) > 0.62; };
+  let hit = null;
+  for (const e of enemies.list) if (e.alive && inCone(e.pos, 2.0 + e.radius)) { hit = e.pos.clone(); enemies.damage(e, 120, e.pos, fwd); }
+  for (const w of walkers.list) if (w.alive && inCone(w.pos, 2.6)) { hit = w.pos.clone(); walkers.damage(w, 120, 'body', null); }
+  for (const d of hazards.list) if (d.alive && inCone(d.pos, 1.9)) { hit = d.pos.clone(); hazards.damage(d, 15, d.pos); }
+  if (!hit) {
+    raycaster.set(o, fwd); raycaster.far = 1.9;
+    const wh = raycaster.intersectObjects(level.rayMeshes, false)[0];
+    if (wh) { hit = wh.point; effects.impact(wh.point, wh.face.normal.clone(), wh.object.userData.surf); }
+  } else {
+    for (let i = 0; i < 14; i++) effects.add.emit({ pos: hit, vel: new THREE.Vector3((Math.random() - 0.5) * 6, Math.random() * 4, (Math.random() - 0.5) * 6), life: 0.35, size: 0.015, color: new THREE.Color(8, 5, 2), gravity: 9.8, stretch: 0.04 });
+    hitT = 0.15;
+  }
+  if (hit) { player.shake = Math.min(1, player.shake + 0.35); player.addRecoil(-0.02, 0.01); audio.melee && audio.melee(true); }
+}
 let killPulse = 0;
 function loop() {
   if (!noLoop) requestAnimationFrame(loop);
@@ -595,6 +619,7 @@ function loop() {
     input.triggerPulled = false;
     if (input.ads !== prevAds) { audio.click(input.ads ? 900 : 700, 0.12); prevAds = input.ads; }
     if (player.health < 35 && !player.dead) { loop.hb = (loop.hb || 0) - dt; if (loop.hb <= 0) { audio.heartbeat(); loop.hb = 0.55 + player.health / 60; } }
+    if (meleePending >= 0) { meleePending -= dt; if (meleePending < 0) meleeStrike(t); }
     waves.update(dt);
     // adaptive music + barrel heat smoke
     music.setIntensity(boss.active && !boss.falling ? 2 : (waves.active && (enemies.list.length || waves.queue.length)) ? (player.health < 35 ? 2 : 1) : 0);

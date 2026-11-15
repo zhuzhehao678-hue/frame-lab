@@ -69,6 +69,7 @@ export class Weapon {
     this.shotsFired = 0; this.spreadBloom = 0;
     this.equipT = 0;
     this.throwT = 9;
+    this.meleeT = 9;
     this.events = {}; // callbacks: reloadStage
     this.hipPos = new THREE.Vector3(0.135, -0.175, -0.36);
     this.hipRot = new THREE.Euler(0.035, 0.05, -0.06);
@@ -276,7 +277,7 @@ export class Weapon {
     this.flash.visible = false;
   }
 
-  canFire() { return this.throwT > 0.6 && !this.reloading && this.ammo > 0 && this.cool <= 0 && this.sprint < 0.35 && this.equipT >= 1; }
+  canFire() { return this.meleeT > 0.5 && this.throwT > 0.6 && !this.reloading && this.ammo > 0 && this.cool <= 0 && this.sprint < 0.35 && this.equipT >= 1; }
 
   startReload() {
     if (this.reloading || this.ammo >= this.magSize || this.reserve <= 0) return false;
@@ -374,6 +375,15 @@ export class Weapon {
     // equip raise
     const e = 1 - this.equipT; pos.y -= e * e * 0.25; rot.x -= e * e * 0.8;
 
+    // melee: wind up, drive the stock/frame forward, recover
+    this.meleeT += dt;
+    if (this.meleeT < 0.55) {
+      const m = this.meleeT;
+      const wind = THREE.MathUtils.smoothstep(m, 0, 0.12) * (1 - THREE.MathUtils.smoothstep(m, 0.12, 0.2));
+      const hit = THREE.MathUtils.smoothstep(m, 0.12, 0.2) * (1 - THREE.MathUtils.smoothstep(m, 0.28, 0.55));
+      pos.x += wind * 0.05 - hit * 0.07; pos.y += wind * 0.02 - hit * 0.01; pos.z += wind * 0.06 - hit * 0.16;
+      rot.y += wind * 0.35 - hit * 0.6; rot.z += -wind * 0.3 + hit * 0.5; rot.x += hit * 0.15;
+    }
     // grenade throw: gun dips down-left while the off hand throws
     this.throwT += dt;
     if (this.throwT < 0.75) {

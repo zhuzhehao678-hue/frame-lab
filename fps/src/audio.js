@@ -180,6 +180,12 @@ export class Audio {
     if (!this.enabled) return; const t = this.ctx.currentTime; const d = this.out(null, { verb: 0.05, gain: 0.6 });
     this.noise(d, t, 0.12, { type: 'bandpass', f: 500, q: 1, gain: 0.6 }); this.click(900, 0.3, 0.05);
   }
+  melee(hit) {
+    if (!this.enabled) return; const t = this.ctx.currentTime; const d = this.out(null, { verb: 0.15, gain: 0.8 });
+    if (!hit) { this.noise(d, t, 0.22, { type: 'bandpass', f: 500, f1: 1400, q: 1.5, gain: 0.35, attack: 0.05, curve: 2 }); return; }
+    this.tone(d, t, 0.15, { f: 120, f1: 50, gain: 0.8 }); this.noise(d, t, 0.1, { type: 'lowpass', f: 1800, gain: 0.9 });
+    this.tone(d, t, 0.3, { type: 'triangle', f: 1600 + Math.random() * 600, gain: 0.12, curve: 5 });
+  }
   heartbeat() {
     if (!this.enabled) return; const t = this.ctx.currentTime; const d = this.out(null, { verb: 0, gain: 0.9 });
     this.tone(d, t, 0.12, { f: 62, f1: 40, gain: 0.7, curve: 3 }); this.tone(d, t + 0.17, 0.12, { f: 55, f1: 38, gain: 0.5, curve: 3 });
