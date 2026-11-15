@@ -268,6 +268,7 @@ $('play').onclick = () => {
   $('view').requestPointerLock();
   if (!started) {
     started = true; waves.start(); weapon.root.visible = true; weapon.equipT = 0;
+    setTimeout(() => radio(RADIO.start[0]), 1200);
     if (!saved.tutorialDone) {
       // first run: walk through the essentials during the opening countdown
       const tips = ['WASD 移动 · Shift 冲刺 · 空格 跳跃/翻越', '右键 开镜 · 左键 射击 · R 换弹', '1/2/3 切枪 · G 手雷 · V 近战', 'Q/E 探头 · C 蹲下（冲刺中滑铲）', '顶部罗盘标出敌人方位 · 场上有补给箱'];
@@ -355,6 +356,34 @@ function updateCompass() {
 }
 let hitT = 0, killT = 0, critT = 0;
 const dmgIndicators = [];
+// radio chatter from command: one line at a time, typed out with static
+const radioQ = [];
+let radioBusy = false;
+function radio(text, who = '指挥部 · HQ') {
+  if (radioQ.length > 2) return;
+  radioQ.push([text, who]); if (!radioBusy) radioNext();
+}
+function radioNext() {
+  const item = radioQ.shift(); const el = $('radio');
+  if (!item) { radioBusy = false; el.classList.remove('on'); return; }
+  radioBusy = true;
+  const [text, who] = item; const dur = 1.2 + text.length * 0.07;
+  el.querySelector('.who').textContent = who; const tx = el.querySelector('.txt'); tx.textContent = '';
+  el.classList.add('on'); audio.radio(dur * 0.8);
+  let i = 0; clearInterval(el._iv);
+  el._iv = setInterval(() => { tx.textContent = text.slice(0, ++i); if (i >= text.length) clearInterval(el._iv); }, 32);
+  setTimeout(() => { el.classList.remove('on'); setTimeout(radioNext, 450); }, dur * 1000 + 900);
+}
+const pick = (a) => a[Math.floor(Math.random() * a.length)];
+const RADIO = {
+  start: ['九号码头，这里是指挥部。无人机巡逻队已接管堆场——清除它们，夺回码头。'],
+  clear: ['这一波肃清了。补给已投放，抓紧时间换弹。', '干得好。雷达上又有信号在聚集，准备迎接下一波。', '区域暂时安全。别在开阔地停留太久。', '确认击落。它们在调整编队，保持警惕。'],
+  boss: ['侦测到大型目标——母舰 WARDEN 正在接近。先打掉它的旋翼舱！'],
+  low: ['你的生命体征在下降，找掩体！', '你受伤了，退到掩体后面等护盾恢复。'],
+  emp: ['EMP 已充能完毕。按 X 让它们全部趴下。'],
+  win: ['干得漂亮。九号码头已收复，撤离直升机五分钟后到。'],
+  dead: ['……九号码头？听到请回答……信号丢失。'],
+};
 function hint(text, dur = 2) { const h = $('hint'); h.textContent = text; h.style.opacity = 1; clearTimeout(h._t); h._t = setTimeout(() => (h.style.opacity = 0), dur * 1000); }
 function banner(k, t, s, dur = 3) {
   $('bk').textContent = k; $('bt').textContent = t; $('bs').textContent = s;
@@ -458,7 +487,7 @@ enemies.onKill = (e) => {
   audio.hitmarker(true);
   if (!emp.ready && killSource.type !== 'emp') {
     emp.charge++;
-    if (emp.charge >= EMP_KILLS) { emp.ready = true; audio.empReady(); feed('EMP 脉冲已就绪 · 按 X 释放'); }
+    if (emp.charge >= EMP_KILLS) { emp.ready = true; audio.empReady(); feed('EMP 脉冲已就绪 · 按 X 释放'); radio(RADIO.emp[0]); }
   }
   updateEmpHud();
 };
@@ -470,6 +499,7 @@ boss.onDeath = () => { stats.bossKilled = true; score.total += 3000; feed('母�
 boss.onExploded = () => { player.shake = 1; };
 walkers.onKill = (w) => enemies.onKill(w);
 enemies.onPlayerHit = (from, dmg) => {
+  if (player.health < 30 && !player.dead && simTime - (G.lowRadioT ?? -99) > 40) { G.lowRadioT = simTime; radio(pick(RADIO.low)); }
   stats.dmgTaken += dmg; stats.waveDmg += dmg;
   if (pad.active) rumble(0.8, 0.5, 160);
   audio.hurt();
@@ -524,7 +554,7 @@ const waves = {
       return;
     }
     this.spawnT -= dt;
-    if (this.bossPending) { this.bossT -= dt; if (this.bossT <= 0) { this.bossPending = false; boss.spawn(new THREE.Vector3(0, 16, -34)); } }
+    if (this.bossPending) { this.bossT -= dt; if (this.bossT <= 0) { this.bossPending = false; boss.spawn(new THREE.Vector3(0, 16, -34)); radio(RADIO.boss[0]); } }
     if (this.queue.length && this.spawnT <= 0) {
       const kind = this.queue.shift();
       if (kind === 'walker') {
@@ -547,7 +577,8 @@ const waves = {
       if (this.index + 1 >= WAVES.length && !this.endless) { this.done = true; victory(); return; }
       this.index++;
       this.refill();
-      hint('弹药已补给 · 步枪 +90 · 手枪 +30 · 射手步枪 +20 · 手雷 +2', 2.5);
+      hint('弹药已补给 · 步枪 +90 · 手枪 +30 · 射手步枪 +20 · 霰弹 +10 · 手雷 +2', 2.5);
+      radio(pick(RADIO.clear));
       this.begin(6);
     }
   },
@@ -595,10 +626,12 @@ function victory() {
   gameOver = true;
   const bonus = Math.max(0, Math.round(300 - (performance.now() - stats.t0) / 1000)) * 10 + Math.round(player.health) * 10;
   score.total += bonus;
+  radio(RADIO.win[0]);
   setTimeout(() => showEnd(true, bonus), 2500);
 }
 function defeat() {
   gameOver = true;
+  radio(RADIO.dead[0]);
   setTimeout(() => showEnd(false), 2200);
 }
 function restart() {
@@ -956,4 +989,4 @@ weapon.root.visible = false;
 if (!noLoop) loop();
 
 // debug / screenshot hooks
-window.__game = { props, emp, fireEMP, stats, showEnd, G, walkers, REFL, rain: G.rain, hazards, pickups: G.pickups, music: G.music, boss, switchWeapon, weapons, get weapon() { return weapon; }, ambient, updateHUD, score, grenades, setLocked: (v) => { locked = v; }, loop, start: () => { started = true; waves.start(); }, FOG, sun: G.sun, THREE, scene, camera, player, enemies, effects, level, R, waves, renderer, togglePhoto, shoot, input };
+window.__game = { radio, props, emp, fireEMP, stats, showEnd, G, walkers, REFL, rain: G.rain, hazards, pickups: G.pickups, music: G.music, boss, switchWeapon, weapons, get weapon() { return weapon; }, ambient, updateHUD, score, grenades, setLocked: (v) => { locked = v; }, loop, start: () => { started = true; waves.start(); }, FOG, sun: G.sun, THREE, scene, camera, player, enemies, effects, level, R, waves, renderer, togglePhoto, shoot, input };

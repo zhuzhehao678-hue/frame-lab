@@ -105,6 +105,9 @@
   #feed { position: absolute; right: 56px; top: 40px; display: flex; flex-direction: column; gap: 6px; align-items: flex-end; font-size: 12px; letter-spacing: 0.15em; }
   #feed div { padding: 5px 10px; background: rgba(0,0,0,0.25); border-right: 2px solid var(--accent); animation: feed 3.2s forwards; }
   @keyframes feed { 0% { opacity: 0; transform: translateX(20px); } 8% { opacity: 1; transform: none; } 85% { opacity: 1; } 100% { opacity: 0; } }
+  #radio { position: absolute; left: 50%; bottom: 172px; transform: translateX(-50%); max-width: 62vw; padding: 8px 16px 8px 14px; background: rgba(8,10,12,.55); border-left: 2px solid #8fd0a0; font-size: 14px; line-height: 1.55; color: #e8eee6; opacity: 0; transition: opacity .35s; backdrop-filter: blur(3px); }
+  #radio .who { color: #8fd0a0; font-size: 11px; letter-spacing: .2em; margin-right: 10px; }
+  #radio.on { opacity: 1; }
   #hint { position: absolute; left: 50%; bottom: 140px; transform: translateX(-50%); font-size: 12px; letter-spacing: 0.3em; color: var(--hud); opacity: 0; transition: opacity .3s; }
   #fps { position: absolute; left: 12px; top: 10px; font: 11px ui-monospace, monospace; color: var(--dim); }
   #end { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: radial-gradient(ellipse at center, rgba(8,6,5,0.55), rgba(5,3,2,0.88)); pointer-events: auto; cursor: default; }
@@ -147,6 +150,7 @@
   <div id="lockwarn">⚠ 被狙击锁定</div>
   <div id="banner"><div class="k" id="bk"></div><div class="t" id="bt"></div><div class="s" id="bs"></div></div>
   <div id="hint"></div>
+  <div id="radio"><span class="who"></span><span class="txt"></span></div>
   <div id="health"><div class="lbl"><span>生命</span><span id="hpn">100</span></div><div class="bar"><i id="hpb"></i></div></div>
   <div id="ammo"><div class="n"><span id="mag">30</span><small>/ <span id="res">180</span></small></div><div class="pips" id="pips"></div><div class="w" id="wname">MK-18 CQBR · 5.56</div><div class="w">手雷 <span id="gren" style="letter-spacing:0.15em;color:var(--hud)"></span> <kbd style="font-size:10px;border:1px solid rgba(255,255,255,.3);padding:0 4px;border-radius:2px">G</kbd></div><div class="w" id="emp">EMP <b><i></i></b> <kbd style="font-size:10px;border:1px solid rgba(255,255,255,.3);padding:0 4px;border-radius:2px">X</kbd></div></div>
   <div id="fps" class="hidden"></div>
