@@ -211,6 +211,23 @@ export class Enemies {
     this.scene.remove(e.group);
   }
 
+  // generic plasma bolt (used by the boss pods as well)
+  fireBoltFrom(muzzle, player, { dmg = 12, speed = 24, spread = 0.8, heavy = true, from = muzzle } = {}) {
+    const target = player.camera.position.clone().add(new THREE.Vector3(0, -0.25, 0));
+    const dist = target.distanceTo(muzzle);
+    target.addScaledVector(player.vel, dist / speed * 0.6);
+    const sp = spread * (1 + dist / 18);
+    target.add(new THREE.Vector3((Math.random() - 0.5) * sp, (Math.random() - 0.5) * sp * 0.6, (Math.random() - 0.5) * sp));
+    const dir = target.sub(muzzle).normalize();
+    const mesh = new THREE.Mesh(this.boltGeo, this.boltMat); mesh.userData.noAO = true;
+    const glow = new THREE.Mesh(this.boltGlowGeo, this.boltGlowMat); glow.userData.noAO = true; mesh.add(glow);
+    mesh.position.copy(muzzle); mesh.lookAt(muzzle.clone().add(dir));
+    this.scene.add(mesh);
+    this.bolts.push({ mesh, vel: dir.multiplyScalar(speed), life: 0, dmg, from: from.clone(), whizzed: false });
+    this.effects.flash(muzzle, new THREE.Color(1, 0.15, 0.05), 14, 0.12, 6);
+    this.audio.laser(muzzle, heavy);
+  }
+
   fireBolt(e, player) {
     const muzzle = new THREE.Vector3(0, -0.13, -0.26).multiplyScalar(e.group.scale.x).applyQuaternion(e.group.quaternion).add(e.pos);
     const target = player.camera.position.clone().add(new THREE.Vector3(0, -0.25, 0));

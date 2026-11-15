@@ -12,6 +12,7 @@ import { Grenades } from './grenades.js';
 import { TIMES } from './timeofday.js';
 import { REFL } from './reflect.js';
 import { Ambient } from './ambient.js';
+import { Boss } from './boss.js';
 
 installFog();
 
@@ -90,6 +91,7 @@ async function boot() {
   const enemies = new Enemies(scene, lib, effects, level, audio);
   const grenades = new Grenades(scene, lib, effects, level, audio);
   const ambient = new Ambient(scene, lib);
+  const boss = new Boss(scene, lib, effects, level, audio, enemies);
 
   R.setup(scene, camera, sunDir);
   R.final.uniforms.uExposure.value = TOD.exposure;
@@ -105,6 +107,7 @@ async function boot() {
   await progress(0.92, '预编译着色器');
   const warm = enemies.buildDrone(false).group; warm.position.set(0, -50, 0); scene.add(warm);
   const warmG = grenades.proto.clone(); warmG.position.set(0, -50, 0); warm.add(warmG);
+  const warmB = boss.build(); warmB.position.set(0, -10, 0); warm.add(warmB);
   effects.flash(new THREE.Vector3(0, -50, 0), new THREE.Color(1, 1, 1), 0.001, 0.01);
   player.updateCamera(0.016, 0);
   await renderer.compileAsync(scene, camera);
@@ -112,11 +115,11 @@ async function boot() {
   scene.remove(warm);
   await progress(1, '就绪');
 
-  return { lib, level, effects, audio, player, weapon, pistol, enemies, grenades, ambient, sun };
+  return { lib, level, effects, audio, player, weapon, pistol, enemies, grenades, ambient, boss, sun };
 }
 
 const G = await boot();
-const { level, effects, audio, player, enemies, grenades, ambient } = G;
+const { level, effects, audio, player, enemies, grenades, ambient, boss } = G;
 // ------------------------------------------------------------------ loadout
 const weapons = [G.weapon, G.pistol];
 let weaponIdx = 0;
@@ -281,6 +284,11 @@ function updateHUD(dt, t) {
     d.el.style.opacity = Math.min(1, d.life * 1.5);
   }
   updateCompass();
+  $('boss').classList.toggle('on', boss.active && !boss.falling);
+  if (boss.active) {
+    $('bossfill').style.width = (boss.hpFrac * 100).toFixed(1) + '%';
+    $('bossst').textContent = boss.shielded ? `护盾运行中 · 旋翼舱 ${boss.podsLeft} / 4` : '护盾失效 · 攻击核心';
+  }
   hud.wn.textContent = waves.index + 1;
   hud.score.textContent = score.total;
   hud.wleft.textContent = waves.active ? `剩余 ${enemies.list.length + waves.queue.length}` : (waves.index + 1 >= WAVES.length && waves.done ? '已肃清' : '准备');
@@ -308,6 +316,12 @@ enemies.onKill = (e) => {
   feed(`${NAMES[e.kind]} 已摧毁  +${pts}${score.combo > 1 ? `  ×${score.combo} 连杀` : ''}`);
   audio.hitmarker(true);
 };
+boss.onPodDown = (left) => {
+  stats.kills++; score.total += 300; feed(`旋翼舱已摧毁  +300  (剩余 ${left})`);
+  if (left === 0) { banner('SHIELD DOWN', '护盾失效', '攻击下方核心', 2.5); }
+};
+boss.onDeath = () => { score.total += 3000; feed('母舰 WARDEN 已击落  +3000'); };
+boss.onExploded = () => { player.shake = 1; };
 enemies.onPlayerHit = (from, dmg) => {
   stats.dmgTaken += dmg;
   audio.hurt();
@@ -316,19 +330,21 @@ enemies.onPlayerHit = (from, dmg) => {
 };
 
 // each wave: [normal, heavy, kamikaze]
-const WAVES = [[3, 0, 0], [3, 1, 1], [4, 1, 2], [4, 2, 3], [3, 3, 5]];
+const WAVES = [[3, 0, 0], [3, 1, 1], [4, 1, 2], [4, 2, 3], [2, 1, 2, 'boss']];
 const CN = ['一', '二', '三', '四', '五'];
 const waves = {
   index: 0, active: false, queue: [], timer: 0, spawnT: 0, done: false,
   start() { this.index = 0; this.begin(2.5); stats.t0 = performance.now(); },
   begin(delay) {
     this.active = false; this.timer = delay;
-    const [n, h, k] = WAVES[this.index];
+    const [n, h, k, special] = WAVES[this.index];
+    this.bossPending = special === 'boss'; this.bossT = 4;
     const q = [...Array(n).fill('normal'), ...Array(h).fill('heavy'), ...Array(k).fill('kamikaze')];
     for (let i = q.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [q[i], q[j]] = [q[j], q[i]]; }
     this.queue = q;
     const parts = [`哨兵 ×${n}`]; if (h) parts.push(`重型哨兵 ×${h}`); if (k) parts.push(`自爆蜂 ×${k}`);
-    banner(`WAVE ${this.index + 1} / ${WAVES.length}`, `第 ${CN[this.index]} 波`, parts.join('  ·  '), 3.2);
+    if (special === 'boss') banner('FINAL WAVE', '母舰 · WARDEN', '摧毁四个旋翼舱使护盾失效，然后攻击核心 · 激光可被掩体阻挡', 5);
+    else banner(`WAVE ${this.index + 1} / ${WAVES.length}`, `第 ${CN[this.index]} 波`, parts.join('  ·  '), 3.2);
     if (k && this.index === 1) setTimeout(() => hint('自爆蜂会直冲过来引爆 · 在远处击落它', 4), 3500);
   },
   update(dt) {
@@ -339,6 +355,7 @@ const waves = {
       return;
     }
     this.spawnT -= dt;
+    if (this.bossPending) { this.bossT -= dt; if (this.bossT <= 0) { this.bossPending = false; boss.spawn(new THREE.Vector3(0, 16, -34)); } }
     if (this.queue.length && this.spawnT <= 0) {
       const kind = this.queue.shift();
       // spawn away from the player
@@ -347,7 +364,7 @@ const waves = {
       enemies.spawn(p, kind);
       this.spawnT = 1.1;
     }
-    if (!this.queue.length && enemies.list.length === 0 && enemies.falling.length === 0) {
+    if (!this.queue.length && enemies.list.length === 0 && enemies.falling.length === 0 && !this.bossPending && !boss.active) {
       if (this.index + 1 >= WAVES.length) { this.done = true; victory(); return; }
       this.index++;
       G.weapon.reserve = Math.min(G.weapon.reserve + 90, 270);
@@ -383,7 +400,7 @@ function defeat() {
   }, 2200);
 }
 function restart() {
-  enemies.clear(); grenades.clear();
+  enemies.clear(); grenades.clear(); boss.clear();
   player.pos.copy(level.playerStart); player.vel.set(0, 0, 0); player.yaw = level.playerYaw; player.pitch = 0;
   player.health = 100; player.dead = false;
   G.weapon.ammo = 30; G.weapon.reserve = 180; G.pistol.ammo = 15; G.pistol.reserve = 60;
@@ -419,9 +436,16 @@ function shoot(t) {
   raycaster.set(origin, dir); raycaster.far = 400;
   const hits = raycaster.intersectObjects(level.rayMeshes, false);
   const wh = hits[0];
-  const eh = enemies.raycast(origin, dir, wh ? wh.distance : 400);
+  let eh = enemies.raycast(origin, dir, wh ? wh.distance : 400);
+  const bh = boss.raycast(origin, dir, eh ? eh.t : (wh ? wh.distance : 400));
   let end;
-  if (eh) {
+  if (bh) {
+    end = bh.point; eh = null;
+    const r = boss.damage(bh.part, THREE.MathUtils.randFloat(weapon.damage[0], weapon.damage[1]), bh.point);
+    if (r !== 'armor') { stats.hits++; hitT = 0.12; audio.hitmarker(r === 'kill'); if (r === 'kill') killT = 0.35; }
+    audio.impact(bh.point, 'metal');
+    for (let i = 0; i < 8; i++) effects.add.emit({ pos: bh.point, vel: new THREE.Vector3((Math.random() - 0.5) * 6, Math.random() * 4, (Math.random() - 0.5) * 6), life: 0.3, size: 0.012, color: new THREE.Color(8, 5, 2), gravity: 9.8, stretch: 0.035 });
+  } else if (eh) {
     end = eh.point;
     stats.hits++; hitT = 0.12;
     const killed = enemies.damage(eh.enemy, THREE.MathUtils.randFloat(weapon.damage[0], weapon.damage[1]), eh.point, dir);
@@ -487,7 +511,8 @@ function loop() {
     if (player.health < 35 && !player.dead) { loop.hb = (loop.hb || 0) - dt; if (loop.hb <= 0) { audio.heartbeat(); loop.hb = 0.55 + player.health / 60; } }
     waves.update(dt);
     enemies.update(dt, t, player);
-    grenades.update(dt, { enemies, player, t, onPlayerHit: enemies.onPlayerHit });
+    grenades.update(dt, { enemies, player, t, onPlayerHit: enemies.onPlayerHit, boss });
+    boss.update(dt, t, player);
     for (const e of enemies.list) audio.updateHum(e.hum, e.vel.length());
     if (player.dead && !gameOver) defeat();
   }
@@ -520,4 +545,4 @@ weapon.root.visible = false;
 if (!noLoop) loop();
 
 // debug / screenshot hooks
-window.__game = { switchWeapon, weapons, get weapon() { return weapon; }, ambient, updateHUD, score, grenades, setLocked: (v) => { locked = v; }, loop, start: () => { started = true; waves.start(); }, FOG, sun: G.sun, THREE, scene, camera, player, enemies, effects, level, R, waves, renderer, togglePhoto, shoot, input };
+window.__game = { boss, switchWeapon, weapons, get weapon() { return weapon; }, ambient, updateHUD, score, grenades, setLocked: (v) => { locked = v; }, loop, start: () => { started = true; waves.start(); }, FOG, sun: G.sun, THREE, scene, camera, player, enemies, effects, level, R, waves, renderer, togglePhoto, shoot, input };

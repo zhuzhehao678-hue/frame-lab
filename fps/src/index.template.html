@@ -77,6 +77,12 @@
   #compass::after { content: ""; position: absolute; left: 50%; top: 0; width: 0; height: 0; margin-left: -4px; border: 4px solid transparent; border-top-color: var(--accent); }
   #wave { position: absolute; left: 50%; top: 60px; transform: translateX(-50%); text-align: center; font-size: 11px; letter-spacing: 0.4em; color: var(--dim); }
   #wave b { display: block; font-size: 16px; letter-spacing: 0.25em; color: var(--hud); font-weight: 500; margin-top: 6px; }
+  #boss { position: absolute; left: 50%; top: 104px; width: 560px; margin-left: -280px; text-align: center; opacity: 0; transition: opacity .6s; }
+  #boss.on { opacity: 1; }
+  #boss .nm { font-size: 12px; letter-spacing: 0.5em; color: var(--red); }
+  #boss .bar { margin-top: 8px; height: 6px; background: rgba(255,255,255,0.12); position: relative; }
+  #boss .bar i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, #ff3b2a, #ff8a3a); transition: width .2s; }
+  #boss .st { margin-top: 6px; font-size: 11px; letter-spacing: 0.25em; color: var(--dim); }
   #banner { position: absolute; left: 0; right: 0; top: 30%; text-align: center; opacity: 0; transition: opacity .6s; }
   #banner .k { font-size: 12px; letter-spacing: 0.6em; color: var(--accent); }
   #banner .t { margin-top: 14px; font-size: 40px; font-weight: 200; letter-spacing: 0.3em; }
@@ -103,6 +109,7 @@
   <div id="wave">第 <span id="wn">1</span> 波<b id="wleft">剩余 0</b></div>
   <div id="scorebox" style="position:absolute;left:56px;top:40px;font-size:11px;letter-spacing:.3em;color:var(--dim)">得分<b id="score" style="display:block;margin-top:6px;font-size:22px;font-weight:300;letter-spacing:.05em;color:var(--hud);font-variant-numeric:tabular-nums">0</b></div>
   <div id="feed"></div>
+  <div id="boss"><div class="nm">母舰 · WARDEN</div><div class="bar"><i id="bossfill"></i></div><div class="st" id="bossst"></div></div>
   <div id="banner"><div class="k" id="bk"></div><div class="t" id="bt"></div><div class="s" id="bs"></div></div>
   <div id="hint"></div>
   <div id="health"><div class="lbl"><span>生命</span><span id="hpn">100</span></div><div class="bar"><i id="hpb"></i></div></div>
