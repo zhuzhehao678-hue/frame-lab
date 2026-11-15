@@ -184,10 +184,18 @@ async function boot() {
   heli.g.visible = true; heli.g.position.set(0, -60, 0); crash.g.visible = true; crash.g.position.set(0, -60, 10);
   effects.explosion(W0.clone(), 1); effects.empPulse(W0.clone());
   effects.fire.emit(W0.clone(), new THREE.Vector3(), 1, 0.5, 1);
+  // first-shot effects and the hidden guns (flashes, scope lens, tracers, bolts, brass, decals)
+  const gunVis = [weapon, pistol, dmr, shotgun].map((w) => [w.root.visible, w.flash.visible]);
+  for (const w of [weapon, pistol, dmr, shotgun]) { w.root.visible = true; w.flash.visible = true; }
+  const warmFx = [new THREE.Mesh(effects.tracerGeo, effects.tracerMat), new THREE.Mesh(enemies.boltGeo, enemies.boltMat), new THREE.Mesh(effects.brassGeo, effects.brassMat)];
+  warmFx.forEach((m, i) => { m.position.set(i * 2, -45, 0); scene.add(m); });
+  const decal0 = effects.decals.count; effects.decals.count = 1;
   const wasFlare = flareCore.visible; flareCore.visible = true;
   await renderer.compileAsync(scene, camera);
   R.render(0.016, 0);
   flareCore.visible = wasFlare;
+  [weapon, pistol, dmr, shotgun].forEach((w, i) => { w.root.visible = gunVis[i][0]; w.flash.visible = gunVis[i][1]; });
+  warmFx.forEach((m) => scene.remove(m)); effects.decals.count = decal0;
   enemies.clear(); heli.g.visible = false; crash.g.visible = false;
   for (const r of effects.rings) scene.remove(r.mesh); effects.rings.length = 0;
   effects.add.p.length = 0; effects.smoke.p.length = 0; effects.fire.p.length = 0;
