@@ -9,6 +9,7 @@ export class Ambient {
     this.buildGulls();
     this.buildCrane(lib.M);
     this.buildTug(lib.M);
+    this.buildFlags(lib.M);
   }
 
   buildGulls() {
@@ -51,6 +52,43 @@ export class Ambient {
     this.scene.add(g);
   }
 
+  // flags: cloth waves via a vertex shader, pinned along the hoist edge (x = 0)
+  buildFlags(M) {
+    const c = document.createElement('canvas'); c.width = 256; c.height = 160; const g = c.getContext('2d');
+    g.fillStyle = '#b52a22'; g.fillRect(0, 0, 256, 160);
+    g.fillStyle = '#f2efe6'; g.fillRect(0, 62, 256, 36);
+    g.fillStyle = '#1d3d66'; g.fillRect(0, 0, 92, 160);
+    g.fillStyle = '#f2efe6'; g.font = '900 64px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('9', 46, 82);
+    const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+    this.flagTime = { value: 0 };
+    const mat = new THREE.MeshStandardMaterial({ map: tex, side: THREE.DoubleSide, roughness: 0.85 });
+    mat.onBeforeCompile = (sh) => {
+      sh.uniforms.uTime = this.flagTime;
+      sh.vertexShader = 'uniform float uTime;\n' + sh.vertexShader
+        .replace('#include <beginnormal_vertex>', `
+          float fx = uv.x, ph = uTime * 6.0 - position.x * 3.2 + position.y * 0.9;
+          float amp = fx * 0.22;
+          vec3 objectNormal = normalize(vec3(-amp * 3.2 * cos(ph) * 0.6, 0.0, 1.0));`)
+        .replace('#include <begin_vertex>', `
+          vec3 transformed = position;
+          transformed.z += sin(ph) * amp + sin(ph * 2.3 + 1.0) * amp * 0.25;
+          transformed.y -= fx * fx * 0.12;`);
+    };
+    mat.customProgramCacheKey = () => 'flag';
+    const flag = (x, y, z, ry, w, h, pole) => {
+      if (pole > 0) {
+        const p = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, pole, 10), M.paintGrey); p.position.set(x, y + pole / 2, z); p.castShadow = true; this.scene.add(p);
+        const k = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), M.steel); k.position.set(x, y + pole + 0.05, z); this.scene.add(k);
+      }
+      const geo = new THREE.PlaneGeometry(w, h, 24, 10).translate(w / 2, 0, 0);
+      const m = new THREE.Mesh(geo, mat); m.position.set(x + 0.06 * Math.cos(ry), y + pole - h / 2 - 0.15, z); m.rotation.y = ry; m.userData.noAO = true;
+      this.scene.add(m);
+    };
+    flag(13.6, 0, -25.4, Math.PI * 0.9, 1.9, 1.2, 8);
+    flag(-17.2, 0, -25.4, Math.PI * 0.9, 1.9, 1.2, 8);
+    flag(43.4, 6.6, -40.7, Math.PI, 1.5, 0.95, 4.5);       // ship's stern staff
+  }
+
   buildTug(M) {
     const g = new THREE.Group();
     const hullShape = new THREE.Shape();
@@ -87,6 +125,7 @@ export class Ambient {
   }
 
   update(dt, t, effects) {
+    if (this.flagTime) this.flagTime.value = t;
     // gulls: circling glide, occasional flapping bursts
     const m = this._m, q = this._q, e = this._e;
     const s = new THREE.Vector3(1, 1, 1);
