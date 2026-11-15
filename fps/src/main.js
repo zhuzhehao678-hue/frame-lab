@@ -4,7 +4,7 @@ import { Renderer, QUALITY, createSky } from './render.js';
 import { buildMaterials } from './materials.js';
 import { Level } from './level.js';
 import { Player } from './player.js';
-import { Weapon } from './weapon.js';
+import { Weapon, Pistol } from './weapon.js';
 import { Effects } from './effects.js';
 import { Enemies } from './enemies.js';
 import { Audio } from './audio.js';
@@ -84,7 +84,9 @@ async function boot() {
   const audio = new Audio(camera);
   const player = new Player(camera, level);
   const weapon = new Weapon(camera, lib, effects);
-  weapon.baseFov = settings.fov;
+  const pistol = new Pistol(camera, lib, effects);
+  weapon.baseFov = pistol.baseFov = settings.fov;
+  pistol.root.visible = false;
   const enemies = new Enemies(scene, lib, effects, level, audio);
   const grenades = new Grenades(scene, lib, effects, level, audio);
   const ambient = new Ambient(scene, lib);
@@ -95,7 +97,7 @@ async function boot() {
   if (R.bloom) R.bloom.strength = TOD.bloom;
   if (R.god) { R.god.uniforms.uWeight.value = TOD.godWeight; R.god.enabled = TOD.godWeight > 0; }
   if (R.refl) {
-    R.refl.hidden.push(weapon.root);
+    R.refl.hidden.push(weapon.root, pistol.root);
     scene.traverse((o) => { if (o.name === 'static_ground') R.refl.hidden.push(o); });
   }
 
@@ -110,11 +112,27 @@ async function boot() {
   scene.remove(warm);
   await progress(1, '就绪');
 
-  return { lib, level, effects, audio, player, weapon, enemies, grenades, ambient, sun };
+  return { lib, level, effects, audio, player, weapon, pistol, enemies, grenades, ambient, sun };
 }
 
 const G = await boot();
-const { level, effects, audio, player, weapon, enemies, grenades, ambient } = G;
+const { level, effects, audio, player, enemies, grenades, ambient } = G;
+// ------------------------------------------------------------------ loadout
+const weapons = [G.weapon, G.pistol];
+let weaponIdx = 0;
+let weapon = weapons[0];
+function switchWeapon(i) {
+  if (i === weaponIdx || !started || photo || player.dead || weapon.throwT < 0.6) return;
+  weapon.reloading = false; weapon.reloadT = 0;
+  weapon.mag.position.copy(weapon.magHome); weapon.leftHand.position.copy(weapon.leftHome); weapon.leftHand.rotation.set(0, 0, 0);
+  weapon.root.visible = false;
+  weaponIdx = i; weapon = weapons[i];
+  weapon.root.visible = true; weapon.equipT = 0; weapon.ads = 0;
+  audio.click(1500, 0.35); audio.click(900, 0.3, 0.12);
+  buildPips();
+  $('wname').textContent = weapon.label;
+}
+addEventListener('wheel', (e) => { if (locked) switchWeapon((weaponIdx + (e.deltaY > 0 ? 1 : -1) + weapons.length) % weapons.length); });
 
 // ------------------------------------------------------------------ input
 const input = { f: false, b: false, l: false, r: false, sprint: false, crouch: false, jump: false, firing: false, ads: false };
@@ -125,6 +143,8 @@ const keymap = { KeyQ: 'leanL', KeyE: 'leanR', KeyW: 'f', KeyS: 'b', KeyA: 'l', 
 addEventListener('keydown', (e) => {
   if (keymap[e.code]) input[keymap[e.code]] = true;
   if (e.code === 'Space') { input.jump = true; e.preventDefault(); }
+  if (e.code === 'Digit1' && locked) switchWeapon(0);
+  if (e.code === 'Digit2' && locked) switchWeapon(1);
   if (e.code === 'KeyR' && locked && !photo) { if (weapon.startReload()) audio.click(1200, 0.3); }
   if (e.code === 'KeyG' && locked && !photo && !player.dead && grenades.canThrow(weapon)) { grenades.throw(camera, player.vel); weapon.throwT = 0; }
   if (e.code === 'KeyF') $('fps').classList.toggle('hidden');
@@ -156,7 +176,7 @@ document.addEventListener('pointerlockchange', () => {
 
 $('sens').oninput = (e) => { settings.sens = +e.target.value; persist(); };
 $('adssens').oninput = (e) => { settings.adsSens = +e.target.value; persist(); };
-$('fov').oninput = (e) => { settings.fov = +e.target.value; weapon.baseFov = settings.fov; persist(); };
+$('fov').oninput = (e) => { settings.fov = +e.target.value; for (const w of weapons) w.baseFov = settings.fov; persist(); };
 $('quality').onchange = (e) => {
   qualityName = e.target.value; persist();
   const u = new URL(location.href); u.searchParams.set('q', qualityName); location.href = u.toString();
@@ -198,7 +218,8 @@ const hud = {
   pips: $('pips'), mag: $('mag'), res: $('res'), hpn: $('hpn'), hpb: $('hpb'), cross: $('cross'), hit: $('hit'),
   gren: $('gren'), score: $('score'), wn: $('wn'), wleft: $('wleft'), feed: $('feed'), dd: $('dmgdirs'),
 };
-for (let i = 0; i < 30; i++) hud.pips.appendChild(document.createElement('i'));
+function buildPips() { hud.pips.innerHTML = ''; for (let i = 0; i < weapon.magSize; i++) hud.pips.appendChild(document.createElement('i')); }
+buildPips();
 // compass strip: ticks every 15°, labels on cardinals/intercardinals, enemy markers
 const compass = { el: $('compass'), items: [], enemies: [] };
 {
@@ -238,8 +259,8 @@ function updateHUD(dt, t) {
   hud.gren.textContent = '◆'.repeat(grenades.count) + '◇'.repeat(Math.max(0, grenades.max - grenades.count));
   hud.mag.textContent = weapon.ammo; hud.res.textContent = weapon.reserve;
   const pips = hud.pips.children;
-  for (let i = 0; i < 30; i++) pips[i].className = i < weapon.ammo ? '' : 'e';
-  $('ammo').classList.toggle('low', weapon.ammo <= 8);
+  for (let i = 0; i < pips.length; i++) pips[i].className = i < weapon.ammo ? '' : 'e';
+  $('ammo').classList.toggle('low', weapon.ammo <= Math.ceil(weapon.magSize * 0.27));
   const hp = Math.ceil(player.health);
   hud.hpn.textContent = hp; hud.hpb.style.width = player.health + '%';
   $('health').classList.toggle('low', hp < 35);
@@ -270,9 +291,11 @@ const stats = { shots: 0, hits: 0, kills: 0, t0: 0, dmgTaken: 0 };
 player.onStep = (sp, sprint) => audio.footstep(sprint);
 player.onLand = (v) => audio.land(v);
 effects.onBrass = (p) => audio.brass(p);
-weapon.events.magout = () => audio.magOut();
-weapon.events.magin = () => audio.magIn();
-weapon.events.bolt = () => audio.bolt();
+for (const w of weapons) {
+  w.events.magout = () => audio.magOut();
+  w.events.magin = () => audio.magIn();
+  w.events.bolt = () => audio.bolt();
+}
 const NAMES = { normal: '哨兵无人机', heavy: '重型哨兵', kamikaze: '自爆蜂' };
 const POINTS = { normal: 100, heavy: 250, kamikaze: 150 };
 const score = { total: 0, combo: 0, last: -10, best: +(saved.best || 0) };
@@ -327,9 +350,10 @@ const waves = {
     if (!this.queue.length && enemies.list.length === 0 && enemies.falling.length === 0) {
       if (this.index + 1 >= WAVES.length) { this.done = true; victory(); return; }
       this.index++;
-      weapon.reserve = Math.min(weapon.reserve + 90, 270);
+      G.weapon.reserve = Math.min(G.weapon.reserve + 90, 270);
+      G.pistol.reserve = Math.min(G.pistol.reserve + 30, 90);
       grenades.count = Math.min(grenades.max, grenades.count + 2);
-      hint('弹药已补给  +90 · 手雷 +2', 2.5);
+      hint('弹药已补给 · 步枪 +90 · 手枪 +30 · 手雷 +2', 2.5);
       this.begin(6);
     }
   },
@@ -362,7 +386,9 @@ function restart() {
   enemies.clear(); grenades.clear();
   player.pos.copy(level.playerStart); player.vel.set(0, 0, 0); player.yaw = level.playerYaw; player.pitch = 0;
   player.health = 100; player.dead = false;
-  weapon.ammo = 30; weapon.reserve = 180; weapon.reloading = false; weapon.equipT = 0;
+  G.weapon.ammo = 30; G.weapon.reserve = 180; G.pistol.ammo = 15; G.pistol.reserve = 60;
+  for (const w of weapons) { w.reloading = false; w.equipT = 0; }
+  if (weaponIdx !== 0) { started = true; weapon.root.visible = false; weaponIdx = 0; weapon = weapons[0]; weapon.root.visible = true; buildPips(); $('wname').textContent = weapon.label; }
   Object.assign(stats, { shots: 0, hits: 0, kills: 0, dmgTaken: 0 }); score.total = 0; score.combo = 0;
   gameOver = false; waves.done = false; waves.start();
 }
@@ -374,13 +400,13 @@ raycaster.firstHitOnly = true;
 function shoot(t) {
   const muzzle = weapon.fire();
   stats.shots++;
-  audio.gunshot(weapon.ads > 0.5);
+  audio.gunshot(weapon.ads > 0.5, weapon.kind);
   effects.flash(muzzle.clone().addScaledVector(fwdFlash(), 0.9), new THREE.Color(1, 0.72, 0.4), 12, 0.05, 10);
   weapon.ejectBrass();
   const fwd = new THREE.Vector3(); camera.getWorldDirection(fwd);
   effects.muzzleSmoke(muzzle, fwd);
   // recoil: permanent climb + visual kick
-  const climb = 0.0058 * (1 - weapon.ads * 0.35) * (1 - player.crouch * 0.3);
+  const climb = 0.0058 * weapon.climb * (1 - weapon.ads * 0.35) * (1 - player.crouch * 0.3);
   player.pitch += climb; player.yaw += (Math.random() - 0.42) * 0.0032;
   player.addRecoil(0.006, (Math.random() - 0.5) * 0.004);
   // ray with spread
@@ -398,7 +424,7 @@ function shoot(t) {
   if (eh) {
     end = eh.point;
     stats.hits++; hitT = 0.12;
-    const killed = enemies.damage(eh.enemy, 26 + Math.random() * 6, eh.point, dir);
+    const killed = enemies.damage(eh.enemy, THREE.MathUtils.randFloat(weapon.damage[0], weapon.damage[1]), eh.point, dir);
     if (!killed) audio.hitmarker(false);
     const n = eh.point.clone().sub(eh.enemy.pos).normalize();
     for (let i = 0; i < 10; i++) effects.add.emit({ pos: eh.point, vel: n.clone().multiplyScalar(2 + Math.random() * 4).add(new THREE.Vector3((Math.random() - 0.5) * 5, Math.random() * 3, (Math.random() - 0.5) * 5)), life: 0.3 + Math.random() * 0.3, size: 0.012, color: new THREE.Color(8, 5, 2), gravity: 9.8, stretch: 0.035, bounce: true });
@@ -411,7 +437,7 @@ function shoot(t) {
     effects.impact(wh.point, n, wh.object.userData.surf);
     audio.impact(wh.point, wh.object.userData.surf);
   } else end = origin.clone().addScaledVector(dir, 400);
-  if (weapon.shotsFired % 3 === 1) effects.tracer(muzzle, end);
+  if (weapon.kind === 'rifle' && weapon.shotsFired % 3 === 1) effects.tracer(muzzle, end);
 }
 
 // ------------------------------------------------------------------ ambient motes
@@ -451,7 +477,7 @@ function loop() {
     weapon.update(dt, t, player, input, mouse);
     mouse.x = 0; mouse.y = 0;
     if (!player.dead) {
-      if (input.firing && weapon.canFire()) shoot(t);
+      if ((weapon.auto ? input.firing : input.triggerPulled) && weapon.canFire()) shoot(t);
       else if (input.triggerPulled && weapon.ammo === 0 && !weapon.reloading) { audio.dryFire(); if (weapon.startReload()) hint('换弹中', 1); }
       if (weapon.ammo === 0 && !weapon.reloading && weapon.reserve > 0 && weapon.cool < -0.15) weapon.startReload();
       if (weapon.ammo === 0 && weapon.reserve === 0 && !weapon.reloading) hint('弹药耗尽', 1);
@@ -494,4 +520,4 @@ weapon.root.visible = false;
 if (!noLoop) loop();
 
 // debug / screenshot hooks
-window.__game = { ambient, updateHUD, score, grenades, setLocked: (v) => { locked = v; }, loop, start: () => { started = true; waves.start(); }, FOG, sun: G.sun, THREE, scene, camera, player, weapon, enemies, effects, level, R, waves, renderer, togglePhoto, shoot, input };
+window.__game = { switchWeapon, weapons, get weapon() { return weapon; }, ambient, updateHUD, score, grenades, setLocked: (v) => { locked = v; }, loop, start: () => { started = true; waves.start(); }, FOG, sun: G.sun, THREE, scene, camera, player, enemies, effects, level, R, waves, renderer, togglePhoto, shoot, input };

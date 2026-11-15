@@ -105,11 +105,20 @@ export class Audio {
   }
 
   // ------------------------------------------------------------------ weapon
-  gunshot(ads) {
+  gunshot(ads, kind = 'rifle') {
     if (!this.enabled) return;
     const t = this.ctx.currentTime;
     const d = this.out(null, { verb: 0.9, gain: 0.9 });
-    const p = 0.94 + Math.random() * 0.12;
+    const pistol = kind === 'pistol';
+    const p = (0.94 + Math.random() * 0.12) * (pistol ? 1.3 : 1);
+    if (pistol) {
+      this.noise(d, t, 0.015, { type: 'highpass', f: 3500, gain: 1.1 });
+      this.noise(d, t, 0.11, { type: 'lowpass', f: 5200 * p, f1: 700, q: 0.8, gain: 1.2, curve: 5 });
+      this.noise(d, t + 0.003, 0.22, { type: 'bandpass', f: 1000 * p, f1: 260, q: 1, gain: 0.55, curve: 4 });
+      this.tone(d, t, 0.08, { f: 150 * p, f1: 60, gain: 0.6, curve: 3 });
+      this.click(2600, 0.25, 0.04); // slide
+      return;
+    }
     this.noise(d, t, 0.02, { type: 'highpass', f: 3000, gain: 1.2 });                        // crack
     this.noise(d, t, 0.16, { type: 'lowpass', f: 4200 * p, f1: 500, q: 0.7, gain: 1.4, curve: 5 }); // body
     this.noise(d, t + 0.004, 0.32, { type: 'bandpass', f: 700 * p, f1: 180, q: 0.9, gain: 0.7, curve: 4 }); // blast

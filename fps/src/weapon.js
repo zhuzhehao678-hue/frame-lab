@@ -73,6 +73,10 @@ export class Weapon {
     this.hipPos = new THREE.Vector3(0.135, -0.175, -0.36);
     this.hipRot = new THREE.Euler(0.035, 0.05, -0.06);
     this.adsPos = new THREE.Vector3(0, -this.sightY, -0.165);
+    // per-weapon tuning (overridden by subclasses)
+    this.kind = 'rifle'; this.label = 'MK-18 CQBR · 5.56'; this.auto = true;
+    this.damage = [26, 32]; this.recoilMul = 1; this.reloadTimes = [2.25, 2.75]; this.equipSpeed = 1.6;
+    this.climb = 1; this.baseSpread = 0.022;
   }
 
   add(geo, mat, x, y, z, rx = 0, ry = 0, rz = 0, parent = this.gun) {
@@ -278,7 +282,7 @@ export class Weapon {
     if (this.reloading || this.ammo >= this.magSize || this.reserve <= 0) return false;
     this.reloading = true; this.reloadT = 0;
     this.reloadEmpty = this.ammo === 0;
-    this.reloadDur = this.reloadEmpty ? 2.75 : 2.25;
+    this.reloadDur = this.reloadEmpty ? this.reloadTimes[1] : this.reloadTimes[0];
     this.stage = 0;
     return true;
   }
@@ -287,7 +291,7 @@ export class Weapon {
   fire() {
     this.ammo--; this.cool = this.rate; this.shotsFired++;
     const adsK = 1 - this.ads * 0.55;
-    this.kickV += 0.9 * adsK; this.kickRotV += 7.5 * adsK; this.kickSide = (Math.random() - 0.5) * 0.6;
+    this.kickV += 0.9 * adsK * this.recoilMul; this.kickRotV += 7.5 * adsK * this.recoilMul; this.kickSide = (Math.random() - 0.5) * 0.6;
     this.flashT = 0;
     this.flash.visible = true;
     this.flash.rotation.z = Math.random() * Math.PI * 2;
@@ -308,13 +312,13 @@ export class Weapon {
   // spread in radians given player movement
   spread(player) {
     const move = Math.min(player.speed / 4.4, 1.5);
-    const base = THREE.MathUtils.lerp(0.022, 0.0015, this.ads);
+    const base = THREE.MathUtils.lerp(this.baseSpread, 0.0015, this.ads);
     return base + move * THREE.MathUtils.lerp(0.02, 0.004, this.ads) + (player.onGround ? 0 : 0.05) + this.spreadBloom * THREE.MathUtils.lerp(0.012, 0.004, this.ads) - player.crouch * 0.004;
   }
 
   update(dt, t, player, input, mouse) {
     this.cool -= dt;
-    this.equipT = Math.min(1, this.equipT + dt * 1.6);
+    this.equipT = Math.min(1, this.equipT + dt * this.equipSpeed);
     this.spreadBloom = THREE.MathUtils.damp(this.spreadBloom, 0, input.firing ? 2 : 6, dt);
     const wantAds = input.ads && !this.reloading && !player.sprinting;
     this.ads = THREE.MathUtils.damp(this.ads, wantAds ? 1 : 0, 13, dt);
@@ -421,4 +425,91 @@ export class Weapon {
   }
 
   emit(name) { const f = this.events[name]; if (f) f(); }
+}
+
+// ---------------------------------------------------------------------------
+// Sidearm: polymer-frame 9 mm with iron sights, two-handed grip, slide that
+// cycles on every shot and locks back on empty.
+export class Pistol extends Weapon {
+  constructor(camera, lib, effects) {
+    super(camera, lib, effects);
+    this.kind = 'pistol'; this.label = 'P-17 · 9mm'; this.auto = false;
+    this.magSize = 15; this.ammo = 15; this.reserve = 60;
+    this.rate = 0.11; this.damage = [38, 44]; this.recoilMul = 1.35;
+    this.reloadTimes = [1.45, 1.8]; this.equipSpeed = 2.8; this.climb = 1.5; this.baseSpread = 0.016;
+    this.hipPos = new THREE.Vector3(0.12, -0.14, -0.4);
+    this.hipRot = new THREE.Euler(0.03, 0.08, -0.03);
+    this.adsPos = new THREE.Vector3(0, -this.sightY, -0.42);
+    this.slideOff = 0;
+  }
+
+  buildGun() {
+    const { metal, poly, steel, dark } = this.mat;
+    const A = (g, m, x, y, z, rx, ry, rz, p) => this.add(g, m, x, y, z, rx, ry, rz, p);
+    this.slide = new THREE.Group(); this.gun.add(this.slide);
+    const S = this.slide;
+    A(uvScale(RB(0.026, 0.028, 0.186, 0.004), 1.5), metal, 0, 0.031, -0.063, 0, 0, 0, S);
+    for (const sx of [-1, 1]) for (let i = 0; i < 7; i++) A(RB(0.0015, 0.02, 0.0028, 0.0006), dark, sx * 0.0132, 0.031, 0.022 - i * 0.0065, 0, 0, 0, S);
+    A(RB(0.013, 0.0025, 0.032, 0.001), dark, 0.004, 0.0447, -0.03, 0, 0, 0, S); // ejection port
+    // sights (white dots)
+    const dotM = viewmodelMaterial(new THREE.MeshBasicMaterial({ color: new THREE.Color(1.6, 1.6, 1.5) }));
+    A(RB(0.0042, 0.0065, 0.006, 0.001), steel, 0, 0.048, -0.149, 0, 0, 0, S);
+    A(new THREE.CircleGeometry(0.0011, 10), dotM, 0, 0.0495, -0.1459, 0, 0, 0, S);
+    for (const sx of [-1, 1]) {
+      A(RB(0.0055, 0.0065, 0.008, 0.001), steel, sx * 0.0058, 0.048, 0.021, 0, 0, 0, S);
+      A(new THREE.CircleGeometry(0.0009, 10), dotM, sx * 0.0058, 0.0495, 0.0251, 0, 0, 0, S);
+    }
+    A(new THREE.CylinderGeometry(0.0062, 0.0062, 0.012, 16).rotateX(Math.PI / 2), dark, 0, 0.033, -0.152, 0, 0, 0, S); // barrel crown
+    // frame, rail, trigger
+    A(uvScale(RB(0.024, 0.018, 0.172, 0.004), 2), poly, 0, 0.0095, -0.057);
+    A(RB(0.02, 0.008, 0.05, 0.002), poly, 0, -0.002, -0.115);
+    A(RB(0.008, 0.004, 0.052, 0.0015), poly, 0, -0.019, -0.03);
+    A(RB(0.004, 0.016, 0.005, 0.0015), steel, 0, -0.008, -0.02, -0.25);
+    // grip with texture panel + beavertail
+    A(uvScale(RB(0.029, 0.108, 0.048, 0.009), 3), poly, 0, -0.048, 0.024, -0.28);
+    A(RB(0.026, 0.01, 0.03, 0.004), poly, 0, 0.01, 0.034);
+    this.muzzle = new THREE.Object3D(); this.muzzle.position.set(0, 0.033, -0.162); this.gun.add(this.muzzle);
+    this.ejectPort = new THREE.Object3D(); this.ejectPort.position.set(0.014, 0.044, -0.03); this.gun.add(this.ejectPort);
+    this.sightY = 0.0512;
+    this.reticle = new THREE.Object3D();
+    // magazine slides out of the grip
+    this.mag = new THREE.Group(); this.mag.position.set(0, -0.002, 0.012); this.mag.rotation.x = -0.28; this.gun.add(this.mag);
+    this.magHome = this.mag.position.clone();
+    A(RB(0.021, 0.1, 0.032, 0.003), dark, 0, -0.05, 0.004, 0, 0, 0, this.mag);
+    A(RB(0.03, 0.011, 0.05, 0.004), poly, 0, -0.104, 0.006, 0, 0, 0, this.mag);
+  }
+
+  buildHands() {
+    const { glove, knuckle } = this.mat;
+    const cap = (r, l) => new THREE.CapsuleGeometry(r, l, 6, 12);
+    // right hand wraps the grip
+    const R = new THREE.Group(); R.position.set(0, -0.05, 0.03); R.rotation.set(-0.28, 0, 0); this.gun.add(R);
+    this.add(uvScale(RB(0.03, 0.062, 0.044, 0.012), 3), glove, 0.018, -0.008, 0.014, 0, 0.1, -0.05, R);
+    for (let i = 0; i < 3; i++) {
+      const y = -0.004 - i * 0.02;
+      this.add(cap(0.0085, 0.024), glove, 0.014, y, -0.03, Math.PI / 2 - 0.1, 0, 0.35, R);
+      this.add(cap(0.0082, 0.02), glove, -0.008, y, -0.036, 0, 0, Math.PI / 2, R);
+    }
+    this.add(cap(0.0082, 0.04), glove, 0.016, 0.04, -0.045, Math.PI / 2 - 0.05, 0, 0.1, R); // index along frame
+    this.add(cap(0.0095, 0.03), glove, -0.012, 0.03, -0.035, Math.PI / 2 - 0.2, 0.2, 0, R); // thumb forward
+    this.arm(R, new THREE.Vector3(0.03, -0.05, 0.04), new THREE.Vector3(0.45, -0.3, 1.0), 0.34, 0.034, 0.045);
+    // left hand cups the right (support grip)
+    const L = new THREE.Group(); L.position.set(-0.016, -0.05, 0.01); L.rotation.set(-0.28, 0, 0); this.gun.add(L);
+    this.leftHand = L; this.leftHome = L.position.clone();
+    this.add(uvScale(RB(0.024, 0.064, 0.048, 0.011), 3), glove, -0.012, -0.008, 0.0, 0, -0.2, 0.05, L);
+    this.add(uvScale(RB(0.012, 0.03, 0.04, 0.006), 3), knuckle, -0.028, 0.0, 0.0, 0, -0.2, 0, L);
+    for (let i = 0; i < 3; i++) this.add(cap(0.0085, 0.022), glove, 0.008, -0.012 - i * 0.02, -0.04, 0, 0, Math.PI / 2, L);
+    this.add(cap(0.0095, 0.03), glove, -0.004, 0.028, -0.04, Math.PI / 2 - 0.25, -0.15, 0, L);
+    this.arm(L, new THREE.Vector3(-0.03, -0.045, 0.03), new THREE.Vector3(-0.5, -0.35, 1.0), 0.36, 0.033, 0.045);
+  }
+
+  fire() { this.slideOff = 1; this.slideHold = 0.035; const p = super.fire(); this.flash.scale.multiplyScalar(0.55); return p; }
+
+  update(dt, t, player, input, mouse) {
+    super.update(dt, t, player, input, mouse);
+    // slide: snaps back, returns on a fast spring, locks open when empty
+    if (this.slideHold > 0) this.slideHold -= dt;
+    else if (!(this.ammo === 0 && !this.reloading) || this.reloadT / this.reloadDur > 0.75) this.slideOff = Math.max(0, this.slideOff - dt * 22);
+    this.slide.position.z = this.slideOff * 0.034;
+  }
 }
