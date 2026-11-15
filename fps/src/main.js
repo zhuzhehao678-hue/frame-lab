@@ -191,6 +191,7 @@ addEventListener('keydown', (e) => {
   if (e.code === 'Digit1' && locked) switchWeapon(0);
   if (e.code === 'Digit2' && locked) switchWeapon(1);
   if (e.code === 'Digit3' && locked) switchWeapon(2);
+  if (e.code === 'Digit4' && locked) fireEMP();
   if (e.code === 'KeyR' && locked && !photo) { if (weapon.startReload()) audio.click(1200, 0.3); }
   if (e.code === 'KeyG' && locked && !photo && !player.dead && grenades.canThrow(weapon) && !e.repeat) G.aimingGrenade = true;
   if (e.code === 'KeyT' && locked && !photo) {
@@ -406,6 +407,34 @@ for (const w of weapons) {
 const NAMES = { normal: '哨兵无人机', heavy: '重型哨兵', kamikaze: '自爆蜂', walker: '四足机甲', sniper: '狙击无人机', medic: '维修无人机' };
 const POINTS = { normal: 100, heavy: 250, kamikaze: 150, walker: 450, sniper: 220, medic: 200 };
 const score = { total: 0, combo: 0, last: -10, best: +(saved.best || 0) };
+// scorestreak: every EMP_KILLS kills charges an EMP that disables machines nearby
+const EMP_KILLS = 6, EMP_RADIUS = 32;
+const emp = { charge: 0, ready: false, flash: 0 };
+function updateEmpHud() {
+  const el = $('emp'); if (!el) return;
+  el.classList.toggle('ready', emp.ready);
+  el.querySelector('i').style.width = `${Math.min(1, emp.charge / EMP_KILLS) * 100}%`;
+}
+function fireEMP() {
+  if (!emp.ready || !started || photo || player.dead) return;
+  emp.ready = false; emp.charge = 0; emp.flash = 1; updateEmpHud();
+  const c = camera.position;
+  effects.empPulse(new THREE.Vector3(c.x, c.y, c.z)); audio.emp(); player.shake = Math.max(player.shake, 0.4);
+  if (pad.active) rumble(0.6, 0.9, 400);
+  let n = 0;
+  killSource = { type: 'emp' };
+  for (const e of enemies.list) {
+    if (!e.alive || e.pos.distanceTo(c) > EMP_RADIUS) continue;
+    n++;
+    if (e.kind === 'kamikaze') { enemies.damage(e, 1e4, e.pos, e.pos.clone().sub(c).normalize()); continue; }
+    e.stagger = e.heavy ? 3 : 4; e.emp = e.stagger; e.charge = 0; e.burst = 0; e.aimT = 0;
+    e.fireCD = Math.max(e.fireCD, e.stagger + 1);
+    if (e.beam) e.beam.visible = false;
+  }
+  for (const w of walkers.list) if (w.alive && w.pos.distanceTo(c) < EMP_RADIUS) { w.empT = 6; n++; }
+  killSource = { type: 'gun' };
+  feed(n ? `EMP 脉冲 · ${n} 个目标瘫痪` : 'EMP 脉冲 · 范围内无目标');
+}
 enemies.onKill = (e) => {
   stats.kills++; killT = 0.35; killPulse = 1;
   stats.byKind[e.kind] = (stats.byKind[e.kind] || 0) + 1;
@@ -419,6 +448,11 @@ enemies.onKill = (e) => {
   score.total += pts;
   feed(`${NAMES[e.kind]} 已摧毁  +${pts}${score.combo > 1 ? `  ×${score.combo} 连杀` : ''}`);
   audio.hitmarker(true);
+  if (!emp.ready && killSource.type !== 'emp') {
+    emp.charge++;
+    if (emp.charge >= EMP_KILLS) { emp.ready = true; audio.empReady(); feed('EMP 脉冲已就绪 · 按 4 释放'); }
+  }
+  updateEmpHud();
 };
 boss.onPodDown = (left) => {
   stats.kills++; score.total += 300; feed(`旋翼舱已摧毁  +300  (剩余 ${left})`);
@@ -563,7 +597,7 @@ function restart() {
   G.weapon.ammo = 30; G.weapon.reserve = 180; G.pistol.ammo = 15; G.pistol.reserve = 60; G.dmr.ammo = 20; G.dmr.reserve = 80;
   for (const w of weapons) { w.reloading = false; w.equipT = 0; }
   if (weaponIdx !== 0) { started = true; weapon.root.visible = false; weaponIdx = 0; weapon = weapons[0]; weapon.root.visible = true; buildPips(); $('wname').textContent = weapon.label; }
-  Object.assign(stats, freshStats()); score.total = 0; score.combo = 0;
+  Object.assign(stats, freshStats()); score.total = 0; score.combo = 0; emp.charge = 0; emp.ready = false; updateEmpHud();
   gameOver = false; waves.done = false; waves.start();
 }
 
@@ -733,6 +767,7 @@ function pollGamepad(dt) {
   if (up(4) && G.aimingGrenade) { G.aimingGrenade = false; if (grenades.canThrow(weapon)) { grenades.throw(camera, player.vel); weapon.throwT = 0; } else grenades.hidePreview(); }
   if (down(5)) window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyV' }));
   if (down(12)) window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyT' }));
+  if (down(15)) fireEMP();
   if (down(13)) window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyI' }));
   input.leanL = b(14); input.leanR = b(15);
   if (down(9)) document.exitPointerLock();
@@ -881,4 +916,4 @@ weapon.root.visible = false;
 if (!noLoop) loop();
 
 // debug / screenshot hooks
-window.__game = { stats, showEnd, G, walkers, REFL, rain: G.rain, hazards, pickups: G.pickups, music: G.music, boss, switchWeapon, weapons, get weapon() { return weapon; }, ambient, updateHUD, score, grenades, setLocked: (v) => { locked = v; }, loop, start: () => { started = true; waves.start(); }, FOG, sun: G.sun, THREE, scene, camera, player, enemies, effects, level, R, waves, renderer, togglePhoto, shoot, input };
+window.__game = { emp, fireEMP, stats, showEnd, G, walkers, REFL, rain: G.rain, hazards, pickups: G.pickups, music: G.music, boss, switchWeapon, weapons, get weapon() { return weapon; }, ambient, updateHUD, score, grenades, setLocked: (v) => { locked = v; }, loop, start: () => { started = true; waves.start(); }, FOG, sun: G.sun, THREE, scene, camera, player, enemies, effects, level, R, waves, renderer, togglePhoto, shoot, input };

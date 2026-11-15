@@ -406,6 +406,7 @@ export class Enemies {
         e.stagger -= dt;
         e.vel.add(new THREE.Vector3((Math.random() - 0.5) * 14 * dt, -5 * dt, (Math.random() - 0.5) * 14 * dt));
         e.group.rotateY(dt * 9 * e.stagger); e.group.rotateZ(Math.sin(e.wob * 18) * 0.05);
+        if (e.emp > 0) { e.emp -= dt; if (Math.random() < dt * 30) this.effects.empSpark(e.pos); }
         if (Math.random() < dt * 25) this.effects.add.emit({ pos: e.pos, vel: new THREE.Vector3((Math.random() - 0.5) * 4, Math.random() * 2, (Math.random() - 0.5) * 4), life: 0.3, size: 0.012, color: new THREE.Color(8, 5, 2), gravity: 9.8, stretch: 0.04 });
       }
       for (const r of e.rotors) r.rotation.y += dt * 90;

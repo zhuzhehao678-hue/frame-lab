@@ -191,9 +191,9 @@ export class Effects {
     this.fire = new FireSystem(scene, 160);
     // ground shockwave rings
     this.ringMat = new THREE.ShaderMaterial({
-      uniforms: { uA: { value: 0 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      uniforms: { uA: { value: 0 }, uC: { value: new THREE.Color(1.6, 1.1, 0.7) } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
       vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-      fragmentShader: 'uniform float uA; varying vec2 vUv; void main(){ float r = length(vUv - 0.5) * 2.0; float a = smoothstep(0.75, 0.95, r) * (1.0 - smoothstep(0.95, 1.0, r)) * uA; gl_FragColor = vec4(vec3(1.6, 1.1, 0.7) * a, a); }',
+      fragmentShader: 'uniform float uA; uniform vec3 uC; varying vec2 vUv; void main(){ float r = length(vUv - 0.5) * 2.0; float a = smoothstep(0.75, 0.95, r) * (1.0 - smoothstep(0.95, 1.0, r)) * uA; gl_FragColor = vec4(uC * a, a); }',
     });
     this.rings = [];
     this.ambient = new THREE.Color(0.55, 0.45, 0.38); // smoke lighting tint
@@ -324,7 +324,7 @@ export class Effects {
     if (pos.y < 3.5) {
       const ring = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), this.ringMat.clone());
       ring.position.set(pos.x, 0.05, pos.z); ring.userData.noAO = true; ring.renderOrder = 12;
-      this.scene.add(ring); this.rings.push({ mesh: ring, t: 0, s: scale });
+      this.scene.add(ring); this.rings.push({ mesh: ring, t: 0, s: scale, dur: 0.45 });
     }
     for (let i = 0; i < 40; i++) {
       const v = rnd().multiplyScalar(6 + Math.random() * 12);
@@ -337,6 +337,27 @@ export class Effects {
     }
   }
 
+  // EMP: wide electric-blue ring sweeping out from the player plus arcs
+  empPulse(pos) {
+    this.flash(pos.clone().setY(pos.y + 0.5), new THREE.Color(0.4, 0.7, 1.6), 60, 0.6, 30);
+    for (const [y, sc, dur] of [[0.06, 3.2, 0.9], [pos.y - 0.2, 2.6, 0.7]]) {
+      const ring = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), this.ringMat.clone());
+      ring.material.uniforms.uC.value = new THREE.Color(0.5, 1.2, 3.2);
+      ring.position.set(pos.x, y, pos.z); ring.userData.noAO = true; ring.renderOrder = 12;
+      this.scene.add(ring); this.rings.push({ mesh: ring, t: 0, s: sc, dur });
+    }
+    for (let i = 0; i < 60; i++) {
+      const a = Math.random() * Math.PI * 2, v = new THREE.Vector3(Math.cos(a), (Math.random() - 0.3) * 0.4, Math.sin(a)).multiplyScalar(14 + Math.random() * 18);
+      this.add.emit({ pos, vel: v, life: 0.5 + Math.random() * 0.5, size: 0.025, size1: 0.005, color: new THREE.Color(2, 5, 12), alpha: 1, alpha1: 0, drag: 1.5, stretch: 0.05 });
+    }
+  }
+
+  // crackle of sparks on a disabled machine
+  empSpark(pos) {
+    const v = new THREE.Vector3((Math.random() - 0.5) * 3, Math.random() * 2, (Math.random() - 0.5) * 3);
+    this.add.emit({ pos: pos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.8, (Math.random() - 0.5) * 0.5, (Math.random() - 0.5) * 0.8)), vel: v, life: 0.15 + Math.random() * 0.15, size: 0.02, size1: 0.004, color: new THREE.Color(3, 6, 14), alpha: 1, alpha1: 0, stretch: 0.03 });
+  }
+
   spawnDebris(mesh, pos, vel, smoke = true) {
     mesh.position.copy(pos);
     this.scene.add(mesh);
@@ -347,7 +368,7 @@ export class Effects {
     this.add.update(dt); this.smoke.update(dt); this.fire.update(dt);
     for (let i = this.rings.length - 1; i >= 0; i--) {
       const r = this.rings[i]; r.t += dt;
-      const k = r.t / 0.45;
+      const k = r.t / r.dur;
       if (k >= 1) { this.scene.remove(r.mesh); this.rings.splice(i, 1); continue; }
       const sz = (1 + k * 11) * r.s; r.mesh.scale.set(sz, 1, sz); r.mesh.material.uniforms.uA.value = (1 - k) * 1.2;
     }

@@ -191,6 +191,14 @@ export class Walkers {
     for (const w of this.list) {
       w.t += dt;
       if (!w.alive) { this.updateDeath(w, dt); continue; }
+      if (w.empT > 0) {
+        // EMP: systems offline, turret droops, sparks crawl over the hull
+        w.empT -= dt;
+        w.turret.rotation.x = THREE.MathUtils.lerp(w.turret.rotation.x, 0.35, 1 - Math.exp(-3 * dt));
+        if (Math.random() < dt * 40) this.effects.empSpark(w.turret.getWorldPosition(new THREE.Vector3()));
+        if (w.empT <= 0) w.turret.rotation.x = 0;
+        continue;
+      }
       // --- locomotion: hold preferred range, strafe, avoid boxes
       const to = new THREE.Vector3(target.x - w.pos.x, 0, target.z - w.pos.z);
       const dist = to.length(); to.normalize();

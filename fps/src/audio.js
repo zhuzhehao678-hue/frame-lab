@@ -323,6 +323,13 @@ export class Audio {
     // debris tinkles
     for (let i = 0; i < 6; i++) this.tone(d, t + 0.4 + Math.random() * 1.2, 0.1, { f: 2500 + Math.random() * 3000, gain: 0.05, curve: 5 });
   }
+  emp() {
+    if (!this.enabled) return; const t = this.ctx.currentTime; const d = this.out(null, { verb: 0.6, gain: 1 });
+    this.tone(d, t, 1.2, { type: 'sawtooth', f: 1800, f1: 40, gain: 0.25, curve: 2 });
+    this.tone(d, t, 0.9, { f: 90, f1: 30, gain: 0.8 });
+    this.noise(d, t, 1.0, { f: 4000, f1: 300, q: 2, gain: 0.6, curve: 2 });
+  }
+  empReady() { if (!this.enabled) return; const t = this.ctx.currentTime; const d = this.out(null, { verb: 0.2 }); [880, 1320, 1760].forEach((f, i) => this.tone(d, t + i * 0.09, 0.12, { type: 'square', f, gain: 0.08 })); }
   waveHorn() {
     if (!this.enabled) return; const t = this.ctx.currentTime; const d = this.out(new THREE.Vector3(30, 20, -300), { verb: 1.5, gain: 6 });
     for (const f of [73, 110, 146.8]) this.tone(d, t, 3.2, { type: 'sawtooth', f, gain: 0.08, attack: 0.25, curve: 1.5 });

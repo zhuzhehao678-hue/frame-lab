@@ -124,6 +124,10 @@
   #end button { background: none; border: 1px solid rgba(240,236,228,0.45); color: var(--hud); padding: 12px 34px; font: inherit; font-size: 13px; letter-spacing: 0.35em; cursor: pointer; }
   #end button:hover { background: var(--accent); border-color: var(--accent); color: #140c07; }
   #end button.hidden { display: none; }
+#emp b{display:inline-block;width:70px;height:4px;background:rgba(255,255,255,.15);vertical-align:middle;margin:0 4px}
+#emp i{display:block;height:100%;width:0;background:#7ab8ff;transition:width .3s}
+#emp.ready{color:#9fd0ff;text-shadow:0 0 8px #4aa0ff;animation:empb 1s infinite}
+@keyframes empb{50%{opacity:.55}}
 </style>
 </head>
 <body>
@@ -142,7 +146,7 @@
   <div id="banner"><div class="k" id="bk"></div><div class="t" id="bt"></div><div class="s" id="bs"></div></div>
   <div id="hint"></div>
   <div id="health"><div class="lbl"><span>生命</span><span id="hpn">100</span></div><div class="bar"><i id="hpb"></i></div></div>
-  <div id="ammo"><div class="n"><span id="mag">30</span><small>/ <span id="res">180</span></small></div><div class="pips" id="pips"></div><div class="w" id="wname">MK-18 CQBR · 5.56</div><div class="w">手雷 <span id="gren" style="letter-spacing:0.15em;color:var(--hud)"></span> <kbd style="font-size:10px;border:1px solid rgba(255,255,255,.3);padding:0 4px;border-radius:2px">G</kbd></div></div>
+  <div id="ammo"><div class="n"><span id="mag">30</span><small>/ <span id="res">180</span></small></div><div class="pips" id="pips"></div><div class="w" id="wname">MK-18 CQBR · 5.56</div><div class="w">手雷 <span id="gren" style="letter-spacing:0.15em;color:var(--hud)"></span> <kbd style="font-size:10px;border:1px solid rgba(255,255,255,.3);padding:0 4px;border-radius:2px">G</kbd></div><div class="w" id="emp">EMP <b><i></i></b> <kbd style="font-size:10px;border:1px solid rgba(255,255,255,.3);padding:0 4px;border-radius:2px">4</kbd></div></div>
   <div id="fps" class="hidden"></div>
 </div>
 
@@ -168,7 +172,7 @@
     </div>
     <div class="keys">
       <span><kbd>WASD</kbd>移动</span><span><kbd>鼠标</kbd>瞄准</span><span><kbd>左键</kbd>射击</span><span><kbd>右键</kbd>开镜</span>
-      <span><kbd>Shift</kbd>冲刺</span><span><kbd>C</kbd>蹲下</span><span><kbd>空格</kbd>跳跃</span><span><kbd>Q / E</kbd>左右探头</span><span><kbd>R</kbd>换弹</span><span><kbd>1 / 2 / 3</kbd>切枪</span><span><kbd>G</kbd>手雷</span><span><kbd>T</kbd>手电</span><span><kbd>V</kbd>近战</span><span><kbd>I</kbd>检视</span><span><kbd>🎮</kbd>支持手柄</span>
+      <span><kbd>Shift</kbd>冲刺</span><span><kbd>C</kbd>蹲下</span><span><kbd>空格</kbd>跳跃</span><span><kbd>Q / E</kbd>左右探头</span><span><kbd>R</kbd>换弹</span><span><kbd>1 / 2 / 3</kbd>切枪</span><span><kbd>G</kbd>手雷</span><span><kbd>T</kbd>手电</span><span><kbd>V</kbd>近战</span><span><kbd>4</kbd>EMP（6 连杀）</span><span><kbd>I</kbd>检视</span><span><kbd>🎮</kbd>支持手柄</span>
       <span><kbd>F</kbd>帧率</span><span><kbd>P</kbd>照片模式</span><span><kbd>Esc</kbd>暂停</span>
     </div>
   </div>
