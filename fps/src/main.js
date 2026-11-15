@@ -836,6 +836,10 @@ function loop() {
       REFL.time.value = t;
       G.hemi.intensity = G.hemi.userData.base + fl * 4;
       R.final.uniforms.uFlash.value = fl * 1.5;
+      // wet lens when exposed to the rain (not under the warehouse roof, not looking down)
+      const exposed = !(player.pos.x < -18.3 && player.pos.z > -6.5 && player.pos.z < 7.5) && player.pitch > -0.35 && !photo;
+      G.lensWet = THREE.MathUtils.clamp((G.lensWet || 0) + (exposed ? 0.06 : -0.25) * realDt, 0, 0.6);
+      R.final.uniforms.uLensWet.value = G.lensWet;
     }
     ambient.update(running ? dt : 0, t, effects);
   }

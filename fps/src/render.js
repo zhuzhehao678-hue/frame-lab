@@ -69,11 +69,11 @@ const FinalShader = {
     tDiffuse: { value: null }, uTime: { value: 0 }, uExposure: { value: 0.56 },
     uRes: { value: new THREE.Vector2(1, 1) }, uDamage: { value: 0 }, uLowHealth: { value: 0 },
     uCA: { value: 0.0018 }, uVignette: { value: 0.32 }, uGrain: { value: 0.045 }, uADS: { value: 0 },
-    uFlash: { value: 0 }, uKill: { value: 0 }, uFilter: { value: 0 }, uGrade: { value: new THREE.Color(1, 1, 1) },
+    uFlash: { value: 0 }, uKill: { value: 0 }, uFilter: { value: 0 }, uLensWet: { value: 0 }, uGrade: { value: new THREE.Color(1, 1, 1) },
   },
   vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} `,
   fragmentShader: /* glsl */`
-    uniform vec3 uGrade; uniform float uKill; uniform int uFilter; uniform sampler2D tDiffuse; uniform float uTime, uExposure, uDamage, uLowHealth, uCA, uVignette, uGrain, uADS, uFlash;
+    uniform vec3 uGrade; uniform float uKill; uniform int uFilter; uniform float uLensWet; uniform sampler2D tDiffuse; uniform float uTime, uExposure, uDamage, uLowHealth, uCA, uVignette, uGrain, uADS, uFlash;
     uniform vec2 uRes; varying vec2 vUv;
 
     // ACES fitted (Stephen Hill)
@@ -87,8 +87,37 @@ const FinalShader = {
     float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233)) + uTime*0.0) * 43758.5453); }
     float luma(vec3 c){ return dot(c, vec3(0.2126,0.7152,0.0722)); }
 
+    float dh(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+    // rain droplets on the lens: per-cell drops that bead, swell, slide and dry
+    vec2 lensDrops(vec2 uv, out float shade){
+      shade = 0.0;
+      if (uLensWet <= 0.001) return vec2(0.0);
+      vec2 aspect = vec2(uRes.x / uRes.y, 1.0);
+      vec2 grid = uv * aspect * 9.0;
+      vec2 id = floor(grid);
+      vec2 off = vec2(0.0);
+      for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) {
+        vec2 cid = id + vec2(float(i), float(j));
+        float h = dh(cid), h2 = dh(cid + 17.3), h3 = dh(cid + 41.1);
+        float life = fract(uTime * (0.05 + h2 * 0.08) + h);
+        float slide = step(0.7, h3) * life * life * 1.8;
+        vec2 center = cid + vec2(0.2 + 0.6 * h, 0.2 + 0.6 * h2 - slide);
+        float r = (0.08 + 0.22 * h3) * smoothstep(0.0, 0.15, life) * (1.0 - smoothstep(0.75, 1.0, life));
+        r *= step(1.0 - uLensWet, dh(cid + 5.7)); // how many drops are present
+        vec2 d = grid - center; d.y *= 1.0 + slide * 0.6;
+        float dist = length(d);
+        if (dist < r && r > 0.0) {
+          float k = dist / r;
+          off += -d / r * (1.0 - k * k) * 0.06;                 // magnifying, inverted refraction
+          shade = max(shade, smoothstep(0.82, 1.0, k) * 0.6 - smoothstep(0.5, 0.0, length(d / r + vec2(0.35, -0.35))) * 0.8); // soft rim, specular glint
+        }
+      }
+      return off;
+    }
+
     void main(){
-      vec2 uv = vUv;
+      float dropShade;
+      vec2 uv = vUv + lensDrops(vUv, dropShade);
       vec2 c = uv - 0.5;
       float r2 = dot(c,c);
       // chromatic aberration grows toward the edges
@@ -111,6 +140,8 @@ const FinalShader = {
       ghost += max(texture2D(tDiffuse, uv + hv).rgb - 60.0, 0.0) * pow(1.0 - length(vec2(0.5) - fract(uv + hv)) / 0.7071, 5.0) * vec3(1.0, 0.8, 0.6) * 0.6;
       col += min(ghost * 0.0006, vec3(0.12));
       col *= uExposure * uGrade;
+      col *= 1.0 - max(dropShade, 0.0) * 0.3;
+      col += max(-dropShade, 0.0) * 0.25;
       col += uFlash * vec3(0.8, 0.9, 1.1) * 0.15;
 
       // colour grade in linear (pre-tonemap): warm highlights, cool shadows
