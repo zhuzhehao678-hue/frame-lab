@@ -613,6 +613,7 @@ const RIFLE_PATTERN = [0, 0.15, -0.1, 0.25, 0.4, 0.3, 0.05, -0.25, -0.45, -0.35,
 const fwdFlash = () => camera.getWorldDirection(new THREE.Vector3());
 const raycaster = new THREE.Raycaster();
 raycaster.firstHitOnly = true;
+const PEN_MATS = new Set(['containerRed', 'containerBlue', 'containerGreen', 'containerOrange', 'claddingTeal', 'claddingGrey', 'cabinWhite'].map((m) => 'static_' + m));
 function shoot(t) {
   killSource = { type: 'gun', w: weapon.kind, dist: 0 };
   const muzzle = weapon.fire();
@@ -647,21 +648,35 @@ function shoot(t) {
   const origin = camera.position.clone();
   raycaster.set(origin, dir); raycaster.far = 400;
   const hits = raycaster.intersectObjects(level.rayMeshes, false);
-  const wh = hits[0];
+  // penetration: thin sheet steel and cardboard let rounds through at reduced power
+  let wh = null, penMul = 1, pens = 0;
+  for (const h of hits) {
+    const thin = PEN_MATS.has(h.object.name) || (h.object.userData.prop && h.object.userData.prop.kind === 'box');
+    if (thin && pens < 3 && penMul > 0.3) {
+      pens++; penMul *= weapon.kind === 'dmr' ? 0.85 : (weapon.kind === 'pistol' ? 0.5 : 0.7);
+      const n = h.face ? h.face.normal.clone().transformDirection(h.object.matrixWorld) : dir.clone().negate();
+      if (n.dot(dir) > 0) n.negate();
+      effects.impact(h.point, n, h.object.userData.surf);
+      if (h.object.userData.prop) props.hit(h.object.userData.prop, h.point, dir, weapon.damage[1] * penMul);
+      continue;
+    }
+    wh = h; break;
+  }
+  if (pens && Math.random() < 0.5) audio.impact(hits[0].point, 'metal');
   let eh = enemies.raycast(origin, dir, wh ? wh.distance : 400);
   const bh = boss.raycast(origin, dir, eh ? eh.t : (wh ? wh.distance : 400));
   const wr = walkers.raycast(origin, dir, Math.min(bh ? bh.t : 400, eh ? eh.t : 400, wh ? wh.distance : 400));
   let end;
   if (wr) {
     end = wr.point; eh = null; killSource.dist = wr.t;
-    const killed = walkers.damage(wr.walker, THREE.MathUtils.randFloat(weapon.damage[0], weapon.damage[1]), wr.part, dir);
+    const killed = walkers.damage(wr.walker, THREE.MathUtils.randFloat(weapon.damage[0], weapon.damage[1]) * penMul, wr.part, dir);
     stats.hits++; hitT = 0.12; if (!killed) audio.hitmarker(false);
     audio.impact(wr.point, 'metal');
     const crit = wr.part === 'cell';
     for (let i = 0; i < (crit ? 16 : 8); i++) effects.add.emit({ pos: wr.point, vel: new THREE.Vector3((Math.random() - 0.5) * 6, Math.random() * 4, (Math.random() - 0.5) * 6), life: 0.3, size: 0.014, color: crit ? new THREE.Color(9, 6, 1) : new THREE.Color(8, 5, 2), gravity: 9.8, stretch: 0.035 });
   } else if (bh) {
     end = bh.point; eh = null;
-    const r = boss.damage(bh.part, THREE.MathUtils.randFloat(weapon.damage[0], weapon.damage[1]), bh.point);
+    const r = boss.damage(bh.part, THREE.MathUtils.randFloat(weapon.damage[0], weapon.damage[1]) * penMul, bh.point);
     if (r !== 'armor') { stats.hits++; hitT = 0.12; audio.hitmarker(r === 'kill'); if (r === 'kill') killT = 0.35; }
     audio.impact(bh.point, 'metal');
     for (let i = 0; i < 8; i++) effects.add.emit({ pos: bh.point, vel: new THREE.Vector3((Math.random() - 0.5) * 6, Math.random() * 4, (Math.random() - 0.5) * 6), life: 0.3, size: 0.012, color: new THREE.Color(8, 5, 2), gravity: 9.8, stretch: 0.035 });
@@ -672,7 +687,7 @@ function shoot(t) {
     if (rotor && !eh.enemy.staggerHinted) { eh.enemy.staggerHinted = true; feed('击中旋翼 · 目标失衡'); }
     const crit = !rotor && enemies.eyeHit(eh.enemy, origin, dir);
     if (crit) { stats.crits++; critT = 0.3; eh.enemy.flick = 0.25; }
-    const killed = enemies.damage(eh.enemy, THREE.MathUtils.randFloat(weapon.damage[0], weapon.damage[1]) * (rotor ? 1.3 : 1) * (crit ? 2.2 : 1), eh.point, dir);
+    const killed = enemies.damage(eh.enemy, THREE.MathUtils.randFloat(weapon.damage[0], weapon.damage[1]) * penMul * (rotor ? 1.3 : 1) * (crit ? 2.2 : 1), eh.point, dir);
     if (crit) audio.crit(); else if (!killed) audio.hitmarker(false);
     if (crit) for (let i = 0; i < 14; i++) effects.add.emit({ pos: eh.point, vel: dir.clone().multiplyScalar(-2).add(new THREE.Vector3((Math.random() - 0.5) * 5, Math.random() * 3, (Math.random() - 0.5) * 5)), life: 0.25, size: 0.016, color: new THREE.Color(9, 2, 1), gravity: 6, stretch: 0.04 });
     const n = eh.point.clone().sub(eh.enemy.pos).normalize();
@@ -692,7 +707,7 @@ function shoot(t) {
       }
     } else effects.impact(wh.point, n, wh.object.userData.surf);
     if (wh.object.userData.prop) props.hit(wh.object.userData.prop, wh.point, dir, weapon.damage[1]);
-    if (wh.object.userData.drum) hazards.damage(wh.object.userData.drum, THREE.MathUtils.randFloat(weapon.damage[0], weapon.damage[1]), wh.point.clone().addScaledVector(n, 0.03));
+    if (wh.object.userData.drum) hazards.damage(wh.object.userData.drum, THREE.MathUtils.randFloat(weapon.damage[0], weapon.damage[1]) * penMul, wh.point.clone().addScaledVector(n, 0.03));
     audio.impact(wh.point, wh.object.userData.surf);
   } else end = origin.clone().addScaledVector(dir, 400);
   // rounds that reach the harbour basin kick up a splash
