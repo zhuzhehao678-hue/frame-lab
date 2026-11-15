@@ -13,6 +13,7 @@ import { TIMES } from './timeofday.js';
 import { REFL } from './reflect.js';
 import { Ambient } from './ambient.js';
 import { Boss } from './boss.js';
+import { Music } from './music.js';
 
 installFog();
 
@@ -26,8 +27,8 @@ if (!QUALITY[qualityName]) qualityName = 'high';
 let todName = params.get('t') || saved.tod || 'golden';
 if (!TIMES[todName]) todName = 'golden';
 const TOD = TIMES[todName];
-const settings = { sens: saved.sens ?? 1, fov: saved.fov ?? 74, adsSens: saved.adsSens ?? 0.9 };
-$('quality').value = qualityName; $('tod').value = todName; $('sens').value = settings.sens; $('adssens').value = settings.adsSens; $('fov').value = settings.fov;
+const settings = { sens: saved.sens ?? 1, fov: saved.fov ?? 74, adsSens: saved.adsSens ?? 0.9, music: saved.music ?? 0.5 };
+$('quality').value = qualityName; $('tod').value = todName; $('sens').value = settings.sens; $('adssens').value = settings.adsSens; $('music').value = settings.music; $('fov').value = settings.fov;
 const persist = () => LS.setItem('afterglow', JSON.stringify({ quality: qualityName, tod: todName, ...settings, best: saved.best || 0 }));
 
 const frame = () => new Promise((r) => requestAnimationFrame(() => r()));
@@ -92,6 +93,7 @@ async function boot() {
   const grenades = new Grenades(scene, lib, effects, level, audio);
   const ambient = new Ambient(scene, lib);
   const boss = new Boss(scene, lib, effects, level, audio, enemies);
+  const music = new Music(audio);
 
   R.setup(scene, camera, sunDir);
   R.final.uniforms.uExposure.value = TOD.exposure;
@@ -115,11 +117,11 @@ async function boot() {
   scene.remove(warm);
   await progress(1, '就绪');
 
-  return { lib, level, effects, audio, player, weapon, pistol, enemies, grenades, ambient, boss, sun };
+  return { lib, level, effects, audio, player, weapon, pistol, enemies, grenades, ambient, boss, music, sun };
 }
 
 const G = await boot();
-const { level, effects, audio, player, enemies, grenades, ambient, boss } = G;
+const { level, effects, audio, player, enemies, grenades, ambient, boss, music } = G;
 // ------------------------------------------------------------------ loadout
 const weapons = [G.weapon, G.pistol];
 let weaponIdx = 0;
@@ -178,6 +180,7 @@ document.addEventListener('pointerlockchange', () => {
 });
 
 $('sens').oninput = (e) => { settings.sens = +e.target.value; persist(); };
+$('music').oninput = (e) => { settings.music = +e.target.value; music.setVolume(settings.music); persist(); };
 $('adssens').oninput = (e) => { settings.adsSens = +e.target.value; persist(); };
 $('fov').oninput = (e) => { settings.fov = +e.target.value; for (const w of weapons) w.baseFov = settings.fov; persist(); };
 $('quality').onchange = (e) => {
@@ -190,6 +193,7 @@ $('tod').onchange = (e) => {
 };
 $('play').onclick = () => {
   audio.init();
+  music.setVolume(settings.music); music.start();
   $('view').requestPointerLock();
   if (!started) { started = true; waves.start(); weapon.root.visible = true; weapon.equipT = 0; }
 };
@@ -411,6 +415,7 @@ function restart() {
 }
 
 // ------------------------------------------------------------------ shooting
+const RIFLE_PATTERN = [0, 0.15, -0.1, 0.25, 0.4, 0.3, 0.05, -0.25, -0.45, -0.35, -0.1, 0.2, 0.45, 0.5, 0.3, 0, -0.3, -0.5, -0.4, -0.1, 0.25, 0.4, 0.3, 0.1, -0.2, -0.4, -0.3, 0, 0.2, 0.3];
 const fwdFlash = () => camera.getWorldDirection(new THREE.Vector3());
 const raycaster = new THREE.Raycaster();
 raycaster.firstHitOnly = true;
@@ -422,9 +427,19 @@ function shoot(t) {
   weapon.ejectBrass();
   const fwd = new THREE.Vector3(); camera.getWorldDirection(fwd);
   effects.muzzleSmoke(muzzle, fwd);
-  // recoil: permanent climb + visual kick
-  const climb = 0.0058 * weapon.climb * (1 - weapon.ads * 0.35) * (1 - player.crouch * 0.3);
-  player.pitch += climb; player.yaw += (Math.random() - 0.42) * 0.0032;
+  // recoil: a fixed, learnable pattern for the rifle (climb, then a left-right
+  // snake), small random jitter on top; the pistol just kicks up
+  if (simTime - (weapon.lastShotT ?? -9) > 0.32) weapon.burst = 0;
+  weapon.lastShotT = simTime; weapon.burst = (weapon.burst || 0) + 1;
+  weapon.heat = (weapon.heat || 0) + 1;
+  const k = weapon.burst - 1;
+  const ctrl = (1 - weapon.ads * 0.35) * (1 - player.crouch * 0.3);
+  let climb = 0.0058 * weapon.climb * ctrl, side;
+  if (weapon.kind === 'rifle') {
+    climb *= k < 8 ? 1.15 : 0.7;
+    side = RIFLE_PATTERN[k % RIFLE_PATTERN.length] * 0.0042 * ctrl + (Math.random() - 0.5) * 0.0008;
+  } else side = (Math.random() - 0.5) * 0.003;
+  player.pitch += climb; player.yaw -= side;
   player.addRecoil(0.006, (Math.random() - 0.5) * 0.004);
   // ray with spread
   const sp = weapon.spread(player);
@@ -510,6 +525,13 @@ function loop() {
     if (input.ads !== prevAds) { audio.click(input.ads ? 900 : 700, 0.12); prevAds = input.ads; }
     if (player.health < 35 && !player.dead) { loop.hb = (loop.hb || 0) - dt; if (loop.hb <= 0) { audio.heartbeat(); loop.hb = 0.55 + player.health / 60; } }
     waves.update(dt);
+    // adaptive music + barrel heat smoke
+    music.setIntensity(boss.active && !boss.falling ? 2 : (waves.active && (enemies.list.length || waves.queue.length)) ? (player.health < 35 ? 2 : 1) : 0);
+    for (const w of weapons) w.heat = Math.max(0, (w.heat || 0) - dt * (w === weapon && input.firing ? 0.4 : 1.6));
+    if (weapon.heat > 7 && Math.random() < dt * 30) {
+      const mp = weapon.muzzle.getWorldPosition(new THREE.Vector3());
+      effects.smoke.emit({ pos: mp, vel: new THREE.Vector3((Math.random() - 0.5) * 0.05, 0.35 + Math.random() * 0.2, (Math.random() - 0.5) * 0.05).add(player.vel.clone().multiplyScalar(0.8)), life: 1.4, size: 0.015, size1: 0.12, color: new THREE.Color(0.8, 0.8, 0.8).multiply(effects.ambient), alpha: Math.min(0.35, (weapon.heat - 7) * 0.04), alpha1: 0, drag: 1.5, gravity: -0.3, rotVel: (Math.random() - 0.5) * 3 });
+    }
     enemies.update(dt, t, player);
     grenades.update(dt, { enemies, player, t, onPlayerHit: enemies.onPlayerHit, boss });
     boss.update(dt, t, player);
@@ -545,4 +567,4 @@ weapon.root.visible = false;
 if (!noLoop) loop();
 
 // debug / screenshot hooks
-window.__game = { boss, switchWeapon, weapons, get weapon() { return weapon; }, ambient, updateHUD, score, grenades, setLocked: (v) => { locked = v; }, loop, start: () => { started = true; waves.start(); }, FOG, sun: G.sun, THREE, scene, camera, player, enemies, effects, level, R, waves, renderer, togglePhoto, shoot, input };
+window.__game = { music: G.music, boss, switchWeapon, weapons, get weapon() { return weapon; }, ambient, updateHUD, score, grenades, setLocked: (v) => { locked = v; }, loop, start: () => { started = true; waves.start(); }, FOG, sun: G.sun, THREE, scene, camera, player, enemies, effects, level, R, waves, renderer, togglePhoto, shoot, input };
