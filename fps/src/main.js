@@ -117,7 +117,7 @@ async function boot() {
   flashlight.position.set(0.06, -0.06, -0.85); // ahead of the muzzle so it doesn't bleach the viewmodel
   flashlight.target.position.set(0.05, -0.15, -10);
   camera.add(flashlight, flashlight.target);
-  if (R.q.shadow >= 4096) { flashlight.castShadow = true; flashlight.shadow.mapSize.set(1024, 1024); flashlight.shadow.bias = -0.0005; flashlight.shadow.normalBias = 0.03; flashlight.shadow.camera.near = 0.3; }
+  if (R.q.shadow >= 4096) { flashlight.castShadow = true; flashlight.shadow.mapSize.set(1024, 1024); flashlight.shadow.bias = -0.0005; flashlight.shadow.normalBias = 0.03; flashlight.shadow.camera.near = 0.3; flashlight.shadow.autoUpdate = false; }
   const lensGlow = new THREE.Mesh(new THREE.CircleGeometry(0.0125, 20), new THREE.MeshBasicMaterial({ color: new THREE.Color(6, 5.6, 5), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
   lensGlow.position.set(0.034, 0.04, -0.4815); lensGlow.rotation.y = Math.PI; lensGlow.visible = false; weapon.gun.add(lensGlow);
   const enemies = new Enemies(scene, lib, effects, level, audio);
@@ -269,6 +269,7 @@ addEventListener('keydown', (e) => {
   if (e.code === 'KeyT' && locked && !photo) {
     G.flashOn = !G.flashOn;
     G.flashlight.intensity = G.flashOn ? 90 : 0; G.lensGlow.visible = G.flashOn;
+    G.flashlight.shadow.autoUpdate = G.flashOn; // an unlit spot still re-rendered its whole shadow map every frame
     audio.click(G.flashOn ? 2400 : 1700, 0.35);
   }
   if (e.code === 'KeyV' && locked && !photo && !player.dead && weapon.meleeT > 0.6 && weapon.throwT > 0.6) {
@@ -413,29 +414,32 @@ const compass = { el: $('compass'), items: [], enemies: [] };
     if (names[b] !== undefined) { const lb = document.createElement('span'); lb.className = 'lb' + (b % 90 ? ' minor' : ''); lb.textContent = names[b]; compass.el.appendChild(lb); compass.items.push({ el: lb, b }); }
   }
 }
+// DOM writes only when the value changes (each write invalidates style/layout)
+const setT = (el, v) => { v = String(v); if (el._t !== v) { el._t = v; el.textContent = v; } };
+const setS = (el, k, v) => { const c = el._s || (el._s = {}); v = String(v); if (c[k] !== v) { c[k] = v; el.style[k] = v; } };
 function updateCompass() {
   const fwd = new THREE.Vector3(); camera.getWorldDirection(fwd);
   const head = THREE.MathUtils.radToDeg(Math.atan2(fwd.x, -fwd.z));
   const place = (el, b) => {
     let d = ((b - head) % 360 + 540) % 360 - 180;
-    if (Math.abs(d) > 95) { el.style.display = 'none'; return; }
-    el.style.display = ''; el.style.left = (260 + d * 2.75) + 'px';
+    if (Math.abs(d) > 95) { setS(el, 'display', 'none'); return; }
+    setS(el, 'display', ''); setS(el, 'left', (260 + d * 2.75) + 'px');
   };
   for (const it of compass.items) place(it.el, it.b);
   // supply pickups (hidden while respawning), dimmer the farther they are
-  if (!compass.picks) compass.picks = G.pickups.items.map((it) => { const e = document.createElement('b'); e.className = 'pk ' + it.kind; e.textContent = it.kind === 'med' ? '✚' : '▮'; compass.el.appendChild(e); return e; });
+  if (!compass.picks) compass.picks = G.pickups.items.map((it) => { const e = document.createElement('b'); e.className = 'pk ' + it.kind; setT(e, it.kind === 'med' ? '✚' : '▮'); compass.el.appendChild(e); return e; });
   G.pickups.items.forEach((it, i) => {
     const el = compass.picks[i];
-    if (!it.alive) { el.style.display = 'none'; return; }
+    if (!it.alive) { setS(el, 'display', 'none'); return; }
     const dx = it.root.position.x - camera.position.x, dz = it.root.position.z - camera.position.z;
     place(el, THREE.MathUtils.radToDeg(Math.atan2(dx, -dz)));
-    el.style.opacity = THREE.MathUtils.clamp(1.2 - Math.hypot(dx, dz) / 40, 0.35, 1);
+    setS(el, 'opacity', THREE.MathUtils.clamp(1.2 - Math.hypot(dx, dz) / 40, 0.35, 1));
   });
   const list = enemies.list.concat(walkers.list.filter((w) => w.alive));
   while (compass.enemies.length < list.length) { const e = document.createElement('i'); compass.el.appendChild(e); compass.enemies.push(e); }
   compass.enemies.forEach((el, i) => {
     const e = list[i];
-    if (!e) { el.style.display = 'none'; return; }
+    if (!e) { setS(el, 'display', 'none'); return; }
     el.className = 'en' + (e.heavy ? ' heavy' : '') + (e.kami ? ' kami' : '') + (e.kind === 'walker' ? ' walker' : '') + (e.kind === 'medic' ? ' medic' : '') + (e.kind === 'miner' ? ' miner' : '') + (e.kind === 'shield' ? ' shieldd' : '');
     place(el, THREE.MathUtils.radToDeg(Math.atan2(e.pos.x - camera.position.x, -(e.pos.z - camera.position.z))));
   });
@@ -478,39 +482,39 @@ function banner(k, t, s, dur = 3) {
 function feed(text) { const d = document.createElement('div'); d.textContent = text; hud.feed.prepend(d); setTimeout(() => d.remove(), 3300); }
 function updateHUD(dt, t) {
   { const gh = `<span style="opacity:${grenades.type === 'frag' ? 1 : 0.4}">${'◆'.repeat(grenades.count) + '◇'.repeat(Math.max(0, grenades.max - grenades.count))}</span> <span style="opacity:${grenades.type === 'smoke' ? 1 : 0.4}">${'●'.repeat(grenades.smokeCount) + '○'.repeat(Math.max(0, grenades.smokeMax - grenades.smokeCount))}</span>`; if (hud.gren._h !== gh) { hud.gren._h = gh; hud.gren.innerHTML = gh; } }
-  hud.mag.textContent = weapon.ammo; hud.res.textContent = weapon.reserve;
+  setT(hud.mag, weapon.ammo); setT(hud.res, weapon.reserve);
   const pips = hud.pips.children;
   for (let i = 0; i < pips.length; i++) pips[i].className = i < weapon.ammo ? '' : 'e';
   $('ammo').classList.toggle('low', weapon.ammo <= Math.ceil(weapon.magSize * 0.27));
   const hp = Math.ceil(player.health);
-  hud.hpn.textContent = hp; hud.hpb.style.width = player.health + '%';
+  setT(hud.hpn, hp); setS(hud.hpb, 'width', player.health + '%');
   $('health').classList.toggle('low', hp < 35);
   // dynamic crosshair
   const gap = 4 + weapon.spread(player) * 520;
   const c = hud.cross.children;
-  c[0].style.top = (-gap - 9) + 'px'; c[1].style.top = gap + 'px'; c[2].style.left = (-gap - 9) + 'px'; c[3].style.left = gap + 'px';
-  hud.cross.style.opacity = (1 - weapon.ads * 1.4) * (1 - weapon.sprint) * (weapon.reloading ? 0.4 : 1);
-  hitT -= dt; hud.hit.style.opacity = Math.max(0, hitT * 5); hud.hit.classList.toggle('kill', killT > 0); hud.hit.classList.toggle('crit', critT > 0 && killT <= 0); killT -= dt; critT -= dt;
-  hud.hit.style.transform = `scale(${1 + Math.max(0, hitT) * 2})`;
+  setS(c[0], 'top', (-gap - 9) + 'px'); setS(c[1], 'top', gap + 'px'); setS(c[2], 'left', (-gap - 9) + 'px'); setS(c[3], 'left', gap + 'px');
+  setS(hud.cross, 'opacity', (1 - weapon.ads * 1.4) * (1 - weapon.sprint) * (weapon.reloading ? 0.4 : 1));
+  hitT -= dt; setS(hud.hit, 'opacity', Math.max(0, hitT * 5)); hud.hit.classList.toggle('kill', killT > 0); hud.hit.classList.toggle('crit', critT > 0 && killT <= 0); killT -= dt; critT -= dt;
+  setS(hud.hit, 'transform', `scale(${1 + Math.max(0, hitT) * 2})`);
   // damage direction arcs
   for (let i = dmgIndicators.length - 1; i >= 0; i--) {
     const d = dmgIndicators[i]; d.life -= dt;
     if (d.life <= 0) { d.el.remove(); dmgIndicators.splice(i, 1); continue; }
     const to = d.from.clone().sub(player.pos);
     const ang = Math.atan2(to.x, -to.z) + player.yaw; // screen angle, 0 = ahead
-    d.el.style.transform = `rotate(${ang}rad)`;
-    d.el.style.opacity = Math.min(1, d.life * 1.5);
+    setS(d.el, 'transform', `rotate(${ang}rad)`);
+    setS(d.el, 'opacity', Math.min(1, d.life * 1.5));
   }
   updateCompass();
   $('boss').classList.toggle('on', boss.active && !boss.falling);
   if (boss.active) {
-    $('bossfill').style.width = (boss.hpFrac * 100).toFixed(1) + '%';
-    $('bossst').textContent = boss.shielded ? `护盾运行中 · 旋翼舱 ${boss.podsLeft} / 4` : '护盾失效 · 攻击核心';
+    setS($('bossfill'), 'width', (boss.hpFrac * 100).toFixed(1) + '%');
+    setT($('bossst'), boss.shielded ? `护盾运行中 · 旋翼舱 ${boss.podsLeft} / 4` : '护盾失效 · 攻击核心');
   }
   $('lockwarn').classList.toggle('on', enemies.list.some((e) => e.lasering));
-  hud.wn.textContent = waves.endless ? `无尽 ${waves.index + 1}` : waves.index + 1;
-  hud.score.textContent = score.total;
-  hud.wleft.textContent = waves.active ? `剩余 ${enemies.list.length + walkers.alive + waves.queue.length}` : (waves.index + 1 >= WAVES.length && waves.done ? '已肃清' : '准备');
+  setT(hud.wn, waves.endless ? `无尽 ${waves.index + 1}` : waves.index + 1);
+  setT(hud.score, score.total);
+  setT(hud.wleft, waves.active ? `剩余 ${enemies.list.length + walkers.alive + waves.queue.length}` : (waves.index + 1 >= WAVES.length && waves.done ? '已肃清' : '准备'));
 }
 
 // ------------------------------------------------------------------ gameplay hooks
