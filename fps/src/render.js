@@ -184,6 +184,42 @@ export class Renderer {
       this.god.uniforms.tDepth.value = this.gtao.depthTexture;
       this.composer.addPass(this.god);
     }
+    // camera motion blur (reconstructs world pos from depth, reprojects with
+    // last frame's view-projection). Pixels closer than 1 m (the viewmodel)
+    // are left sharp.
+    if (this.gtao) {
+      this.mblur = new ShaderPass({
+        uniforms: {
+          tDiffuse: { value: null }, tDepth: { value: this.gtao.depthTexture },
+          uInvViewProj: { value: new THREE.Matrix4() }, uPrevViewProj: { value: new THREE.Matrix4() },
+          uStrength: { value: 0.5 }, uNear: { value: camera.near }, uFar: { value: camera.far },
+        },
+        defines: { SAMPLES: 8 },
+        vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
+        fragmentShader: `uniform sampler2D tDiffuse, tDepth; uniform mat4 uInvViewProj, uPrevViewProj; uniform float uStrength, uNear, uFar; varying vec2 vUv;
+          float linearDepth(float d){ float z = d * 2.0 - 1.0; return 2.0 * uNear * uFar / (uFar + uNear - z * (uFar - uNear)); }
+          void main(){
+            vec4 base = texture2D(tDiffuse, vUv);
+            float d = texture2D(tDepth, vUv).r;
+            if (d < 1.0 && linearDepth(d) < 1.0) { gl_FragColor = base; return; }
+            vec4 wp = uInvViewProj * vec4(vUv * 2.0 - 1.0, d * 2.0 - 1.0, 1.0); wp /= wp.w;
+            vec4 pp = uPrevViewProj * wp; vec2 puv = pp.xy / pp.w * 0.5 + 0.5;
+            vec2 v = (vUv - puv) * uStrength;
+            float l = length(v); if (l > 0.035) v *= 0.035 / l;
+            if (l < 0.0004) { gl_FragColor = base; return; }
+            vec3 acc = base.rgb; float wsum = 1.0;
+            for (int i = 1; i < SAMPLES; i++) {
+              vec2 suv = vUv - v * (float(i) / float(SAMPLES - 1) - 0.5);
+              float sd = texture2D(tDepth, suv).r;
+              if (sd < 1.0 && linearDepth(sd) < 1.0) continue;   // don't smear the gun into the world
+              acc += texture2D(tDiffuse, suv).rgb; wsum += 1.0;
+            }
+            gl_FragColor = vec4(acc / wsum, base.a);
+          }`,
+      });
+      this.composer.addPass(this.mblur);
+      this.prevVP = null;
+    }
     // clamp HDR before bloom: the sun disc can exceed half-float range, which
     // made bloom smear it into a full-screen white veil (and NaN black dots)
     this.clamp = new ShaderPass({
@@ -247,7 +283,20 @@ export class Renderer {
       this.god.uniforms.uSunVis.value = THREE.MathUtils.smoothstep(facing, 0.0, 0.45);
       this.god.uniforms.uFrame.value = (this.god.uniforms.uFrame.value + 1) % 64;
     }
+    let vp = null;
+    if (this.mblur) {
+      const cam = this.camera; cam.updateMatrixWorld();
+      vp = new THREE.Matrix4().multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse);
+      const u = this.mblur.uniforms;
+      u.uInvViewProj.value.copy(vp).invert();
+      u.uPrevViewProj.value.copy(this.prevVP || vp);
+      u.uNear.value = cam.near; u.uFar.value = cam.far;
+      // 180° shutter, normalised so the look is frame-rate independent-ish
+      u.uStrength.value = this.motionBlur ? 0.5 * Math.min(1.5, (1 / 60) / Math.max(dt, 1e-3)) : 0;
+      this.mblur.enabled = this.motionBlur !== false;
+    }
     this.composer.render(dt);
+    if (vp) this.prevVP = vp;
   }
 }
 

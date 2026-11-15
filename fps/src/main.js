@@ -29,8 +29,8 @@ let todName = params.get('t') || saved.tod || 'golden';
 if (!TIMES[todName]) todName = 'golden';
 const TOD = TIMES[todName];
 const DIFF = { easy: { dmg: 0.42, hp: 0.8, fire: 1.35, score: 0.8 }, normal: { dmg: 0.62, hp: 1, fire: 1, score: 1 }, hard: { dmg: 0.85, hp: 1.25, fire: 0.78, score: 1.35 } };
-const settings = { diff: DIFF[saved.diff] ? saved.diff : 'normal', sens: saved.sens ?? 1, fov: saved.fov ?? 74, adsSens: saved.adsSens ?? 0.9, music: saved.music ?? 0.5 };
-$('diff').value = settings.diff; $('quality').value = qualityName; $('tod').value = todName; $('sens').value = settings.sens; $('adssens').value = settings.adsSens; $('music').value = settings.music; $('fov').value = settings.fov;
+const settings = { mblur: saved.mblur ?? true, diff: DIFF[saved.diff] ? saved.diff : 'normal', sens: saved.sens ?? 1, fov: saved.fov ?? 74, adsSens: saved.adsSens ?? 0.9, music: saved.music ?? 0.5 };
+$('diff').value = settings.diff; $('mblur').checked = settings.mblur; $('quality').value = qualityName; $('tod').value = todName; $('sens').value = settings.sens; $('adssens').value = settings.adsSens; $('music').value = settings.music; $('fov').value = settings.fov;
 const persist = () => LS.setItem('afterglow', JSON.stringify({ quality: qualityName, tod: todName, ...settings, best: saved.best || 0 }));
 
 const frame = () => new Promise((r) => requestAnimationFrame(() => r()));
@@ -130,6 +130,7 @@ function applyDifficulty() {
   player.dmgScale = D.dmg; enemies.hpMult = D.hp; enemies.fireMult = D.fire;
 }
 applyDifficulty();
+R.motionBlur = settings.mblur;
 // ------------------------------------------------------------------ loadout
 const weapons = [G.weapon, G.pistol];
 let weaponIdx = 0;
@@ -188,6 +189,7 @@ document.addEventListener('pointerlockchange', () => {
 });
 
 $('sens').oninput = (e) => { settings.sens = +e.target.value; persist(); };
+$('mblur').onchange = (e) => { settings.mblur = e.target.checked; R.motionBlur = settings.mblur; persist(); };
 $('diff').onchange = (e) => { settings.diff = e.target.value; applyDifficulty(); persist(); };
 $('music').oninput = (e) => { settings.music = +e.target.value; music.setVolume(settings.music); persist(); };
 $('adssens').oninput = (e) => { settings.adsSens = +e.target.value; persist(); };
@@ -333,7 +335,7 @@ boss.onPodDown = (left) => {
   stats.kills++; score.total += 300; feed(`旋翼舱已摧毁  +300  (剩余 ${left})`);
   if (left === 0) { banner('SHIELD DOWN', '护盾失效', '攻击下方核心', 2.5); }
 };
-boss.onDeath = () => { score.total += 3000; feed('母舰 WARDEN 已击落  +3000'); };
+boss.onDeath = () => { score.total += 3000; feed('母舰 WARDEN 已击落  +3000'); slowmo.t = 2.2; banner('TARGET DOWN', '母舰已击落', '', 3); };
 boss.onExploded = () => { player.shake = 1; };
 enemies.onPlayerHit = (from, dmg) => {
   stats.dmgTaken += dmg;
@@ -504,9 +506,14 @@ const clock = new THREE.Clock();
 let fpsAcc = 0, fpsN = 0, simTime = 0;
 let prevAds = false;
 const noLoop = params.has('noloop');
+const slowmo = { t: 0 };
 function loop() {
   if (!noLoop) requestAnimationFrame(loop);
-  const dt = Math.min(clock.getDelta(), 0.05);
+  const realDt = Math.min(clock.getDelta(), 0.05);
+  // cinematic slow motion (boss kill): 0.25x easing back to 1x
+  if (slowmo.t > 0) slowmo.t -= realDt;
+  const timeScale = slowmo.t > 0 ? THREE.MathUtils.lerp(1, 0.25, Math.min(1, slowmo.t / 0.6)) : 1;
+  const dt = realDt * timeScale;
   const running = locked && !photo;
   if (running) simTime += dt;
   const t = simTime;
