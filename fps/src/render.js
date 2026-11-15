@@ -368,7 +368,7 @@ export class Renderer {
   }
 
   render(dt, t) {
-    if (this.refl) this.refl.render(this.scene, this.camera);
+    if (this.refl && this.reflOn !== false) this.refl.render(this.scene, this.camera);
     const f = this.final.uniforms;
     f.uTime.value = t;
     if (this.god) {

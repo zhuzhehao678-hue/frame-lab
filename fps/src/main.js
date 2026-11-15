@@ -48,8 +48,8 @@ let todName = params.get('t') || saved.tod || 'golden';
 if (!TIMES[todName]) todName = 'golden';
 const TOD = TIMES[todName];
 const DIFF = { easy: { dmg: 0.42, hp: 0.8, fire: 1.35, score: 0.8 }, normal: { dmg: 0.62, hp: 1, fire: 1, score: 1 }, hard: { dmg: 0.85, hp: 1.25, fire: 0.78, score: 1.35 }, hardcore: { dmg: 1.1, hp: 1.25, fire: 0.78, score: 1.8, hc: true } };
-const settings = { xhStyle: saved.xhStyle || 'both', xhColor: saved.xhColor || '#f0ece4', mblur: saved.mblur ?? true, diff: DIFF[saved.diff] ? saved.diff : 'normal', sens: saved.sens ?? 1, fov: saved.fov ?? 74, adsSens: saved.adsSens ?? 0.9, music: saved.music ?? 0.5, optic: saved.optic || 'reddot', muzzle: saved.muzzle || 'brake', dmgNums: saved.dmgNums ?? false, cb: saved.cb || 0, hudScale: saved.hudScale ?? 1, finish: saved.finish || 'black', mode: saved.mode || 'campaign' };
-$('diff').value = settings.diff; $('xhstyle').value = settings.xhStyle; $('xhcolor').value = settings.xhColor; $('mblur').checked = settings.mblur; $('quality').value = qualityName; $('tod').value = todName; $('sens').value = settings.sens; $('adssens').value = settings.adsSens; $('music').value = settings.music; $('fov').value = settings.fov; $('optic').value = settings.optic; $('dmgnum').checked = settings.dmgNums; $('cb').value = settings.cb; $('finish').value = settings.finish; $('mode').value = settings.mode; $('hudscale').value = settings.hudScale; $('muzzle').value = settings.muzzle;
+const settings = { xhStyle: saved.xhStyle || 'both', xhColor: saved.xhColor || '#f0ece4', mblur: saved.mblur ?? true, diff: DIFF[saved.diff] ? saved.diff : 'normal', sens: saved.sens ?? 1, fov: saved.fov ?? 74, adsSens: saved.adsSens ?? 0.9, music: saved.music ?? 0.5, optic: saved.optic || 'reddot', muzzle: saved.muzzle || 'brake', dmgNums: saved.dmgNums ?? false, cb: saved.cb || 0, hudScale: saved.hudScale ?? 1, finish: saved.finish || 'black', mode: saved.mode || 'campaign', refl: saved.refl ?? true };
+$('diff').value = settings.diff; $('xhstyle').value = settings.xhStyle; $('xhcolor').value = settings.xhColor; $('mblur').checked = settings.mblur; $('quality').value = qualityName; $('tod').value = todName; $('sens').value = settings.sens; $('adssens').value = settings.adsSens; $('music').value = settings.music; $('fov').value = settings.fov; $('optic').value = settings.optic; $('dmgnum').checked = settings.dmgNums; $('cb').value = settings.cb; $('finish').value = settings.finish; $('mode').value = settings.mode; $('reflopt').checked = settings.refl; $('hudscale').value = settings.hudScale; $('muzzle').value = settings.muzzle;
 const persist = () => LS.setItem('afterglow', JSON.stringify({ quality: qualityName, tod: todName, ...settings, binds: saved.binds, best: saved.best || 0, bestWave: saved.bestWave || 0, tutorialDone: !!saved.tutorialDone, seenV2: !!saved.seenV2 }));
 
 const frame = () => new Promise((r) => requestAnimationFrame(() => r()));
@@ -332,6 +332,8 @@ $('music').oninput = (e) => { settings.music = +e.target.value; music.setVolume(
 $('adssens').oninput = (e) => { settings.adsSens = +e.target.value; persist(); };
 $('optic').onchange = (e) => { settings.optic = e.target.value; G.weapon.setOptic(settings.optic); persist(); };
 const applyAccess = () => { if (R.final) R.final.uniforms.uCB.value = +settings.cb; document.documentElement.style.setProperty('--hs', settings.hudScale); };
+const applyRefl = () => { R.reflOn = settings.refl; if (R.refl) REFL.on.value = settings.refl ? 1 : 0; $('reflopt').disabled = !R.refl; };
+$('reflopt').onchange = (e) => { settings.refl = e.target.checked; applyRefl(); persist(); };
 $('mode').onchange = (e) => { settings.mode = e.target.value; persist(); };
 $('finish').onchange = (e) => { settings.finish = e.target.value; for (const w of weapons) w.setFinish(settings.finish, G.lib); persist(); };
 $('cb').onchange = (e) => { settings.cb = +e.target.value; applyAccess(); persist(); };
@@ -749,6 +751,7 @@ function recordLB(grade, reached, win) {
   return { list, id };
 }
 renderLB($('mlb'), loadLB());
+applyRefl();
 enemies.onRetreat = (e) => { if (!G.retreatHint) { G.retreatHint = true; feed('受损的无人机正在撤退修理 · 别让它跑了'); } };
 G.crash.onHit = () => radio('防空击中了一架运输无人机——它要砸到货轮上了！');
 G.crash.onCrash = () => { radio('货轮甲板起火了……别管它，专心清理堆场。'); player.shake = Math.max(player.shake, 0.3); };
