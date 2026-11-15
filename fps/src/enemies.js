@@ -140,6 +140,7 @@ export class Enemies {
   // area damage from exploding kamikazes (chains into other drones)
   blast(pos, radius, playerMax, droneMax) {
     if (this.hazards) this.hazards.splash(pos, radius * 0.8);
+    if (this.walkers) this.walkers.splash(pos, radius * 1.2, droneMax * 0.8);
     const pl = this.player;
     if (pl && !pl.dead) {
       const d = pl.camera.position.distanceTo(pos);

@@ -166,6 +166,11 @@ export class Audio {
     notes.forEach((f, i) => this.tone(d, t + i * 0.07, 0.18, { type: 'triangle', f, gain: 0.18, curve: 4 }));
     this.click(1400, 0.4);
   }
+  walkerStep(pos) {
+    if (!this.enabled) return; const t = this.ctx.currentTime; const d = this.out(pos, { verb: 0.3, gain: 0.8 });
+    this.tone(d, t, 0.18, { f: 70, f1: 42, gain: 0.5, curve: 3 }); this.noise(d, t, 0.08, { type: 'lowpass', f: 900, gain: 0.5 });
+    this.tone(d, t + 0.02, 0.12, { type: 'sawtooth', f: 340, f1: 520, gain: 0.04, attack: 0.03 });
+  }
   heartbeat() {
     if (!this.enabled) return; const t = this.ctx.currentTime; const d = this.out(null, { verb: 0, gain: 0.9 });
     this.tone(d, t, 0.12, { f: 62, f1: 40, gain: 0.7, curve: 3 }); this.tone(d, t + 0.17, 0.12, { f: 55, f1: 38, gain: 0.5, curve: 3 });

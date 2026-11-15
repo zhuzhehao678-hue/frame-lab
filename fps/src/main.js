@@ -17,6 +17,7 @@ import { Music } from './music.js';
 import { Pickups } from './pickups.js';
 import { Hazards } from './hazards.js';
 import { Rain } from './rain.js';
+import { Walkers } from './walker.js';
 
 installFog();
 
@@ -110,6 +111,8 @@ async function boot() {
   const pickups = new Pickups(scene, lib, audio);
   const hazards = new Hazards(scene, lib, level, effects, audio);
   const rain = TOD.rain ? new Rain(scene, camera, effects, audio) : null;
+  const walkers = new Walkers(scene, lib, effects, level, audio, enemies);
+  enemies.walkers = walkers;
   enemies.hazards = hazards;
 
   R.setup(scene, camera, sunDir);
@@ -127,18 +130,20 @@ async function boot() {
   const warm = enemies.buildDrone(false).group; warm.position.set(0, -50, 0); scene.add(warm);
   const warmG = grenades.proto.clone(); warmG.position.set(0, -50, 0); warm.add(warmG);
   const warmB = boss.build(); warmB.position.set(0, -10, 0); warm.add(warmB);
+  const warmW = walkers.build(); warmW.body.position.set(0, -20, 0); warm.add(warmW.body);
+  const warmLegs = warmW.legs.flatMap((L) => [L.upper, L.lower, L.knee, L.foot]); warmLegs.forEach((o) => o.position.set(0, -60, 0));
   effects.flash(new THREE.Vector3(0, -50, 0), new THREE.Color(1, 1, 1), 0.001, 0.01);
   player.updateCamera(0.016, 0);
   await renderer.compileAsync(scene, camera);
   R.render(0.016, 0);
-  scene.remove(warm);
+  scene.remove(warm); warmLegs.forEach((o) => scene.remove(o));
   await progress(1, '就绪');
 
-  return { lib, level, effects, audio, player, weapon, pistol, enemies, grenades, ambient, boss, music, pickups, hazards, rain, hemi, sun };
+  return { lib, level, effects, audio, player, weapon, pistol, enemies, grenades, ambient, boss, music, pickups, hazards, rain, hemi, walkers, sun };
 }
 
 const G = await boot();
-const { level, effects, audio, player, enemies, grenades, ambient, boss, music, pickups, hazards } = G;
+const { level, effects, audio, player, enemies, grenades, ambient, boss, music, pickups, hazards, walkers } = G;
 function applyDifficulty() {
   const D = DIFF[settings.diff];
   player.dmgScale = D.dmg; enemies.hpMult = D.hp; enemies.fireMult = D.fire;
@@ -271,12 +276,12 @@ function updateCompass() {
     el.style.display = ''; el.style.left = (260 + d * 2.75) + 'px';
   };
   for (const it of compass.items) place(it.el, it.b);
-  const list = enemies.list;
+  const list = enemies.list.concat(walkers.list.filter((w) => w.alive));
   while (compass.enemies.length < list.length) { const e = document.createElement('i'); compass.el.appendChild(e); compass.enemies.push(e); }
   compass.enemies.forEach((el, i) => {
     const e = list[i];
     if (!e) { el.style.display = 'none'; return; }
-    el.className = 'en' + (e.heavy ? ' heavy' : '') + (e.kami ? ' kami' : '');
+    el.className = 'en' + (e.heavy ? ' heavy' : '') + (e.kami ? ' kami' : '') + (e.kind === 'walker' ? ' walker' : '');
     place(el, THREE.MathUtils.radToDeg(Math.atan2(e.pos.x - camera.position.x, -(e.pos.z - camera.position.z))));
   });
 }
@@ -321,7 +326,7 @@ function updateHUD(dt, t) {
   }
   hud.wn.textContent = waves.index + 1;
   hud.score.textContent = score.total;
-  hud.wleft.textContent = waves.active ? `剩余 ${enemies.list.length + waves.queue.length}` : (waves.index + 1 >= WAVES.length && waves.done ? '已肃清' : '准备');
+  hud.wleft.textContent = waves.active ? `剩余 ${enemies.list.length + walkers.alive + waves.queue.length}` : (waves.index + 1 >= WAVES.length && waves.done ? '已肃清' : '准备');
 }
 
 // ------------------------------------------------------------------ gameplay hooks
@@ -334,8 +339,8 @@ for (const w of weapons) {
   w.events.magin = () => audio.magIn();
   w.events.bolt = () => audio.bolt();
 }
-const NAMES = { normal: '哨兵无人机', heavy: '重型哨兵', kamikaze: '自爆蜂' };
-const POINTS = { normal: 100, heavy: 250, kamikaze: 150 };
+const NAMES = { normal: '哨兵无人机', heavy: '重型哨兵', kamikaze: '自爆蜂', walker: '四足机甲' };
+const POINTS = { normal: 100, heavy: 250, kamikaze: 150, walker: 450 };
 const score = { total: 0, combo: 0, last: -10, best: +(saved.best || 0) };
 enemies.onKill = (e) => {
   stats.kills++; killT = 0.35; killPulse = 1;
@@ -352,6 +357,7 @@ boss.onPodDown = (left) => {
 };
 boss.onDeath = () => { score.total += 3000; feed('母舰 WARDEN 已击落  +3000'); slowmo.t = 2.2; banner('TARGET DOWN', '母舰已击落', '', 3); };
 boss.onExploded = () => { player.shake = 1; };
+walkers.onKill = (w) => enemies.onKill(w);
 enemies.onPlayerHit = (from, dmg) => {
   stats.dmgTaken += dmg;
   audio.hurt();
@@ -360,19 +366,20 @@ enemies.onPlayerHit = (from, dmg) => {
 };
 
 // each wave: [normal, heavy, kamikaze]
-const WAVES = [[3, 0, 0], [3, 1, 1], [4, 1, 2], [4, 2, 3], [2, 1, 2, 'boss']];
+const WAVES = [[3, 0, 0], [3, 1, 1], [3, 1, 2, null, 1], [3, 2, 3, null, 1], [2, 1, 2, 'boss', 1]];
+const WALKER_SPAWNS = [[-14, -19], [12, 15], [-13, 16], [9, -20], [-14, 2]];
 const CN = ['一', '二', '三', '四', '五'];
 const waves = {
   index: 0, active: false, queue: [], timer: 0, spawnT: 0, done: false,
   start() { this.index = 0; this.begin(2.5); stats.t0 = performance.now(); },
   begin(delay) {
     this.active = false; this.timer = delay;
-    const [n, h, k, special] = WAVES[this.index];
+    const [n, h, k, special, wk = 0] = WAVES[this.index];
     this.bossPending = special === 'boss'; this.bossT = 4;
-    const q = [...Array(n).fill('normal'), ...Array(h).fill('heavy'), ...Array(k).fill('kamikaze')];
+    const q = [...Array(n).fill('normal'), ...Array(h).fill('heavy'), ...Array(k).fill('kamikaze'), ...Array(wk).fill('walker')];
     for (let i = q.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [q[i], q[j]] = [q[j], q[i]]; }
     this.queue = q;
-    const parts = [`哨兵 ×${n}`]; if (h) parts.push(`重型哨兵 ×${h}`); if (k) parts.push(`自爆蜂 ×${k}`);
+    const parts = [`哨兵 ×${n}`]; if (h) parts.push(`重型哨兵 ×${h}`); if (k) parts.push(`自爆蜂 ×${k}`); if (wk) parts.push(`四足机甲 ×${wk}`);
     if (special === 'boss') banner('FINAL WAVE', '母舰 · WARDEN', '摧毁四个旋翼舱使护盾失效，然后攻击核心 · 激光可被掩体阻挡', 5);
     else banner(`WAVE ${this.index + 1} / ${WAVES.length}`, `第 ${CN[this.index]} 波`, parts.join('  ·  '), 3.2);
     if (k && this.index === 1) setTimeout(() => hint('自爆蜂会直冲过来引爆 · 在远处击落它', 4), 3500);
@@ -388,13 +395,20 @@ const waves = {
     if (this.bossPending) { this.bossT -= dt; if (this.bossT <= 0) { this.bossPending = false; boss.spawn(new THREE.Vector3(0, 16, -34)); } }
     if (this.queue.length && this.spawnT <= 0) {
       const kind = this.queue.shift();
+      if (kind === 'walker') {
+        const sp = WALKER_SPAWNS.slice().sort((a, b) => Math.hypot(b[0] - player.pos.x, b[1] - player.pos.z) - Math.hypot(a[0] - player.pos.x, a[1] - player.pos.z))[Math.floor(Math.random() * 2)];
+        walkers.spawn(new THREE.Vector3(sp[0], 0, sp[1]));
+        if (!this.walkerHint) { this.walkerHint = true; hint('四足机甲：正面装甲减伤 · 绕到背后打发光的能量核心', 4.5); }
+        this.spawnT = 1.1;
+      } else {
       // spawn away from the player
       const pts = level.spawnPoints.slice().sort((a, b) => b.distanceTo(player.pos) - a.distanceTo(player.pos));
       const p = pts[Math.floor(Math.random() * 3)].clone().add(new THREE.Vector3((Math.random() - 0.5) * 3, 0, (Math.random() - 0.5) * 3));
       enemies.spawn(p, kind);
       this.spawnT = 1.1;
+      }
     }
-    if (!this.queue.length && enemies.list.length === 0 && enemies.falling.length === 0 && !this.bossPending && !boss.active) {
+    if (!this.queue.length && enemies.list.length === 0 && enemies.falling.length === 0 && walkers.alive === 0 && !this.bossPending && !boss.active) {
       if (this.index + 1 >= WAVES.length) { this.done = true; victory(); return; }
       this.index++;
       G.weapon.reserve = Math.min(G.weapon.reserve + 90, 270);
@@ -430,7 +444,7 @@ function defeat() {
   }, 2200);
 }
 function restart() {
-  enemies.clear(); grenades.clear(); boss.clear(); pickups.reset(); hazards.reset();
+  enemies.clear(); grenades.clear(); boss.clear(); pickups.reset(); hazards.reset(); walkers.clear();
   player.pos.copy(level.playerStart); player.vel.set(0, 0, 0); player.yaw = level.playerYaw; player.pitch = 0;
   player.health = 100; player.dead = false;
   G.weapon.ammo = 30; G.weapon.reserve = 180; G.pistol.ammo = 15; G.pistol.reserve = 60;
@@ -479,8 +493,16 @@ function shoot(t) {
   const wh = hits[0];
   let eh = enemies.raycast(origin, dir, wh ? wh.distance : 400);
   const bh = boss.raycast(origin, dir, eh ? eh.t : (wh ? wh.distance : 400));
+  const wr = walkers.raycast(origin, dir, Math.min(bh ? bh.t : 400, eh ? eh.t : 400, wh ? wh.distance : 400));
   let end;
-  if (bh) {
+  if (wr) {
+    end = wr.point; eh = null;
+    const killed = walkers.damage(wr.walker, THREE.MathUtils.randFloat(weapon.damage[0], weapon.damage[1]), wr.part, dir);
+    stats.hits++; hitT = 0.12; if (!killed) audio.hitmarker(false);
+    audio.impact(wr.point, 'metal');
+    const crit = wr.part === 'cell';
+    for (let i = 0; i < (crit ? 16 : 8); i++) effects.add.emit({ pos: wr.point, vel: new THREE.Vector3((Math.random() - 0.5) * 6, Math.random() * 4, (Math.random() - 0.5) * 6), life: 0.3, size: 0.014, color: crit ? new THREE.Color(9, 6, 1) : new THREE.Color(8, 5, 2), gravity: 9.8, stretch: 0.035 });
+  } else if (bh) {
     end = bh.point; eh = null;
     const r = boss.damage(bh.part, THREE.MathUtils.randFloat(weapon.damage[0], weapon.damage[1]), bh.point);
     if (r !== 'armor') { stats.hits++; hitT = 0.12; audio.hitmarker(r === 'kill'); if (r === 'kill') killT = 0.35; }
@@ -566,8 +588,9 @@ function loop() {
       effects.smoke.emit({ pos: mp, vel: new THREE.Vector3((Math.random() - 0.5) * 0.05, 0.35 + Math.random() * 0.2, (Math.random() - 0.5) * 0.05).add(player.vel.clone().multiplyScalar(0.8)), life: 1.4, size: 0.015, size1: 0.12, color: new THREE.Color(0.8, 0.8, 0.8).multiply(effects.ambient), alpha: Math.min(0.35, (weapon.heat - 7) * 0.04), alpha1: 0, drag: 1.5, gravity: -0.3, rotVel: (Math.random() - 0.5) * 3 });
     }
     enemies.update(dt, t, player);
-    grenades.update(dt, { enemies, player, t, onPlayerHit: enemies.onPlayerHit, boss, hazards });
-    hazards.update(dt, { enemies, player, t, onPlayerHit: enemies.onPlayerHit, boss });
+    grenades.update(dt, { enemies, player, t, onPlayerHit: enemies.onPlayerHit, boss, hazards, walkers });
+    hazards.update(dt, { enemies, player, t, onPlayerHit: enemies.onPlayerHit, boss, walkers });
+    walkers.update(dt, t, player);
     boss.update(dt, t, player);
     pickups.update(dt, t, player, (kind) => {
       if (kind === 'med') {
@@ -619,4 +642,4 @@ weapon.root.visible = false;
 if (!noLoop) loop();
 
 // debug / screenshot hooks
-window.__game = { REFL, rain: G.rain, hazards, pickups: G.pickups, music: G.music, boss, switchWeapon, weapons, get weapon() { return weapon; }, ambient, updateHUD, score, grenades, setLocked: (v) => { locked = v; }, loop, start: () => { started = true; waves.start(); }, FOG, sun: G.sun, THREE, scene, camera, player, enemies, effects, level, R, waves, renderer, togglePhoto, shoot, input };
+window.__game = { walkers, REFL, rain: G.rain, hazards, pickups: G.pickups, music: G.music, boss, switchWeapon, weapons, get weapon() { return weapon; }, ambient, updateHUD, score, grenades, setLocked: (v) => { locked = v; }, loop, start: () => { started = true; waves.start(); }, FOG, sun: G.sun, THREE, scene, camera, player, enemies, effects, level, R, waves, renderer, togglePhoto, shoot, input };

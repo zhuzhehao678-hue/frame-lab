@@ -73,7 +73,8 @@ export class Hazards {
     }
   }
 
-  explode(d, { enemies, boss, player, t, onPlayerHit }) {
+  explode(d, { enemies, boss, player, t, onPlayerHit, walkers }) {
+    if (walkers) walkers.splash(d.pos, 6.5, 220);
     d.alive = false;
     this.scene.remove(d.g);
     const i = this.level.colliders.indexOf(d.box); if (i >= 0) this.level.colliders.splice(i, 1);
