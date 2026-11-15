@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 
 const SPOTS = [
-  [-11.5, 9.5, 'med'], [12.8, -3.6, 'ammo'], [-3.8, -20.5, 'ammo'], [8.6, 15.2, 'med'], [-15.6, -9.0, 'ammo'], [4.4, -9.0, 'med'],
+  [-11.5, 9.5, 'med'], [12.8, -3.6, 'ammo'], [-3.8, -20.5, 'ammo'], [8.6, 15.2, 'med'], [-15.6, -9.0, 'ammo'], [4.4, -9.0, 'med'], [-27.5, 0.6, 'ammo'],
 ];
 
 export class Pickups {

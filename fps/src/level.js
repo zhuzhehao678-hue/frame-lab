@@ -148,8 +148,12 @@ export class Level {
 
   buildWarehouse() {
     const x0 = -18; // facade plane
-    // massing (back volume, no texture detail needed)
-    this.box(14, 10.2, 46, 'claddingGrey', x0 - 7.15, 0, -2, 0, { uvScale: 2 });
+    // massing split around an enterable bay (z -6.5 .. 7.5, x -30.4 .. -18.2)
+    this.box(14, 10.2, 18.5, 'claddingGrey', x0 - 7.15, 0, -15.75, 0, { uvScale: 2, collide: false });
+    this.box(14, 10.2, 13.5, 'claddingGrey', x0 - 7.15, 0, 14.25, 0, { uvScale: 2, collide: false });
+    this.box(1.8, 10.2, 14, 'claddingGrey', -31.3, 0, 0.5, 0, { uvScale: 2, collide: false });
+    this.box(12.4, 3.2, 14, 'claddingGrey', -24.3, 7.0, 0.5, 0, { uvScale: 2, collide: false });
+    this.buildWarehouseInterior();
     // brick plinth with slight relief
     const brickH = 3.2;
     // door opening at z = -2 .. 3 (5m wide), so build brick in two pieces
@@ -169,12 +173,15 @@ export class Level {
     this.box(0.5, 0.35, 46.2, 'paintGrey', x0 + 0.05, 9.8, -2, 0, { collide: false });
     // roll-up door recess
     const dz = 0.5, dw = 5.2, dh = 4.6;
-    this.box(0.3, dh, dw, 'claddingGrey', x0 - 0.35, 0, dz, 0, { uvScale: 1.3, rx: 0 });
-    // door corrugation horizontal: rotate the uv by building a plane
+    // roll-up door stuck half open: panel above 2.75 m + the rolled drum under the header
+    const open = 2.75, ph = dh - open;
     {
-      const g = new THREE.PlaneGeometry(dw, dh).rotateY(Math.PI / 2);
-      const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) { const u = uv.getX(i), v = uv.getY(i); uv.setXY(i, v * dh / 0.8, u); }
-      this.put(g, 'claddingGrey', x0 - 0.18, dh / 2, dz);
+      const g = new THREE.PlaneGeometry(dw, ph).rotateY(Math.PI / 2);
+      const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) { const u = uv.getX(i), v = uv.getY(i); uv.setXY(i, v * ph / 0.8, u); }
+      this.put(g, 'claddingGrey', x0 - 0.18, open + ph / 2, dz);
+      this.put(new THREE.PlaneGeometry(dw, ph).rotateY(-Math.PI / 2), 'claddingGrey', x0 - 0.2, open + ph / 2, dz);
+      this.box(0.08, 0.06, dw, 'darkSteel', x0 - 0.19, open - 0.03, dz, 0, { collide: false }); // bottom rail
+      this.put(new THREE.CylinderGeometry(0.28, 0.28, dw + 0.2, 24).rotateX(Math.PI / 2), 'paintGrey', x0 - 0.55, dh + 0.1, dz);
     }
     // door frame (yellow steel jambs) + header
     this.box(0.35, dh + 0.3, 0.3, 'paintYellow', x0 + 0.05, 0, dz - dw / 2 - 0.15);
@@ -219,7 +226,61 @@ export class Level {
       this.box(0.02, 0.52, 0.77, 'steel', x0 + 0.315, 1.84, dz - dw / 2 - 0.9, 0, { collide: false });
     }
     // facade collider
-    this.collider(x0 - 20, 0, -26, x0 + 0.25, 12, 22);
+    this.collider(x0 - 20, 0, -26, x0 + 0.25, 12, -6.5);        // north block
+    this.collider(x0 - 20, 0, 7.5, x0 + 0.25, 12, 22);           // south block
+    this.collider(x0 - 20, 0, -6.5, -30.4, 12, 7.5);             // bay back wall
+    this.collider(x0 - 0.4, 0, -6.5, x0 + 0.25, 12, dz - dw / 2 - 0.15); // facade beside the door
+    this.collider(x0 - 0.4, 0, dz + dw / 2 + 0.15, x0 + 0.25, 12, 7.5);
+    this.collider(x0 - 0.4, open, dz - dw / 2, x0 + 0.25, 12, dz + dw / 2); // above the opening
+    this.collider(-30.4, 7.0, -6.5, x0, 12, 7.5);                // roof: drones can't see through
+  }
+
+  buildWarehouseInterior() {
+    // inner wall linings (the exterior cladding is a single-sided plane)
+    this.box(0.12, 3.8, 14, 'concreteWall', -18.42, 3.1, 0.5, 0, { uvScale: 3, collide: false });
+    this.box(0.15, 7, 14, 'concreteWall', -30.35, 0, 0.5, 0, { uvScale: 3, collide: false });
+    this.box(12.2, 7, 0.15, 'concreteWall', -24.3, 0, -6.45, 0, { uvScale: 3, collide: false });
+    this.box(12.2, 7, 0.15, 'concreteWall', -24.3, 0, 7.45, 0, { uvScale: 3, collide: false });
+    this.box(12.2, 0.12, 14, 'claddingGrey', -24.3, 6.9, 0.5, 0, { uvScale: 1.5, collide: false });
+    // roof trusses
+    for (let x = -29; x <= -19.5; x += 3.2) {
+      this.box(0.18, 0.35, 14, 'darkSteel', x, 6.5, 0.5, 0, { collide: false });
+      this.box(0.08, 0.6, 0.08, 'darkSteel', x, 6.0, -2.5, 0, { collide: false });
+      this.box(0.08, 0.6, 0.08, 'darkSteel', x, 6.0, 3.5, 0, { collide: false });
+    }
+    // two steel columns
+    for (const [cx, cz] of [[-24.2, -1.8], [-24.2, 2.8]]) {
+      this.box(0.3, 6.9, 0.3, 'paintBlue', cx, 0, cz, 0, { uvScale: 1 });
+      this.box(0.5, 0.2, 0.5, 'concreteWall', cx, 0, cz, 0, { uvScale: 1, collide: false });
+    }
+    // pallet racking along both side walls, loaded
+    for (const [rz, flip] of [[-5.5, 1], [6.4, -1]]) {
+      for (let k = 0; k <= 3; k++) {
+        const x = -29.4 + k * 2.6;
+        for (const dzz of [-0.5, 0.5]) this.box(0.08, 4.4, 0.08, 'paintBlue', x, 0, rz + dzz, 0, { uvScale: 1, collide: false });
+      }
+      for (const y of [1.45, 2.95, 4.3]) for (const dzz of [-0.5, 0.5]) this.box(7.9, 0.12, 0.06, 'paintRed', -25.5, y, rz + dzz, 0, { uvScale: 1, collide: false });
+      this.colliders.push(new THREE.Box3(new THREE.Vector3(-29.5, 0, rz - 0.6), new THREE.Vector3(-21.5, 4.4, rz + 0.6)));
+      for (let k = 0; k < 3; k++) {
+        const x = -28.1 + k * 2.6;
+        for (const [y, s] of [[0, 1.0], [1.51, 0.95], [3.01, 0.9]]) {
+          if ((k + y) % 3 === 2) continue;
+          this.pallet(x, y, rz, 0.02 * flip, false);
+          this.crate(x + 0.05, y + 0.145, rz, 0.04 * (k - 1), s);
+        }
+      }
+    }
+    // low cover in the middle: crates and a drum cluster
+    this.pallet(-26.5, 0, 0.3, 0.3); this.crate(-26.5, 0.145, 0.3, 0.3, 1.0);
+    this.crate(-21.5, 0, 2.2, -0.2, 0.9); this.crate(-21.0, 0, 1.2, 0.1, 0.8);
+    this.drum(-29.4, 3.5, 'paintBlue'); this.drum(-29.6, 2.8, 'paintGrey'); this.drum(-28.9, 4.0, 'paintBlue', true);
+    // hanging high-bay lamps (lights added in buildLights)
+    this.bayLamps = [new THREE.Vector3(-25.8, 6.0, -1.6), new THREE.Vector3(-25.8, 6.0, 2.6), new THREE.Vector3(-21.5, 6.0, 0.5)];
+    for (const p of this.bayLamps) {
+      this.put(new THREE.CylinderGeometry(0.008, 0.008, 0.85, 6), 'darkSteel', p.x, p.y + 0.5, p.z);
+      this.put(new THREE.CylinderGeometry(0.12, 0.38, 0.32, 24, 1, true), 'paintGrey', p.x, p.y, p.z);
+      this.put(new THREE.CircleGeometry(0.3, 24).rotateX(Math.PI / 2), 'lampLens', p.x, p.y - 0.12, p.z);
+    }
   }
 
   buildSouthWall() {
@@ -791,6 +852,15 @@ export class Level {
     if (this.cabinLamp) {
       const cl = new THREE.PointLight(new THREE.Color(1.0, 0.8, 0.55), 6, 7, 2);
       cl.position.copy(this.cabinLamp); this.scene.add(cl); this.lights.push(cl);
+    }
+    // interior high-bay lights: always on, with their own soft light cones
+    for (const p of this.bayLamps || []) {
+      const s = new THREE.SpotLight(new THREE.Color(1.0, 0.86, 0.66), 70, 12, 0.95, 0.7, 1.6);
+      s.position.copy(p).add(new THREE.Vector3(0, -0.15, 0)); s.target.position.set(p.x, 0, p.z);
+      this.scene.add(s, s.target); this.interiorLights = (this.interiorLights || []).concat(s);
+      const c = this.lightCone(p.clone().add(new THREE.Vector3(0, -0.15, 0)), 5.8, 0.28, 2.6);
+      c.material = this.coneMatInterior || (this.coneMatInterior = this.coneMat.clone());
+      this.coneMatInterior.uniforms.uStrength.value = 0.55; this.coneMatInterior.uniforms.uColor.value = new THREE.Color(1, 0.85, 0.62);
     }
     // warm spill from roll-up door gap & wall pack light
     const wp = new THREE.SpotLight(new THREE.Color(1.0, 0.85, 0.65), 90, 16, 0.9, 0.7, 1.8);

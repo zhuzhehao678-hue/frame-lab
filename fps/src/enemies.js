@@ -289,7 +289,7 @@ export class Enemies {
       const desired = new THREE.Vector3(target.x + Math.cos(ang) * range, e.alt + Math.sin(e.wob * 0.7) * 0.6, target.z + Math.sin(ang) * range);
       // if no LOS for a while, swing closer & higher
       if (e.lostT > 2) { desired.lerp(target, 0.35); desired.y = e.alt + 2.5; }
-      desired.x = THREE.MathUtils.clamp(desired.x, -16, 15.5);
+      desired.x = THREE.MathUtils.clamp(desired.x, e.kami && target.x < -18 ? -29 : -16, 15.5); // kamikazes chase into the warehouse
       desired.z = THREE.MathUtils.clamp(desired.z, -22, 19);
       const distP = target.distanceTo(e.pos);
       if (e.kami) { desired.copy(target); desired.y = distP > 9 ? 3.6 : target.y - 0.25; }
